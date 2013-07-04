@@ -1,0 +1,82 @@
+
+{{define "Analytics"}}{{with gaAccount}}<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', '{{.}}']);
+  _gaq.push(['_trackPageview']);
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>{{end}}{{end}}
+
+{{define "SearchBox"}}
+  <form>
+    <div class="input-append">
+      <input class="span6" name="q" autofocus="autofocus" value="{{.}}" placeholder="Import path or keywords" type="text">
+      <button class="btn" type="submit">Go!</button>
+    </div>
+  </form>
+{{end}}
+
+{{define "ProjectNav"}}<div class="flat-well well-small">
+  {{if .pdoc.ProjectRoot}}<a href="{{.pdoc.ProjectURL}}"><strong>{{.pdoc.ProjectName}}:</strong></a>{{else}}<a href="/-/go">Go:</a>{{end}}
+  {{breadcrumbs .pdoc (templateName)}}
+  {{if and .pdoc.Name (equal templateName "pkg.html")}}
+  <span class="pull-right">
+    <a href="#_index">Index</a> 
+    {{if hasExamples .pdoc}}<span class="muted">|</span> <a href="#_examples">Examples</a>{{end}}
+    <span class="muted">|</span> <a href="#_files">Files</a>
+    {{if .pkgs}}<span class="muted">|</span> <a href="#_subdirs">Directories</a>{{end}}
+  </span>
+  {{end}}
+</div>{{end}}
+
+{{define "Errors"}}{{with .pdoc.Errors}}<div class="well">
+    <p>The <a href="http://golang.org/cmd/go/#Download_and_install_packages_and_dependencies">go get</a>
+    command cannot install this package because of the following issues:
+    <ul>
+      {{range .}}<li>{{.}}{{end}}
+  </ul>
+</div>{{end}}{{end}}
+
+{{define "Pkgs"}}
+    <table class="table table-condensed">
+    <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+    <tbody>{{range .}}<tr><td>{{if .Path|isValidImportPath}}<a href="/{{.Path}}">{{.Path|importPath}}</a>{{else}}{{.Path|importPath}}{{end}}</td><td>{{.Synopsis|importPath}}</td></tr>
+    {{end}}</tbody>
+    </table>
+{{end}}
+
+{{define "PkgCmdHeader"}}{{with .pdoc}}
+  <title>{{.|pageName}} - GoDoc</title>
+  {{if .Synopsis}}
+    <meta name="twitter:title" content="{{if .IsCmd}}Command{{else}}package{{end}} {{.Name}}">
+    <meta property="og:title" content="{{if .IsCmd}}Command{{else}}package{{end}} {{.Name}}">
+    <meta name="description" content="{{.Synopsis}}">
+    <meta name="twitter:description" content="{{.Synopsis}}">
+    <meta property="og:description" content="{{.Synopsis}}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@godocdotorg">
+  {{end}}
+  {{if .Errors}}<meta name="robots" content="NOINDEX">{{end}}
+{{end}}{{end}}
+
+{{define "PkgCmdFooter"}}
+{{if $.pkgs}}{{if $.pdoc.Name}}<h3 id="_subdirs">Directories</h3>{{else}}<h3>Directory</h3>{{end}}
+    <table class="table table-condensed">
+    <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+    <tbody>{{range $.pkgs}}<tr><td><a href="/{{.Path}}">{{relativePath .Path $.pdoc.ImportPath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
+    </table>
+{{end}}
+{{with $.pdoc}}
+ <form name="refresh" method="POST" action="/-/refresh" class="form-inline">
+   {{if or .Imports $.importerCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.importerCount}} and {{end}}{{if $.importerCount}}is imported by <a href="?importers">{{$.importerCount}} packages</a>{{end}}.{{end}}
+   {{if not .Updated.IsZero}}Updated <span class="timeago" title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{.Updated.Format "2006-01-02"}}</span>{{if or (equal .GOOS "windows") (equal .GOOS "darwin")}} with GOOS={{.GOOS}}{{end}}.
+    <a href="javascript:document.refresh.submit();" title="Refresh this page from the source">Refresh</a>.
+    <input type="hidden" name="path" value="{{.ImportPath}}">
+  {{end}}
+  </form>
+{{end}}{{end}}
+
+{{define "jQuery"}}<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>{{end}}

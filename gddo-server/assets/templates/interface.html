@@ -1,0 +1,10 @@
+{{define "Head"}}<title>{{.pdoc.Name}}.{{.name}} - GoDoc</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+
+{{define "Body"}}
+{{template "ProjectNav" $}}
+<h3>Type {{.name}}</h3>
+<br>is interface {{.mset.IsInterface}}
+{{range .mset.Errors}}<br>error: {{.}}{{end}}
+{{range .mset.EmbeddedFields}}<br>field: {{.Path}} {{.Name}} {{.IsPtr}}{{end}}
+{{range .mset.Methods}}<br>method: {{.Name}} {{.Fingerprint}} {{.IsPtr}}{{end}}
+{{end}}

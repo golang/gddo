@@ -1,0 +1,85 @@
+{{define "Head"}}<title>About - GoDoc</title>{{end}}
+
+{{define "Body"}}
+<h1>About</h1>
+
+<p>GoDoc displays documentation for <a href="http://golang.org/">Go</a>
+packages on <a href="https://bitbucket.org/">Bitbucket</a>, <a
+  href="https://github.com/">Github</a>, <a
+  href="https://launchpad.net/">Launchpad</a> and <a
+  href="http://code.google.com/hosting/">Google Project Hosting</a>.  
+      
+<p>The source code for GoDoc is available <a
+  href="https://github.com/garyburd/gddo">on Github</a>.  
+
+<p>GoDoc displays documentation for GOOS=linux unless otherwise noted at the
+bottom of the documentation page.
+
+<h4 id="howto">Add a package to GoDoc</h4> 
+
+<p>GoDoc generates documentation from Go source code. The <a
+  href="http://golang.org/doc/articles/godoc_documenting_go_code.html">guidelines</a>
+for writing documentation for the <a
+  href="http://golang.org/cmd/godoc/">godoc</a> tool apply to GoDoc. 
+
+<p>It's important to write a good summary of the package in the first sentence
+of the package comment. GoDoc indexes the first sentence and displays the
+sentence in package lists.
+
+<p>To add a package to GoDoc, <a href="/">search</a> for the package by import
+path. If GoDoc does not already have the documentation for the package, then
+GoDoc will fetch the source from the version control system on the fly and add
+the documentation.
+
+<p>GoDoc scrapes the <a href="https://github.com/languages/Go/updated">Github
+  recent updates page</a> to find recently updated packages on Github. For
+other services, GoDoc checks for updates once per day. You can force GoDoc to
+refresh the documentation immediately by clicking the refresh link at the
+bottom of the package documentation page. 
+
+<p>GoDoc crawls package imports to automatically find new packages.
+
+<h4 id="remove">Remove a package from GoDoc</h4>
+
+GoDoc automatically removes packages deleted from the version control system
+when GoDoc checks for updates to the package. You can force GoDoc to remove a
+deleted package immediately by clicking the refresh link at the bottom of the
+package documentation page.
+
+If you do not want GoDoc to display documentation for your package, send mail
+to info@godoc.org with the import path of the path of the package that you want
+to remove. 
+
+<h4 id="feedback">Feedback</h4> 
+
+<p>Send your ideas, feature requests and questions to
+info@godoc.org.  Report bugs using the <a
+  href="https://github.com/garyburd/gddo/issues/new">Github Issue
+  Tracker</a>.  Join the discussion at the <a
+  href="https://groups.google.com/d/forum/godocorg">GoDoc group</a>.  You
+should follow <a href="https://twitter.com/godocdotorg">GoDoc on Twitter</a>.
+
+<h4 id="plain-text">Plain Text</h4>
+
+GoDoc provides plain text output for integration with shell scripts. Use the
+HTTP Accept header to request a plain text response.
+
+<p>Search for packages with the term 'sql':
+<pre>$ curl -H 'Accept: text/plain' http://godoc.org/?q=sql</pre>
+
+<p>Get the documentation for the standard math package:
+<pre>$ curl -H 'Accept: text/plain' http://godoc.org/math</pre>
+
+<h4 id="shortcuts">Keyboard Shortcuts</h4>
+
+<p>GoDoc has keyboard shortcuts for navigating package documentation
+pages. Type '?' on a package page for help.
+
+<h4 id="bookmarklet">Bookmarklet</h4>
+
+<p>The GoDoc bookmarklet navigates from pages on Bitbucket, Github Launchpad
+and Google Project Hosting to the package documentation. To install the
+bookmarklet, click and drag the following link to your bookmark bar: <a
+ href="javascript:window.location='http://{{.Host|html}}/?q='+encodeURIComponent(window.location)">GoDoc</a>
+
+{{end}}

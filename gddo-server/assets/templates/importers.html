@@ -1,0 +1,7 @@
+{{define "Head"}}<title>{{.pdoc|pageName}} importers - GoDoc</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+
+{{define "Body"}}
+  {{template "ProjectNav" $}}
+  <h3>Packages that import {{.pdoc.Name|html}}</h3>
+  {{template "Pkgs" $.pkgs}}
+{{end}}
