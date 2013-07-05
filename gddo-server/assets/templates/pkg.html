@@ -9,7 +9,7 @@
 {{.Doc|comment}}
 {{template "Examples" map "object" . "name" "package"}}
 
-<h3 id="_index">Index</h3>
+<h3 id="_index">Index <a class="muted" href="#_index">&para;</a></h3>
 {{if .Truncated}}<div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>{{end}}
 
 <ul class="unstyled">
@@ -25,7 +25,7 @@
 {{end}}
 </ul>
 
-{{if hasExamples .}}<h3 id="_examples">Examples</h3><ul class="unstyled">
+{{if hasExamples .}}<h3 id="_examples">Examples <a class="muted" href="#_examples">&para;</a></h3><ul class="unstyled">
 {{if .Examples}}{{template "ExampleLink" map "href" "package" "text" "package"}}{{end}}
 {{range .Funcs}}{{if .Examples}}{{template "ExampleLink" map "href" .Name "text" (printf "func %s" .Name)}}{{end}}{{end}}
 {{range $t := .Types}}
@@ -35,26 +35,26 @@
 {{end}}
 </ul>{{else}}<span id="_examples"></span>{{end}}
 
-{{if .Consts}}<h3 id="_constants">Constants</h3>{{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
-{{if .Vars}}<h3 id="_variables">Variables</h3>{{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
+{{if .Consts}}<h3 id="_constants">Constants <a class="muted" href="#_constants">&para;</a></h3>{{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
+{{if .Vars}}<h3 id="_variables">Variables <a class="muted" href="#_variables">&para;</a></h3>{{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 
-{{range .Funcs}}<h3 id="{{.Name}}">func {{sourceLink $.pdoc .Pos .Name}}</h3>
+{{range .Funcs}}<h3 id="{{.Name}}">func {{sourceLink $.pdoc .Pos .Name}} <a class="muted" href="#{{.Name}}">&para;</a></h3>
 <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
 {{template "Examples" map "object" . "name" .Name}}
 {{end}}
 
-{{range $t := .Types}}<h3 id="{{.Name}}">type {{sourceLink $.pdoc .Pos .Name}}</h3>
+{{range $t := .Types}}<h3 id="{{.Name}}">type {{sourceLink $.pdoc .Pos .Name}} <a class="muted" href="#{{.Name}}">&para;</a></h3>
 <pre class="pre-x-scrollable">{{code .Decl $t}}</pre>{{.Doc|comment}}
 {{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
 {{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
 {{template "Examples" map "object" . "name" .Name}}
 
-{{range .Funcs}}<h4 id="{{.Name}}">func {{sourceLink $.pdoc .Pos .Name}}</h4>
+{{range .Funcs}}<h4 id="{{.Name}}">func {{sourceLink $.pdoc .Pos .Name}} <a class="muted" href="#{{.Name}}">&para;</a></h4>
 <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
 {{template "Examples" map "object" . "name" .Name}}
 {{end}}
 
-{{range .Methods}}<h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{sourceLink $.pdoc .Pos .Name}}</h4>
+{{range .Methods}}<h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{sourceLink $.pdoc .Pos .Name}} <a class="muted" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
 <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
 {{template "Examples" map "object" . "name" (printf "%s-%s" $t.Name .Name)}}
 {{end}}
@@ -62,9 +62,9 @@
 {{end}}{{/* range .Types */}}
 {{end}}{{/* if .Name */}}
 
-{{with .Notes}}{{with .BUG}}<h3 id="_bugs">Bugs</h3>{{range .}}<p>{{sourceLink $.pdoc .Pos "☞"}} {{.Body}}{{end}}{{end}}{{end}}
+{{with .Notes}}{{with .BUG}}<h3 id="_bugs">Bugs <a class="muted" href="#_bugs">&para;</a></h3>{{range .}}<p>{{sourceLink $.pdoc .Pos "☞"}} {{.Body}}{{end}}{{end}}{{end}}
 
-{{if .Name}}<h3 id="_files">{{with .BrowseURL}}<a href="{{.}}">Files</a>{{else}}Package Files{{end}}</h3>
+{{if .Name}}<h3 id="_files">{{with .BrowseURL}}<a href="{{.}}">Files</a>{{else}}Package Files{{end}} <a class="muted" href="#_files">&para;</a></h3>
 <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
 {{end}}
 {{template "PkgCmdFooter" $}}
