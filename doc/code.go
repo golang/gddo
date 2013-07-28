@@ -82,7 +82,7 @@ type AnnotationKind int32
 const (
 	// Link to export in package specifed by Paths[PathIndex] with fragment
 	// Text[strings.LastIndex(Text[Pos:End], ".")+1:End].
-	ExportLinkAnnotation AnnotationKind = iota
+	LinkAnnotation AnnotationKind = iota
 
 	// Anchor with name specified by Text[Pos:End] or typeName + "." +
 	// Text[Pos:End] for type declarations.
@@ -139,22 +139,23 @@ func (v *annotationVisitor) Visit(n ast.Node) ast.Visitor {
 	switch n := n.(type) {
 	case *ast.TypeSpec:
 		v.ignoreName()
-		var list *ast.FieldList
 		switch n := n.Type.(type) {
 		case *ast.InterfaceType:
-			list = n.Methods
-		case *ast.StructType:
-			list = n.Fields
-		}
-		if list == nil {
-			ast.Walk(v, n.Type)
-		} else {
-			for _, f := range list.List {
+			for _, f := range n.Methods.List {
 				for _ = range f.Names {
 					v.add(AnchorAnnotation, "")
 				}
 				ast.Walk(v, f.Type)
 			}
+		case *ast.StructType:
+			for _, f := range n.Fields.List {
+				for _ = range f.Names {
+					v.add(AnchorAnnotation, "")
+				}
+				ast.Walk(v, f.Type)
+			}
+		default:
+			ast.Walk(v, n)
 		}
 	case *ast.FuncDecl:
 		if n.Recv != nil {
@@ -182,7 +183,7 @@ func (v *annotationVisitor) Visit(n ast.Node) ast.Visitor {
 		case n.Obj == nil && predeclared[n.Name] != notPredeclared:
 			v.add(BuiltinAnnotation, "")
 		case n.Obj != nil && ast.IsExported(n.Name):
-			v.add(ExportLinkAnnotation, "")
+			v.add(LinkAnnotation, "")
 		default:
 			v.ignoreName()
 		}
@@ -195,7 +196,7 @@ func (v *annotationVisitor) Visit(n ast.Node) ast.Visitor {
 						if path == "C" {
 							v.ignoreName()
 						} else {
-							v.add(ExportLinkAnnotation, path)
+							v.add(LinkAnnotation, path)
 						}
 						return nil
 					}
@@ -248,7 +249,7 @@ loop:
 			e := p + len(lit)
 			annotation.Pos = int32(p)
 			annotation.End = int32(e)
-			if len(annotations) > 0 && annotation.Kind == ExportLinkAnnotation {
+			if len(annotations) > 0 && annotation.Kind == LinkAnnotation {
 				prev := annotations[len(annotations)-1]
 				if prev.Kind == PackageLinkAnnotation &&
 					prev.PathIndex == annotation.PathIndex &&

@@ -96,7 +96,7 @@ $(function() {
         return true;
     });
 
-    var thData
+    var thData;
 
     function searchSource(query, process) {
         if (thData) {
@@ -127,8 +127,27 @@ $(function() {
     }
 
     //$('#_searchBox').typeahead({source: searchSource, sorter: searchSorter});
+    //
     $('span.timeago').timeago();
     if (window.location.hash.substring(0, 10) == '#_example_') {
-       $('[id|=_ex_' + window.location.hash.substring(10) + ']').addClass('in').height('auto');
+       $('#_ex_' + window.location.hash.substring(10)).addClass('in').height('auto');
     }
+
+    var highlighted;
+
+    function highlightHash() {
+        if (highlighted) {
+            highlighted.removeClass("highlight");
+        }
+        if (window.location.hash) {
+            highlighted = $('#_file ' + window.location.hash.replace(/([.])/g,'\\$1'));
+            highlighted.addClass("highlight");
+        } else {
+            highlighted = null;
+        }
+    }
+
+    window.onhashchange = highlightHash;
+    highlightHash();
+
 });

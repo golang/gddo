@@ -20,14 +20,14 @@
 {{end}}
 
 {{define "ProjectNav"}}<div class="flat-well well-small">
-  {{if .pdoc.ProjectRoot}}<a href="{{.pdoc.ProjectURL}}"><strong>{{.pdoc.ProjectName}}:</strong></a>{{else}}<a href="/-/go">Go:</a>{{end}}
-  {{breadcrumbs .pdoc (templateName)}}
+  {{if .pdoc.ProjectRoot}}{{if .pdoc.ProjectURL}}<a href="{{.pdoc.ProjectURL}}"><strong>{{.pdoc.ProjectName}}:</strong></a>{{else}}<strong>{{.pdoc.ProjectName}}:</strong>{{end}}{{else}}<a href="/-/go">Go:</a>{{end}}
+  {{.pdoc.Breadcrumbs templateName}}
   {{if and .pdoc.Name (equal templateName "pkg.html")}}
   <span class="pull-right">
     <a href="#_index">Index</a> 
-    {{if hasExamples .pdoc}}<span class="muted">|</span> <a href="#_examples">Examples</a>{{end}}
+    {{if .pdoc.AllExamples}}<span class="muted">|</span> <a href="#_examples">Examples</a>{{end}}
     <span class="muted">|</span> <a href="#_files">Files</a>
-    {{if .pkgs}}<span class="muted">|</span> <a href="#_subdirs">Directories</a>{{end}}
+    {{if .pkgs}}<span class="muted">|</span> <a href="#_directories">Directories</a>{{end}}
   </span>
   {{end}}
 </div>{{end}}
@@ -49,10 +49,10 @@
 {{end}}
 
 {{define "PkgCmdHeader"}}{{with .pdoc}}
-  <title>{{.|pageName}} - GoDoc</title>
+  <title>{{.PageName}} - GoDoc</title>
   {{if .Synopsis}}
-    <meta name="twitter:title" content="{{if .IsCmd}}Command{{else}}package{{end}} {{.Name}}">
-    <meta property="og:title" content="{{if .IsCmd}}Command{{else}}package{{end}} {{.Name}}">
+    <meta name="twitter:title" content="{{if .IsCmd}}Command{{else}}package{{end}} {{.PageName}}">
+    <meta property="og:title" content="{{if .IsCmd}}Command{{else}}package{{end}} {{.PageName}}">
     <meta name="description" content="{{.Synopsis}}">
     <meta name="twitter:description" content="{{.Synopsis}}">
     <meta property="og:description" content="{{.Synopsis}}">
@@ -63,7 +63,7 @@
 {{end}}{{end}}
 
 {{define "PkgCmdFooter"}}
-{{if $.pkgs}}{{if $.pdoc.Name}}<h3 id="_subdirs">Directories</h3>{{else}}<h3>Directory</h3>{{end}}
+{{if $.pkgs}}{{if $.pdoc.Name}}<h3 id="_directories">Directories <a class="permalink" href="#_directories">&para;</a></h3>{{else}}<h3>Directory</h3>{{end}}
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>{{range $.pkgs}}<tr><td><a href="/{{.Path}}">{{relativePath .Path $.pdoc.ImportPath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>

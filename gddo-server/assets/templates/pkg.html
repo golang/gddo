@@ -7,7 +7,7 @@
 {{if .Name}}
 <p><code>import "{{.ImportPath}}"</code>
 {{.Doc|comment}}
-{{template "Examples" map "object" . "name" "package"}}
+{{template "Examples" .|$.pdoc.ObjExamples}}
 
 <h3 id="_index">Index <a class="permalink" href="#_index">&para;</a></h3>
 {{if .Truncated}}<div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>{{end}}
@@ -25,44 +25,38 @@
 {{end}}
 </ul>
 
-{{if hasExamples .}}<h3 id="_examples">Examples <a class="permalink" href="#_examples">&para;</a></h3><ul class="unstyled">
-{{if .Examples}}{{template "ExampleLink" map "href" "package" "text" "package"}}{{end}}
-{{range .Funcs}}{{if .Examples}}{{template "ExampleLink" map "href" .Name "text" (printf "func %s" .Name)}}{{end}}{{end}}
-{{range $t := .Types}}
-  {{if .Examples}}{{template "ExampleLink" map "href" .Name "text" (printf "type %s" .Name)}}{{end}}
-  {{range .Funcs}}{{if .Examples}}{{template "ExampleLink" map "href" .Name "text" (printf "func %s" .Name)}}{{end}}{{end}}
-  {{range .Methods}}{{if .Examples}}{{template "ExampleLink" map "href" (printf "%s-%s" $t.Name .Name) "text" (printf "func (%s) %s" .Recv .Name)}}{{end}}{{end}}
-{{end}}
+{{with .AllExamples}}<h3 id="_examples">Examples <a class="permalink" href="#_examples">&para;</a></h3><ul class="unstyled">{{range . }}
+<li><a href="#_example_{{.Id}}" onclick="$('#_ex_{{.Id}}').addClass('in').height('auto')">{{.Label}}</a>{{end}}
 </ul>{{else}}<span id="_examples"></span>{{end}}
 
 {{if .Consts}}<h3 id="_constants">Constants <a class="permalink" href="#_constants">&para;</a></h3>{{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 {{if .Vars}}<h3 id="_variables">Variables <a class="permalink" href="#_variables">&para;</a></h3>{{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 
-{{range .Funcs}}<h3 id="{{.Name}}">func {{sourceLink $.pdoc .Pos .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+{{range .Funcs}}<h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
 <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
-{{template "Examples" map "object" . "name" .Name}}
+{{template "Examples" .|$.pdoc.ObjExamples}}
 {{end}}
 
-{{range $t := .Types}}<h3 id="{{.Name}}">type {{sourceLink $.pdoc .Pos .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+{{range $t := .Types}}<h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
 <pre class="pre-x-scrollable">{{code .Decl $t}}</pre>{{.Doc|comment}}
 {{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
 {{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-{{template "Examples" map "object" . "name" .Name}}
+{{template "Examples" .|$.pdoc.ObjExamples}}
 
-{{range .Funcs}}<h4 id="{{.Name}}">func {{sourceLink $.pdoc .Pos .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+{{range .Funcs}}<h4 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
 <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
-{{template "Examples" map "object" . "name" .Name}}
+{{template "Examples" .|$.pdoc.ObjExamples}}
 {{end}}
 
-{{range .Methods}}<h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{sourceLink $.pdoc .Pos .Name}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+{{range .Methods}}<h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name (printf "%s.%s" $t.Name .Name)}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
 <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
-{{template "Examples" map "object" . "name" (printf "%s-%s" $t.Name .Name)}}
+{{template "Examples" .|$.pdoc.ObjExamples}}
 {{end}}
 
 {{end}}{{/* range .Types */}}
 {{end}}{{/* if .Name */}}
 
-{{with .Notes}}{{with .BUG}}<h3 id="_bugs">Bugs <a class="permalink" href="#_bugs">&para;</a></h3>{{range .}}<p>{{sourceLink $.pdoc .Pos "☞"}} {{.Body}}{{end}}{{end}}{{end}}
+{{with .Notes}}{{with .BUG}}<h3 id="_bugs">Bugs <a class="permalink" href="#_bugs">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}{{end}}{{end}}
 
 {{if .Name}}<h3 id="_files">{{with .BrowseURL}}<a href="{{.}}">Files</a>{{else}}Package Files{{end}} <a class="permalink" href="#_files">&para;</a></h3>
 <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
@@ -84,18 +78,16 @@
 </div>
 {{end}}{{end}}
 
-{{define "Examples"}}{{with .object.Examples}}<div class="accordian" id="_example_{{$.name}}">{{range .}}
+{{define "Examples"}}{{if .}}<div class="accordian">{{range .}}
 <div class="accordion-group">
-  <div class="accordion-heading"><a class="accordion-toggle" data-toggle="collapse" href="#_ex_{{$.name}}{{with .Name}}-{{.}}{{end}}">Example{{with .Name}} ({{.}}){{end}}</a></div>
-  <div id="_ex_{{$.name}}{{with .Name}}-{{.}}{{end}}" class="accordion-body collapse"><div class="accordion-inner">
-    {{with .Doc}}<p>{{.|comment}}{{end}}
-    <p>Code:{{if .Play}}<span class="pull-right"><a href="?play={{$.name}}{{with .Name}}&name={{.}}{{end}}">play</a>&nbsp;</span>{{end}}
-    <pre class="pre-x-scrollable">{{code .Code nil}}</pre>
-    {{with .Output}}<p>Output:<pre class="pre-x-scrollable">{{.}}</pre>{{end}}
+  <div class="accordion-heading"><a class="accordion-toggle" data-toggle="collapse" name="_example_{{.Id}}" href="#_ex_{{.Id}}">Example{{with .Example.Name}} ({{.}}){{end}}</a></div>
+  <div id="_ex_{{.Id}}" class="accordion-body collapse"><div class="accordion-inner">
+    {{with .Example.Doc}}<p>{{.|comment}}{{end}}
+    <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.Id}}">play</a>&nbsp;</span>{{end}}
+    <pre class="pre-x-scrollable">{{code .Example.Code nil}}</pre>
+    {{with .Example.Output}}<p>Output:<pre class="pre-x-scrollable">{{.}}</pre>{{end}}
   </div></div>
 </div>
 {{end}}
 </div>
 {{end}}{{end}}
-
-{{define "ExampleLink"}}<li><a href="#_example_{{.href}}" onclick="$('[id|=_ex_{{.href}}]').addClass('in').height('auto')">{{.text}}</a>{{end}}

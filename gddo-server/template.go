@@ -30,10 +30,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	ttemp "text/template"
-	"time"
 
 	"code.google.com/p/go.talks/pkg/present"
 
@@ -41,19 +41,161 @@ import (
 	"github.com/garyburd/indigo/web"
 )
 
+type tdoc struct {
+	*doc.Package
+	allExamples []*texample
+}
+
+type texample struct {
+	Id      string
+	Label   string
+	Example *doc.Example
+	obj     interface{}
+}
+
+func newTDoc(pdoc *doc.Package) *tdoc {
+	return &tdoc{Package: pdoc}
+}
+
+func (pdoc *tdoc) SourceLink(pos doc.Pos, text, anchor string) htemp.HTML {
+	text = htemp.HTMLEscapeString(text)
+	if pos.Line == 0 || pdoc.LineFmt == "" || pdoc.Files[pos.File].URL == "" {
+		return htemp.HTML(text)
+	}
+	var u string
+	if anchor != "" && strings.HasPrefix(pdoc.Files[pos.File].URL, "/") {
+		u = fmt.Sprintf("%s#%s", pdoc.Files[pos.File].URL, anchor)
+	} else {
+		u = fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)
+	}
+	u = htemp.HTMLEscapeString(u)
+	return htemp.HTML(fmt.Sprintf(`<a href="%s">%s</a>`, u, text))
+}
+
+func (pdoc *tdoc) PageName() string {
+	if pdoc.Name != "" && !pdoc.IsCmd {
+		return pdoc.Name
+	}
+	_, name := path.Split(pdoc.ImportPath)
+	return name
+}
+
+func (pdoc *tdoc) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
+	label := export
+	id := export
+	if method != "" {
+		label += "." + method
+		id += "-" + method
+	}
+	for _, e := range examples {
+		te := &texample{Label: label, Id: id, Example: e, obj: obj}
+		if e.Name != "" {
+			te.Label += " (" + e.Name + ")"
+			if method == "" {
+				te.Id += "-"
+			}
+			te.Id += "-" + e.Name
+		}
+		pdoc.allExamples = append(pdoc.allExamples, te)
+	}
+}
+
+type byExampleId []*texample
+
+func (e byExampleId) Len() int           { return len(e) }
+func (e byExampleId) Less(i, j int) bool { return e[i].Id < e[j].Id }
+func (e byExampleId) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+
+func (pdoc *tdoc) AllExamples() []*texample {
+	if pdoc.allExamples != nil {
+		return pdoc.allExamples
+	}
+	pdoc.allExamples = make([]*texample, 0)
+	pdoc.addExamples(pdoc, "package", "", pdoc.Examples)
+	for _, f := range pdoc.Funcs {
+		pdoc.addExamples(f, f.Name, "", f.Examples)
+	}
+	for _, t := range pdoc.Types {
+		pdoc.addExamples(t, t.Name, "", t.Examples)
+		for _, f := range t.Funcs {
+			pdoc.addExamples(f, f.Name, "", f.Examples)
+		}
+		for _, m := range t.Methods {
+			if len(m.Examples) > 0 {
+				pdoc.addExamples(m, t.Name, m.Name, m.Examples)
+			}
+		}
+	}
+	sort.Sort(byExampleId(pdoc.allExamples))
+	return pdoc.allExamples
+}
+
+func (pdoc *tdoc) ObjExamples(obj interface{}) []*texample {
+	var examples []*texample
+	for _, e := range pdoc.allExamples {
+		if e.obj == obj {
+			examples = append(examples, e)
+		}
+	}
+	return examples
+}
+
+func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
+	if !strings.HasPrefix(pdoc.ImportPath, pdoc.ProjectRoot) {
+		return ""
+	}
+	var buf bytes.Buffer
+	i := 0
+	j := len(pdoc.ProjectRoot)
+	if j == 0 {
+		j = strings.IndexRune(pdoc.ImportPath, '/')
+		if j < 0 {
+			j = len(pdoc.ImportPath)
+		}
+	}
+	for {
+		if i != 0 {
+			buf.WriteString(`<span class="muted">/</span>`)
+		}
+		link := j < len(pdoc.ImportPath) || (templateName != "cmd.html" && templateName != "pkg.html")
+		if link {
+			buf.WriteString(`<a href="/`)
+			buf.WriteString(escapePath(pdoc.ImportPath[:j]))
+			buf.WriteString(`">`)
+		} else {
+			buf.WriteString(`<span class="muted">`)
+		}
+		buf.WriteString(htemp.HTMLEscapeString(pdoc.ImportPath[i:j]))
+		if link {
+			buf.WriteString("</a>")
+		} else {
+			buf.WriteString("</span>")
+		}
+		i = j + 1
+		if i >= len(pdoc.ImportPath) {
+			break
+		}
+		j = strings.IndexRune(pdoc.ImportPath[i:], '/')
+		if j < 0 {
+			j = len(pdoc.ImportPath)
+		} else {
+			j += i
+		}
+	}
+	return htemp.HTML(buf.String())
+}
+
 func escapePath(s string) string {
 	u := url.URL{Path: s}
 	return u.String()
 }
 
-func sourceLinkFn(pdoc *doc.Package, pos doc.Pos, text string) htemp.HTML {
-	text = htemp.HTMLEscapeString(text)
-	if pos.Line == 0 {
-		return htemp.HTML(text)
+func hostFn(urlStr string) string {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return ""
 	}
-	u := fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)
-	u = htemp.HTMLEscapeString(u)
-	return htemp.HTML(fmt.Sprintf(`<a href="%s">%s</a>`, u, text))
+	return u.Host
 }
 
 var (
@@ -123,32 +265,6 @@ func importPathFn(path string) htemp.HTML {
 		path = strings.Replace(path, "/", "/&#8203;", -1)
 	}
 	return htemp.HTML(path)
-}
-
-// relativeTime formats the time t in nanoseconds as a human readable relative
-// time.
-func relativeTime(t time.Time) string {
-	const day = 24 * time.Hour
-	d := time.Now().Sub(t)
-	switch {
-	case d < time.Second:
-		return "just now"
-	case d < 2*time.Second:
-		return "one second ago"
-	case d < time.Minute:
-		return fmt.Sprintf("%d seconds ago", d/time.Second)
-	case d < 2*time.Minute:
-		return "one minute ago"
-	case d < time.Hour:
-		return fmt.Sprintf("%d minutes ago", d/time.Minute)
-	case d < 2*time.Hour:
-		return "one hour ago"
-	case d < day:
-		return fmt.Sprintf("%d hours ago", d/time.Hour)
-	case d < 2*day:
-		return "one day ago"
-	}
-	return fmt.Sprintf("%d days ago", d/day)
 }
 
 var (
@@ -234,7 +350,7 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
-		case doc.ExportLinkAnnotation, doc.BuiltinAnnotation:
+		case doc.LinkAnnotation, doc.BuiltinAnnotation:
 			var p string
 			if a.Kind == doc.BuiltinAnnotation {
 				p = "/builtin"
@@ -270,97 +386,6 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 		last = int(a.End)
 	}
 	htemp.HTMLEscape(&buf, src[last:])
-	return htemp.HTML(buf.String())
-}
-
-func pageNameFn(pdoc *doc.Package) string {
-	if pdoc.Name != "" && !pdoc.IsCmd {
-		return pdoc.Name
-	}
-	_, name := path.Split(pdoc.ImportPath)
-	return name
-}
-
-func hasExamplesFn(pdoc *doc.Package) bool {
-	if len(pdoc.Examples) > 0 {
-		return true
-	}
-	for _, f := range pdoc.Funcs {
-		if len(f.Examples) > 0 {
-			return true
-		}
-	}
-	for _, t := range pdoc.Types {
-		if len(t.Examples) > 0 {
-			return true
-		}
-		for _, f := range t.Funcs {
-			if len(f.Examples) > 0 {
-				return true
-			}
-		}
-		for _, m := range t.Methods {
-			if len(m.Examples) > 0 {
-				return true
-			}
-		}
-
-	}
-	return false
-}
-
-type crumb struct {
-	Name string
-	URL  string
-	Sep  bool
-}
-
-func breadcrumbsFn(pdoc *doc.Package, templateName string) htemp.HTML {
-	if !strings.HasPrefix(pdoc.ImportPath, pdoc.ProjectRoot) {
-		return ""
-	}
-	var buf bytes.Buffer
-	i := 0
-	j := len(pdoc.ProjectRoot)
-	if j == 0 {
-		j = strings.IndexRune(pdoc.ImportPath, '/')
-		if j < 0 {
-			j = len(pdoc.ImportPath)
-		}
-	}
-	for {
-		if i != 0 {
-			buf.WriteString(`<span class="muted">/</span>`)
-		}
-		link := j < len(pdoc.ImportPath) ||
-			templateName == "imports.html" ||
-			templateName == "importers.html" ||
-			templateName == "graph.html" ||
-			templateName == "interface.html"
-		if link {
-			buf.WriteString(`<a href="/`)
-			buf.WriteString(escapePath(pdoc.ImportPath[:j]))
-			buf.WriteString(`">`)
-		} else {
-			buf.WriteString(`<span class="muted">`)
-		}
-		buf.WriteString(htemp.HTMLEscapeString(pdoc.ImportPath[i:j]))
-		if link {
-			buf.WriteString("</a>")
-		} else {
-			buf.WriteString("</span>")
-		}
-		i = j + 1
-		if i >= len(pdoc.ImportPath) {
-			break
-		}
-		j = strings.IndexRune(pdoc.ImportPath[i:], '/')
-		if j < 0 {
-			j = len(pdoc.ImportPath)
-		} else {
-			j += i
-		}
-	}
 	return htemp.HTML(buf.String())
 }
 
@@ -415,19 +440,16 @@ func parseHTMLTemplates(sets [][]string) error {
 		templateName := set[0]
 		t := htemp.New("")
 		t.Funcs(htemp.FuncMap{
-			"sourceLink":        sourceLinkFn,
+			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
-			"breadcrumbs":       breadcrumbsFn,
 			"comment":           commentFn,
 			"code":              codeFn,
 			"equal":             reflect.DeepEqual,
-			"hasExamples":       hasExamplesFn,
 			"gaAccount":         gaAccountFn,
 			"importPath":        importPathFn,
 			"isValidImportPath": doc.IsValidPath,
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
-			"pageName":          pageNameFn,
 			"relativePath":      relativePathFn,
 			"staticFile":        staticFileFn,
 			"fileHash":          fileHashFn,

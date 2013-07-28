@@ -15,6 +15,7 @@
 package doc
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -230,4 +231,21 @@ type sliceWriter struct{ p *[]byte }
 func (w sliceWriter) Write(p []byte) (int, error) {
 	*w.p = append(*w.p, p...)
 	return len(p), nil
+}
+
+var lineComment = []byte("\n//line ")
+
+func OverwriteLineComments(p []byte) {
+	if bytes.HasPrefix(p, lineComment[1:]) {
+		p[2] = 'L'
+		p = p[len(lineComment)-1:]
+	}
+	for {
+		i := bytes.Index(p, lineComment)
+		if i < 0 {
+			break
+		}
+		p[i+3] = 'L'
+		p = p[i+len(lineComment):]
+	}
 }

@@ -5297,6 +5297,10 @@ h5:hover .permalink,
 h6:hover .permalink {
   display: inline;
 }
+#_file .highlight {
+  color: #9d261d;
+  text-decoration: underline;
+}
 .pull-right {
   float: right;
 }

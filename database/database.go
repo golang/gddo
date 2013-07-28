@@ -151,6 +151,11 @@ var putScript = redis.NewScript(0, `
         redis.call('SET', 'id:' .. path, id)
     end
 
+    if etag ~= '' and etag == redis.call('HGET', 'pkg:' .. id, 'clone') then
+        terms = ''
+        score = 0
+    end
+
     local update = {}
     for term in string.gmatch(redis.call('HGET', 'pkg:' .. id, 'terms') or '', '([^ ]+)') do
         update[term] = 1
@@ -231,6 +236,27 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
 		t = nextCrawl.Unix()
 	}
 	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
+	return err
+}
+
+var setCloneScript = redis.NewScript(0, `
+    local root = ARGV[1]
+    local etag = ARGV[2]
+
+    local pkgs = redis.call('SORT', 'index:project:' .. root, 'GET', '#',  'GET', 'pkg:*->etag')
+
+    for i=1,#pkgs,2 do
+        if pkgs[i+1] == etag then
+            redis.call('HSET', 'pkg:' .. pkgs[i], 'clone', etag)
+        end
+    end
+`)
+
+// SetClone sets the tag for which a project is considered to be a clone.
+func (db *Database) SetClone(projectRoot string, etag string) error {
+	c := db.Pool.Get()
+	defer c.Close()
+	_, err := setCloneScript.Do(c, normalizeProjectRoot(projectRoot), etag)
 	return err
 }
 

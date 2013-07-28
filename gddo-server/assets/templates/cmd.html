@@ -2,7 +2,7 @@
 
 {{define "Body"}}{{with .pdoc}}
 {{template "ProjectNav" $}}
-<h2>Command {{.|pageName}}</h2>
+<h2>Command {{.PageName}}</h2>
 {{template "Errors" $}}
 {{.Doc|comment}}
 {{template "PkgCmdFooter" $}}

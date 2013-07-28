@@ -16,7 +16,9 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -139,9 +141,10 @@ func popularLinkReferral(req *web.Request) bool {
 	return req.Header.Get("Referer") == u.String()
 }
 
-func hasFormValue(req *web.Request, key string) bool {
-	_, ok := req.Form[key]
-	return ok
+func isView(req *web.Request, key string) bool {
+	rq := req.URL.RawQuery
+	return strings.HasPrefix(rq, key) &&
+		(len(rq) == len(key) || rq[len(key)] == '=' || rq[len(key)] == '&')
 }
 
 func servePackage(resp web.Response, req *web.Request) error {
@@ -158,8 +161,8 @@ func servePackage(resp web.Response, req *web.Request) error {
 		requestType = robotRequest
 	}
 
-	path := req.RouteVars["path"]
-	pdoc, pkgs, err := getDoc(path, requestType)
+	importPath := req.RouteVars["path"]
+	pdoc, pkgs, err := getDoc(importPath, requestType)
 	if err != nil {
 		return err
 	}
@@ -176,7 +179,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 			ProjectName: pdocChild.ProjectName,
 			ProjectRoot: pdocChild.ProjectRoot,
 			ProjectURL:  pdocChild.ProjectURL,
-			ImportPath:  path,
+			ImportPath:  importPath,
 		}
 	}
 
@@ -193,7 +196,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 			}
 		}
 
-		importerCount, err := db.ImporterCount(path)
+		importerCount, err := db.ImporterCount(importPath)
 		if err != nil {
 			return err
 		}
@@ -204,12 +207,21 @@ func servePackage(resp web.Response, req *web.Request) error {
 		}
 		template += templateExt(req)
 
+		if srcFiles[importPath+"/_sourceMap"] != nil {
+			for _, f := range pdoc.Files {
+				if srcFiles[importPath+"/"+f.Name] != nil {
+					f.URL = fmt.Sprintf("/%s?file=%s", importPath, f.Name)
+					pdoc.LineFmt = "%s#L%d"
+				}
+			}
+		}
+
 		return executeTemplate(resp, template, web.StatusOK, nil, map[string]interface{}{
 			"pkgs":          pkgs,
-			"pdoc":          pdoc,
+			"pdoc":          newTDoc(pdoc),
 			"importerCount": importerCount,
 		})
-	case hasFormValue(req, "imports"):
+	case isView(req, "imports"):
 		if pdoc.Name == "" {
 			break
 		}
@@ -219,21 +231,76 @@ func servePackage(resp web.Response, req *web.Request) error {
 		}
 		return executeTemplate(resp, "imports.html", web.StatusOK, nil, map[string]interface{}{
 			"pkgs": pkgs,
-			"pdoc": pdoc,
+			"pdoc": newTDoc(pdoc),
 		})
-	case hasFormValue(req, "importers"):
+	case isView(req, "redir"):
+		if srcFiles == nil {
+			break
+		}
+		f := srcFiles[importPath+"/_sourceMap"]
+		if f == nil {
+			break
+		}
+		r, err := f.Open()
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		var sourceMap map[string]string
+		if err := gob.NewDecoder(r).Decode(&sourceMap); err != nil {
+			return err
+		}
+		id := req.Form.Get("redir")
+		fname := sourceMap[id]
+		if fname == "" {
+			break
+		}
+		return web.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), 301, nil)
+	case isView(req, "file"):
+		if srcFiles == nil {
+			break
+		}
+		fname := req.Form.Get("file")
+		f := srcFiles[importPath+"/"+fname]
+		if f == nil {
+			break
+		}
+		r, err := f.Open()
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		src := make([]byte, f.UncompressedSize64)
+		if n, err := io.ReadFull(r, src); err != nil {
+			return err
+		} else {
+			src = src[:n]
+		}
+		var url string
+		for _, f := range pdoc.Files {
+			if f.Name == fname {
+				url = f.URL
+			}
+		}
+		return executeTemplate(resp, "file.html", web.StatusOK, nil, map[string]interface{}{
+			"fname": fname,
+			"url":   url,
+			"src":   template.HTML(src),
+			"pdoc":  newTDoc(pdoc),
+		})
+	case isView(req, "importers"):
 		if pdoc.Name == "" {
 			break
 		}
-		pkgs, err = db.Importers(path)
+		pkgs, err = db.Importers(importPath)
 		if err != nil {
 			return err
 		}
 		return executeTemplate(resp, "importers.html", web.StatusOK, nil, map[string]interface{}{
 			"pkgs": pkgs,
-			"pdoc": pdoc,
+			"pdoc": newTDoc(pdoc),
 		})
-	case hasFormValue(req, "import-graph"):
+	case isView(req, "import-graph"):
 		if pdoc.Name == "" {
 			break
 		}
@@ -248,11 +315,11 @@ func servePackage(resp web.Response, req *web.Request) error {
 		}
 		return executeTemplate(resp, "graph.html", web.StatusOK, nil, map[string]interface{}{
 			"svg":  template.HTML(b),
-			"pdoc": pdoc,
+			"pdoc": newTDoc(pdoc),
 			"hide": hide,
 		})
-	case req.Form.Get("play") != "":
-		u, err := playURL(pdoc, req.Form.Get("play"), req.Form.Get("name"))
+	case isView(req, "play"):
+		u, err := playURL(pdoc, req.Form.Get("play"))
 		if err != nil {
 			return err
 		}
@@ -653,7 +720,10 @@ var (
 	crawlInterval   = flag.Duration("crawl_interval", 0, "Package updater sleeps for this duration between package updates. Zero disables updates.")
 	githubInterval  = flag.Duration("github_interval", 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler.")
 	secretsPath     = flag.String("secrets", "secrets.json", "Path to file containing application ids and credentials for other services.")
-	secrets         struct {
+	redirGoTalks    = flag.Bool("redirGoTalks", true, "Redirect paths with prefix 'code.google.com/p/go.talks/' to talks.golang.org")
+	srcZip          = flag.String("srcZip", "", "")
+
+	secrets struct {
 		// HTTP user agent for outbound requests
 		UserAgent string
 
@@ -664,6 +734,8 @@ var (
 		// Google Analytics account for tracking codes.
 		GAAccount string
 	}
+
+	srcFiles = make(map[string]*zip.File)
 )
 
 func readSecrets() error {
@@ -692,6 +764,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if *srcZip != "" {
+		r, err := zip.OpenReader(*srcZip)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, f := range r.File {
+			if strings.HasPrefix(f.Name, "root/") {
+				srcFiles[f.Name[len("root/"):]] = f
+			}
+		}
+	}
+
 	if err := parseHTMLTemplates([][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"bot.html", "common.html", "layout.html"},
@@ -699,6 +783,7 @@ func main() {
 		{"home.html", "common.html", "layout.html"},
 		{"importers.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
+		{"file.html", "common.html", "layout.html"},
 		{"interface.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
@@ -770,6 +855,11 @@ func main() {
 	r.Add("/play.js").Get(web.DataHandler(playScript, web.Header{web.HeaderContentType: {"text/javascript"}}))
 	r.Add("/robots.txt").Get(staticConfig.FileHandler("presentRobots.txt"))
 	r.Add("/static/<path:.*>").Get(presentStaticConfig.DirectoryHandler("static"))
+	if *redirGoTalks {
+		r.Add("/code.google.com/p/go.talks/<path:.+>").GetFunc(func(resp web.Response, req *web.Request) error {
+			return web.Redirect(resp, req, "http://talks.golang.org/"+req.RouteVars["path"], 301, nil)
+		})
+	}
 	r.Add("/<path:.+>").GetFunc(servePresentation)
 
 	h.Add("talks.<:.*>", web.ErrorHandler(handlePresentError, web.FormAndCookieHandler(6000, false, r)))

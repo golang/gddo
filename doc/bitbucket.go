@@ -20,8 +20,10 @@ import (
 	"regexp"
 )
 
-var bitbucketPattern = regexp.MustCompile(`^bitbucket\.org/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
-var bitbucketEtagRe = regexp.MustCompile(`^(hg|git)-`)
+var (
+	bitbucketPattern = regexp.MustCompile(`^bitbucket\.org/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
+	bitbucketEtagRe  = regexp.MustCompile(`^(hg|git)-`)
+)
 
 func getBitbucketDoc(client *http.Client, match map[string]string, savedEtag string) (*Package, error) {
 

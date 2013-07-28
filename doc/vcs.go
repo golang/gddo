@@ -22,37 +22,51 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-// TODO: specify with command line flag
-const repoRoot = "/tmp/gddo"
+var (
+	// Store temporary data in this directory.
+	TempDir = filepath.Join(os.TempDir(), "gddo")
+)
 
-var urlTemplates = []struct {
-	re       *regexp.Regexp
-	template string
-	lineFmt  string
-}{
+type urlTemplates struct {
+	re         *regexp.Regexp
+	fileBrowse string
+	project    string
+	line       string
+}
+
+var vcsServices = []*urlTemplates{
 	{
 		regexp.MustCompile(`^git\.gitorious\.org/(?P<repo>[^/]+/[^/]+)$`),
 		"https://gitorious.org/{repo}/blobs/{tag}/{dir}{0}",
+		"https://gitorious.org/{repo}",
 		"%s#line%d",
 	},
 	{
 		regexp.MustCompile(`^camlistore\.org/r/p/(?P<repo>[^/]+)$`),
 		"http://camlistore.org/code/?p={repo}.git;hb={tag};f={dir}{0}",
+		"http://camlistore.org/",
 		"%s#l%d",
+	},
+	{
+		regexp.MustCompile(`git\.oschina\.net/(?P<repo>[^/]+/[^/]+)$`),
+		"http://git.oschina.net/{repo}/blob/{tag}/{dir}{0}",
+		"http://git.oschina.net/{repo}",
+		"%s#L%d",
 	},
 }
 
 // lookupURLTemplate finds an expand() template, match map and line number
 // format for well known repositories.
-func lookupURLTemplate(repo, dir, tag string) (string, map[string]string, string) {
+func lookupURLTemplate(repo, dir, tag string) (*urlTemplates, map[string]string) {
 	if strings.HasPrefix(dir, "/") {
 		dir = dir[1:] + "/"
 	}
-	for _, t := range urlTemplates {
+	for _, t := range vcsServices {
 		if m := t.re.FindStringSubmatch(repo); m != nil {
 			match := map[string]string{
 				"dir": dir,
@@ -63,10 +77,10 @@ func lookupURLTemplate(repo, dir, tag string) (string, map[string]string, string
 					match[name] = m[i]
 				}
 			}
-			return t.template, match, t.lineFmt
+			return t, match
 		}
 	}
-	return "", nil, ""
+	return &urlTemplates{}, nil
 }
 
 type vcsCmd struct {
@@ -117,14 +131,14 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 		return "", "", ErrNotModified
 	}
 
-	dir := path.Join(repoRoot, repo+".git")
+	dir := path.Join(TempDir, repo+".git")
 	p, err = ioutil.ReadFile(path.Join(dir, ".git/HEAD"))
 	switch {
 	case err != nil:
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return "", "", err
 		}
-		cmd := exec.Command("git", "clone", scheme+"://"+repo, dir)
+		cmd := exec.Command("git", "clone", scheme+"://"+repo+".git", dir)
 		log.Println(strings.Join(cmd.Args, " "))
 		if err := cmd.Run(); err != nil {
 			return "", "", err
@@ -184,11 +198,11 @@ func getVCSDoc(client *http.Client, match map[string]string, etagSaved string) (
 
 	// Find source location.
 
-	urlTemplate, urlMatch, lineFmt := lookupURLTemplate(match["repo"], match["dir"], tag)
+	template, urlMatch := lookupURLTemplate(match["repo"], match["dir"], tag)
 
 	// Slurp source files.
 
-	d := path.Join(repoRoot, expand("{repo}.{vcs}", match), match["dir"])
+	d := path.Join(TempDir, expand("{repo}.{vcs}", match), match["dir"])
 	f, err := os.Open(d)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -212,7 +226,7 @@ func getVCSDoc(client *http.Client, match map[string]string, etagSaved string) (
 		}
 		files = append(files, &source{
 			name:      fi.Name(),
-			browseURL: expand(urlTemplate, urlMatch, fi.Name()),
+			browseURL: expand(template.fileBrowse, urlMatch, fi.Name()),
 			data:      b,
 		})
 	}
@@ -221,11 +235,11 @@ func getVCSDoc(client *http.Client, match map[string]string, etagSaved string) (
 
 	b := &builder{
 		pdoc: &Package{
-			LineFmt:     lineFmt,
+			LineFmt:     template.line,
 			ImportPath:  match["importPath"],
 			ProjectRoot: expand("{repo}.{vcs}", match),
 			ProjectName: path.Base(match["repo"]),
-			ProjectURL:  "",
+			ProjectURL:  expand(template.project, urlMatch),
 			BrowseURL:   "",
 			Etag:        etag,
 			VCS:         match["vcs"],

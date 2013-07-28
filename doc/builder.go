@@ -472,6 +472,7 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 	for _, src := range srcs {
 		if strings.HasSuffix(src.name, ".go") {
 			b.srcs[src.name] = src
+			OverwriteLineComments(src.data)
 		} else {
 			addReferences(references, src.data)
 		}
@@ -532,13 +533,13 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 		file, err := parser.ParseFile(b.fset, name, b.srcs[name].data, parser.ParseComments)
 		if err != nil {
 			b.pdoc.Errors = append(b.pdoc.Errors, err.Error())
-			continue
+		} else {
+			files[name] = file
 		}
 		src := b.srcs[name]
 		src.index = i
 		b.pdoc.Files[i] = &File{Name: name, URL: src.browseURL}
 		b.pdoc.SourceSize += len(src.data)
-		files[name] = file
 	}
 
 	apkg, _ := ast.NewPackage(b.fset, files, simpleImporter, nil)
@@ -552,11 +553,11 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 		file, err := parser.ParseFile(b.fset, name, b.srcs[name].data, parser.ParseComments)
 		if err != nil {
 			b.pdoc.Errors = append(b.pdoc.Errors, err.Error())
-			continue
+		} else {
+			b.examples = append(b.examples, doc.Examples(file)...)
 		}
 		b.pdoc.TestFiles[i] = &File{Name: name, URL: b.srcs[name].browseURL}
 		b.pdoc.TestSourceSize += len(b.srcs[name].data)
-		b.examples = append(b.examples, doc.Examples(file)...)
 	}
 
 	b.vetPackage(apkg)
