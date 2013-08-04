@@ -26,9 +26,14 @@ Development Environment Setup
 
 - Install and run [Redis 2.6.x](http://redis.io/download). The redis.conf file included in the Redis distribution is suitable for development.
 - Install Go from source and update to tip.
-- Create an empty `secrets.json` (which can be filled in later):
+- Create a `secrets.json` file with this template:
 
-        echo '{}' > secrets.json
+        {
+            "UserAgent": "",
+            "GithubId": "",
+            "GithubSecret": "",
+            "GAAccount": ""
+        }
 
 - Install and run the server:
 
