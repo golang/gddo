@@ -1,51 +1,65 @@
 {{define "ROOT"}}<!DOCTYPE html><html lang="en">
 <head profile="http://a9.com/-/spec/opensearch/1.1/">
   <meta charset="utf-8">
-  <link href="{{staticFile "css/bootstrap.css"}}" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="/-/site.css?v={{cacheBuster "site.css"}}" rel="stylesheet">
   {{template "Head" $}}
 </head>
 <body>
-<div class="container">
-  <div class="navbar navbar-inverse">
-    <div class="navbar-inner">
-      <a class="brand" href="/">GoDoc</a>
-      <ul class="nav">
+<div class="navbar navbar-static-top">
+  <div class="container">
+    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-responsive-collapse">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </button>
+    <a class="navbar-brand" href="/">GoDoc</a>
+    <div class="nav-collapse collapse navbar-responsive-collapse">
+      <ul class="nav navbar-nav">
         <li{{if equal "home.html" templateName}} class="active"{{end}}><a href="/">Home</a></li>
         <li{{if equal "index.html" templateName}} class="active"{{end}}><a href="/-/index">Index</a></li>
         <li{{if equal "about.html" templateName}} class="active"{{end}}><a href="/-/about">About</a></li>
       </ul>
-      <form class="navbar-search pull-right" action="/"><input id="_search" type="text" class="search-query" name="q" placeholder="Search"></form>
+      <form class="navbar-form pull-right" action="/"><input class="form-control search-query" id="x-search" type="text" name="q" placeholder="Search"></form>
     </div>
   </div>
+</div>
+<div class="container">
   {{template "Body" $}}
+</div>
+<div id="x-footer">
   <div class="container">
-    <div class="flat-well well-small"><a href="http://twitter.com/GoDocDotOrg">@GoDocDotOrg</a>
-      <span class="muted">|</span> <a href="mailto:info@godoc.org">Feedback</a>
-      <span class="muted">|</span> <a href="https://github.com/garyburd/gddo/issues">Website Issues</a>
-      <span class="pull-right"><a href="#">Back to top</a></span>
+    <a href="http://twitter.com/GoDocDotOrg">@GoDocDotOrg</a>
+    <span class="text-muted">|</span> <a href="mailto:info@godoc.org">Feedback</a>
+    <span class="text-muted">|</span> <a href="https://github.com/garyburd/gddo/issues">Website Issues</a>
+    <span class="pull-right"><a href="#">Back to top</a></span>
+  </div>
+</div>
+
+<div id="x-shortcuts" tabindex="-1" class="modal fade">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+          <h4 class="modal-title">Keyboard shortcuts</h4>
+        </div>
+        <div class="modal-body">
+          <table>{{$mutePkg := not (equal "pkg.html" templateName)}}
+          <tr><td align="right"><b>?</b></td><td> : This menu</td></tr>
+          <tr><td align="right"><b>/</b></td><td> : Search site</td></tr>
+          <tr><td align="right"><b>g</b> then <b>g</b></td><td> : Go to top of page</td></tr>
+          <tr><td align="right"><b>g</b> then <b>b</b></td><td> : Go to end of page</td></tr>
+          <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>i</b></td><td> : Go to index</td></tr>
+          <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>e</b></td><td> : Go to examples</td></tr>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn" data-dismiss="modal">Close</button>
+      </div>
     </div>
   </div>
 </div>
-<div id="_shortcuts" tabindex="-1" class="modal hide">
-  <div class="modal-header">
-    <h4>Keyboard Shortcuts</h4>
-  </div>
-  <div class="modal-body">
-    <table>{{$mutePkg := not (equal "pkg.html" templateName)}}
-    <tr><td align="right"><b>?</b></td><td> : This menu</td></tr>
-    <tr><td align="right"><b>/</b></td><td> : Search site</td></tr>
-    <tr{{if $mutePkg}} class="muted"{{end}}><td align="right"><b>.</b></td><td> : Go to export</td></tr>
-    <tr><td align="right"><b>g</b> then <b>g</b></td><td> : Go to top of page</td></tr>
-    <tr><td align="right"><b>g</b> then <b>b</b></td><td> : Go to end of page</td></tr>
-    <tr{{if $mutePkg}} class="muted"{{end}}><td align="right"><b>g</b> then <b>i</b></td><td> : Go to index</td></tr>
-    <tr{{if $mutePkg}} class="muted"{{end}}><td align="right"><b>g</b> then <b>e</b></td><td> : Go to examples</td></tr>
-    </table>
-  </div>
-  <div class="modal-footer">
-    <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
-  </div>
-</div>
-{{template "jQuery"}}<script src="{{staticFile "site.js"}}"></script>{{template "Analytics"}}
+{{template "jQuery"}}<script src="/-/site.js?v={{cacheBuster "site.js"}}"></script>{{template "Analytics"}}
 </body>
 </html>
 {{end}}

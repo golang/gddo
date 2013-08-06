@@ -2,12 +2,12 @@
     <head>
       <title>{{.pdoc.PageName}} graph - GoDoc</title>
       <meta name="robots" content="NOINDEX, NOFOLLOW">
-      <link href="{{staticFile "css/bootstrap.css"}}" rel="stylesheet">
+      <link href="/-/site.css?v={{cacheBuster "site.css"}}" rel="stylesheet">
     </head>
     <body>
       <div class="well-small">
         Package <a href="/{{.pdoc.ImportPath}}">{{.pdoc.Name}}</a>
-        {{if .pdoc.ProjectRoot}}<span class="muted">|</span> 
+        {{if .pdoc.ProjectRoot}}<span class="text-muted">|</span> 
             {{if .hide}}<a href="?view=import-graph">Show</a>{{else}}<a href="?view=import-graph&hide=1">Hide</a>{{end}} 
             standard package dependencies.
         {{end}}

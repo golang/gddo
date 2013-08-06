@@ -18,6 +18,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/md5"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -718,7 +719,7 @@ var (
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
 	crawlInterval   = flag.Duration("crawl_interval", 0, "Package updater sleeps for this duration between package updates. Zero disables updates.")
-	githubInterval  = flag.Duration("github_interval", 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler.")
+	gitHubInterval  = flag.Duration("github_interval", 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler.")
 	secretsPath     = flag.String("secrets", "secrets.json", "Path to file containing application ids and credentials for other services.")
 	redirGoTalks    = flag.Bool("redirGoTalks", true, "Redirect paths with prefix 'code.google.com/p/go.talks/' to talks.golang.org")
 	srcZip          = flag.String("srcZip", "", "")
@@ -727,9 +728,9 @@ var (
 		// HTTP user agent for outbound requests
 		UserAgent string
 
-		// Github API Credentials
-		GithubId     string
-		GithubSecret string
+		// GitHub API Credentials
+		GitHubId     string
+		GitHubSecret string
 
 		// Google Analytics account for tracking codes.
 		GAAccount string
@@ -749,12 +750,31 @@ func readSecrets() error {
 	if secrets.UserAgent != "" {
 		doc.SetUserAgent(secrets.UserAgent)
 	}
-	if secrets.GithubId != "" {
-		doc.SetGithubCredentials(secrets.GithubId, secrets.GithubSecret)
+	if secrets.GitHubId != "" {
+		doc.SetGitHubCredentials(secrets.GitHubId, secrets.GitHubSecret)
 	} else {
-		log.Printf("Github credentials not set in %q.", *secretsPath)
+		log.Printf("GitHub credentials not set in %q.", *secretsPath)
 	}
 	return nil
+}
+
+var cacheBusters = map[string]string{}
+
+func dataHandler(cacheBusterKey, contentType, dir string, names ...string) web.Handler {
+	var data []byte
+	for _, name := range names {
+		p, err := ioutil.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
+		if err != nil {
+			log.Fatal(err)
+		}
+		data = append(data, p...)
+	}
+
+	h := md5.New()
+	h.Write(data)
+	cacheBusters[cacheBusterKey] = fmt.Sprintf("%x", h.Sum(nil))
+
+	return web.DataHandler(data, web.Header{web.HeaderContentType: {contentType}})
 }
 
 func main() {
@@ -784,7 +804,6 @@ func main() {
 		{"importers.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
 		{"file.html", "common.html", "layout.html"},
-		{"interface.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
@@ -825,13 +844,8 @@ func main() {
 		go crawl(*crawlInterval)
 	}
 
-	if *githubInterval > 0 {
-		go crawlGithubUpdates(*githubInterval)
-	}
-
-	playScript, err := readPlayScript(*presentDir)
-	if err != nil {
-		log.Fatal(err)
+	if *gitHubInterval > 0 {
+		go crawlGitHubUpdates(*gitHubInterval)
 	}
 
 	staticConfig := &web.StaticConfig{
@@ -852,7 +866,7 @@ func main() {
 	r.Add("/favicon.ico").Get(staticConfig.FileHandler("favicon.ico"))
 	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticConfig.FileHandler("google3d2f3cd4cc2bb44b.html"))
 	r.Add("/humans.txt").Get(staticConfig.FileHandler("humans.txt"))
-	r.Add("/play.js").Get(web.DataHandler(playScript, web.Header{web.HeaderContentType: {"text/javascript"}}))
+	r.Add("/play.js").Get(dataHandler("play.js", "text/javascript", *presentDir, "js/jquery.js", "js/playground.js", "js/play.js"))
 	r.Add("/robots.txt").Get(staticConfig.FileHandler("presentRobots.txt"))
 	r.Add("/static/<path:.*>").Get(presentStaticConfig.DirectoryHandler("static"))
 	if *redirGoTalks {
@@ -875,6 +889,13 @@ func main() {
 	h.Add("api.<:.*>", web.ErrorHandler(handleAPIError, web.FormAndCookieHandler(6000, false, r)))
 
 	r = web.NewRouter()
+	r.Add("/-/site.js").Get(dataHandler("site.js", "text/javascript", *assetsDir,
+		"third_party/jquery.timeago.js",
+		"third_party/typeahead.min.js",
+		"third_party/bootstrap/js/bootstrap.min.js",
+		"site.js"))
+	r.Add("/-/site.css").Get(dataHandler("site.css", "text/css", *assetsDir,
+		"third_party/bootstrap/css/bootstrap.min.css", "site.css"))
 	r.Add("/").GetFunc(serveHome)
 	r.Add("/-/about").GetFunc(serveAbout)
 	r.Add("/-/bot").GetFunc(serveBot)

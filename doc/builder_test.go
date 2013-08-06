@@ -42,6 +42,7 @@ const readme = `
     [foo](http://godoc.org/github.com/user/repo/pkg4)
     <http://go.pkgdoc.org/github.com/user/repo/pkg5>
     [foo](http://godoc.org/github.com/user/repo/pkg6#Export)
+    http://gowalker.org/github.com/user/repo/pkg7
     'go get example.org/package1' will install package1.
     (http://go.pkgdoc.org/example.org/package2 "Package2's documentation on GoPkgDoc").
     import "example.org/package3"
@@ -54,6 +55,7 @@ var expectedReferences = []string{
 	"github.com/user/repo/pkg4",
 	"github.com/user/repo/pkg5",
 	"github.com/user/repo/pkg6",
+	"github.com/user/repo/pkg7",
 	"example.org/package1",
 	"example.org/package2",
 	"example.org/package3",

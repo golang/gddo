@@ -1,7 +1,9 @@
 {{define "Head"}}<title>{{.q}} - GoDoc</title>{{end}}
 
 {{define "Body"}}
-  {{template "SearchBox" .q}}
+  <div class="well">
+    {{template "SearchBox" .q}}
+  </div>
   {{if .pkgs}}
     {{template "Pkgs" .pkgs}}
   {{else}}

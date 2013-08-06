@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -82,15 +81,4 @@ func playURL(pdoc *doc.Package, id string) (string, error) {
 		}
 	}
 	return "", &web.Error{Status: web.StatusNotFound}
-}
-
-func readPlayScript(dir string) (script []byte, err error) {
-	for _, name := range []string{"jquery.js", "playground.js", "play.js"} {
-		p, err := ioutil.ReadFile(filepath.Join(dir, "js", name))
-		if err != nil {
-			return nil, err
-		}
-		script = append(script, p...)
-	}
-	return
 }

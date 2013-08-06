@@ -7,7 +7,7 @@ Feedback
 --------
 
 Send ideas and questions to info@godoc.org. Request features and report bugs
-using the [Github Issue
+using the [GitHub Issue
 Tracker](https://github.com/garyburd/gopkgdoc/issues/new). 
 
 
@@ -30,8 +30,8 @@ Development Environment Setup
 
         {
             "UserAgent": "",
-            "GithubId": "",
-            "GithubSecret": "",
+            "GitHubId": "",
+            "GitHubSecret": "",
             "GAAccount": ""
         }
 

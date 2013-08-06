@@ -52,12 +52,12 @@ var browsePatterns = []struct {
 	fn  func([]string) string
 }{
 	{
-		// Github tree  browser.
+		// GitHub tree  browser.
 		regexp.MustCompile(`^https?://(github\.com/[^/]+/[^/]+)(?:/tree/[^/]+(/.*))?$`),
 		func(m []string) string { return m[1] + m[2] },
 	},
 	{
-		// Github file browser.
+		// GitHub file browser.
 		regexp.MustCompile(`^https?://(github\.com/[^/]+/[^/]+)/blob/[^/]+/(.*)$`),
 		func(m []string) string {
 			d := path.Dir(m[2])

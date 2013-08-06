@@ -113,7 +113,15 @@ Loop:
 	return s
 }
 
-var referencePat = regexp.MustCompile(`\b(?:go\s+get\s+|goinstall\s+|http://gopkgdoc\.appspot\.com/pkg/|http://go\.pkgdoc\.org/|http://godoc\.org/)([-a-zA-Z0-9~+_./]+)`)
+var referencePat = regexp.MustCompile(`\b(?:` + strings.Join([]string{
+	`go\s+get\s+`,
+	`goinstall\s+`,
+	regexp.QuoteMeta("http://godoc.org/"),
+	regexp.QuoteMeta("http://gopkgdoc.appspot.com/pkg/"),
+	regexp.QuoteMeta("http://go.pkgdoc.org/"),
+	regexp.QuoteMeta("http://gowalker.org/"),
+}, "|") + `)([-a-zA-Z0-9~+_./]+)`)
+
 var quotedReferencePat = regexp.MustCompile(`"([-a-zA-Z0-9~+_./]+)"`)
 
 // addReferences adds packages referenced in plain text s.

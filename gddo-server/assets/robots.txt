@@ -3,6 +3,7 @@ Disallow: /*?imports
 Disallow: /*?importers
 Disallow: /*?import-graph*
 Disallow: /*?gosrc*
+Disallow: /*?file*
 
 user-agent: AhrefsBot
 disallow: /

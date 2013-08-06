@@ -155,7 +155,7 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 	}
 	for {
 		if i != 0 {
-			buf.WriteString(`<span class="muted">/</span>`)
+			buf.WriteString(`<span class="text-muted">/</span>`)
 		}
 		link := j < len(pdoc.ImportPath) || (templateName != "cmd.html" && templateName != "pkg.html")
 		if link {
@@ -163,7 +163,7 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 			buf.WriteString(escapePath(pdoc.ImportPath[:j]))
 			buf.WriteString(`">`)
 		} else {
-			buf.WriteString(`<span class="muted">`)
+			buf.WriteString(`<span class="text-muted">`)
 		}
 		buf.WriteString(htemp.HTMLEscapeString(pdoc.ImportPath[i:j]))
 		if link {
@@ -234,6 +234,10 @@ func staticFileFn(p string) htemp.URL {
 	return htemp.URL("/-/static/" + p + "?v=" + h)
 }
 
+func cacheBuster(key string) string {
+	return cacheBusters[key]
+}
+
 func mapFn(kvs ...interface{}) (map[string]interface{}, error) {
 	if len(kvs)%2 != 0 {
 		return nil, errors.New("map requires even number of arguments.")
@@ -268,7 +272,7 @@ func importPathFn(path string) htemp.HTML {
 }
 
 var (
-	h3Pat      = regexp.MustCompile(`</?h3`)
+	h3Pat      = regexp.MustCompile(`<h3 id="([^"]+)">([^<]+)</h3>`)
 	rfcPat     = regexp.MustCompile(`RFC\s+(\d{3,4})`)
 	packagePat = regexp.MustCompile(`\s+package\s+([-a-z0-9]\S+)`)
 )
@@ -296,8 +300,13 @@ func commentFn(v string) htemp.HTML {
 	godoc.ToHTML(&buf, v, nil)
 	p := buf.Bytes()
 	p = replaceAll(p, h3Pat, func(out, src []byte, m []int) []byte {
-		out = append(out, src[m[0]:m[1]-1]...)
-		out = append(out, '4')
+		out = append(out, `<h4 id="`...)
+		out = append(out, src[m[2]:m[3]]...)
+		out = append(out, `">`...)
+		out = append(out, src[m[4]:m[5]]...)
+		out = append(out, ` <a class="permalink" href="#`...)
+		out = append(out, src[m[2]:m[3]]...)
+		out = append(out, `">&para</a></h4>`...)
 		return out
 	})
 	p = replaceAll(p, rfcPat, func(out, src []byte, m []int) []byte {
@@ -440,19 +449,20 @@ func parseHTMLTemplates(sets [][]string) error {
 		templateName := set[0]
 		t := htemp.New("")
 		t.Funcs(htemp.FuncMap{
+			"cacheBuster":       cacheBuster,
+			"code":              codeFn,
+			"comment":           commentFn,
+			"equal":             reflect.DeepEqual,
+			"fileHash":          fileHashFn,
+			"gaAccount":         gaAccountFn,
 			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
-			"comment":           commentFn,
-			"code":              codeFn,
-			"equal":             reflect.DeepEqual,
-			"gaAccount":         gaAccountFn,
 			"importPath":        importPathFn,
 			"isValidImportPath": doc.IsValidPath,
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
 			"relativePath":      relativePathFn,
 			"staticFile":        staticFileFn,
-			"fileHash":          fileHashFn,
 			"templateName":      func() string { return templateName },
 		})
 		if _, err := t.ParseFiles(joinTemplateDir(*assetsDir, set)...); err != nil {

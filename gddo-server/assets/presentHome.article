@@ -4,7 +4,7 @@ talks.godoc.org
 
 * Introduction
 
-This site plays slide presentations and articles stored on Github and Google Project Hosting in the 
+This site plays slide presentations and articles stored on GitHub and Google Project Hosting in the 
 [[http://godoc.org/code.google.com/p/go.talks/pkg/present][present format]].
 
 The syntax for URLs is:
@@ -36,4 +36,4 @@ community, then please add your talk to the wiki page.
 * Feedback
 
 Send your ideas, feature requests and questions to info@godoc.org. Report bugs using the 
-[[https://github.com/garyburd/gddo/issues/new][Github Issue Tracker]]. 
+[[https://github.com/garyburd/gddo/issues/new][GitHub Issue Tracker]]. 

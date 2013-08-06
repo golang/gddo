@@ -25,10 +25,10 @@ import (
 	"time"
 )
 
-var githubProjectPat = regexp.MustCompile(`href="/([^/]+/[^/]+)/stargazers"`)
-var githubUpdatedPat = regexp.MustCompile(`datetime="([^"]+)"`)
+var gitHubProjectPat = regexp.MustCompile(`href="/([^/]+/[^/]+)/stargazers"`)
+var gitHubUpdatedPat = regexp.MustCompile(`datetime="([^"]+)"`)
 
-func readGithubUpdates() (map[string]string, error) {
+func readGitHubUpdates() (map[string]string, error) {
 	updates := make(map[string]string)
 	for i := 0; i < 2; i++ {
 		resp, err := http.Get("https://github.com/languages/Go/updated?page=" + strconv.Itoa(i+1))
@@ -41,14 +41,14 @@ func readGithubUpdates() (map[string]string, error) {
 		}
 
 		for {
-			m := githubProjectPat.FindSubmatchIndex(p)
+			m := gitHubProjectPat.FindSubmatchIndex(p)
 			if m == nil {
 				break
 			}
 			ownerRepo := string(p[m[2]:m[3]])
 			p = p[m[1]:]
 
-			m = githubUpdatedPat.FindSubmatchIndex(p)
+			m = gitHubUpdatedPat.FindSubmatchIndex(p)
 			if m == nil {
 				return nil, fmt.Errorf("updated not found for %s", ownerRepo)
 			}
@@ -66,7 +66,7 @@ func readGithubUpdates() (map[string]string, error) {
 	return updates, nil
 }
 
-func crawlGithubUpdates(interval time.Duration) {
+func crawlGitHubUpdates(interval time.Duration) {
 	defer log.Println("ERROR, exiting github update scraper")
 
 	const key = "ghupdates"
@@ -77,7 +77,7 @@ func crawlGithubUpdates(interval time.Duration) {
 		}
 		sleep = true
 
-		updates, err := readGithubUpdates()
+		updates, err := readGitHubUpdates()
 		if err != nil {
 			log.Println("ERROR github crawl:", err)
 			continue

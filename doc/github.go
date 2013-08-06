@@ -23,18 +23,18 @@ import (
 )
 
 var (
-	githubRawHeader = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
-	githubPattern   = regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
-	githubCred      string
+	gitHubRawHeader = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
+	gitHubPattern   = regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
+	gitHubCred      string
 )
 
-func SetGithubCredentials(id, secret string) {
-	githubCred = "client_id=" + id + "&client_secret=" + secret
+func SetGitHubCredentials(id, secret string) {
+	gitHubCred = "client_id=" + id + "&client_secret=" + secret
 }
 
-func getGithubDoc(client *http.Client, match map[string]string, savedEtag string) (*Package, error) {
+func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string) (*Package, error) {
 
-	match["cred"] = githubCred
+	match["cred"] = gitHubCred
 
 	var refs []*struct {
 		Object struct {
@@ -106,7 +106,7 @@ func getGithubDoc(client *http.Client, match map[string]string, savedEtag string
 			files = append(files, &source{
 				name:      f,
 				browseURL: expand("https://github.com/{owner}/{repo}/blob/{tag}/{0}", match, node.Path),
-				rawURL:    node.Url + "?" + githubCred,
+				rawURL:    node.Url + "?" + gitHubCred,
 			})
 		}
 	}
@@ -115,7 +115,7 @@ func getGithubDoc(client *http.Client, match map[string]string, savedEtag string
 		return nil, NotFoundError{"Directory tree does not contain Go files."}
 	}
 
-	if err := fetchFiles(client, files, githubRawHeader); err != nil {
+	if err := fetchFiles(client, files, gitHubRawHeader); err != nil {
 		return nil, err
 	}
 
@@ -140,11 +140,11 @@ func getGithubDoc(client *http.Client, match map[string]string, savedEtag string
 	return b.build(files)
 }
 
-func getGithubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {
+func getGitHubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {
 
-	match["cred"] = githubCred
+	match["cred"] = gitHubCred
 
-	p, err := httpGetBytes(client, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}?{cred}", match), githubRawHeader)
+	p, err := httpGetBytes(client, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}?{cred}", match), gitHubRawHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func getGithubPresentation(client *http.Client, match map[string]string) (*Prese
 				u.RawQuery = apiBase.RawQuery
 				f.rawURL = u.String()
 			}
-			return fetchFiles(client, files, githubRawHeader)
+			return fetchFiles(client, files, gitHubRawHeader)
 		},
 		resolveURL: func(fname string) string {
 			u, err := rawBase.Parse(fname)
