@@ -12,7 +12,7 @@
 {{define "SearchBox"}}
   <form>
     <div class="input-group">
-      <input class="form-control" name="q" autofocus="autofocus" value="{{.}}" placeholder="Search for package by Import path or keyword." type="text">
+      <input class="form-control" name="q" autofocus="autofocus" value="{{.}}" placeholder="Search for package by import path or keyword." type="text">
       <span class="input-group-btn">
         <button class="btn btn-default" type="submit">Go!</button>
       </span>
@@ -20,7 +20,7 @@
   </form>
 {{end}}
 
-{{define "ProjectNav"}}<div id="x-projnav">
+{{define "ProjectNav"}}<div class="clearfix" id="x-projnav">
   {{if .pdoc.ProjectRoot}}{{if .pdoc.ProjectURL}}<a href="{{.pdoc.ProjectURL}}"><strong>{{.pdoc.ProjectName}}:</strong></a>{{else}}<strong>{{.pdoc.ProjectName}}:</strong>{{end}}{{else}}<a href="/-/go">Go:</a>{{end}}
   {{.pdoc.Breadcrumbs templateName}}
   {{if and .pdoc.Name (equal templateName "pkg.html")}}

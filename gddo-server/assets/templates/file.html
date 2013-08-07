@@ -3,6 +3,6 @@
 {{define "Body"}}
   {{template "ProjectNav" $}}
   <h3>{{.fname}}</h3>
-  <pre id="x-file" class="pre-x-scrollable">{{.src}}</pre>
+  <pre id="x-file">{{.src}}</pre>
   {{with host .url}}<p>View the file on <a href="{{$.url}}">{{.}}</a>.{{end}}
 {{end}}

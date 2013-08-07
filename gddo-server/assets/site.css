@@ -1,18 +1,7 @@
-html {
-    background-color: #eee;
-}
-
-body {
-    background-color: white;
-}
-
-h4 { 
-    margin-top: 20px; 
-}
-
-.container {
-    max-width: 728px;
-}
+html { background-color: whitesmoke; }
+body { background-color: white; }
+h4 { margin-top: 20px; }
+.container { max-width: 728px; }
  
 #x-projnav {
   min-height: 20px;
@@ -29,6 +18,12 @@ h4 {
     background-color: #eee;
 }
 
+@media screen and (min-width: 768px) {
+    #x-search {
+        float: right;
+    }
+}
+  
 code { 
   background-color: inherit; 
   border: none; 
@@ -36,14 +31,21 @@ code {
   padding: 0;
 }
 
-pre .com {
-  color: rgb(147, 161, 161);
+pre {
+    overflow: auto;
+    white-space: pre;
+    word-break: normal;
+    word-wrap: normal;
 }
 
-.pre-x-scrollable {
-  overflow: auto;
-  word-wrap: normal;
-  white-space: pre;
+.funcdecl {
+  white-space: pre-wrap;
+  word-break: break-all;
+  word-wrap: break-word;
+}
+
+pre .com {
+  color: rgb(147, 161, 161);
 }
 
 a, .navbar-brand {
@@ -63,7 +65,6 @@ a, .navbar-brand {
 .navbar-nav > .active > a:focus {
   background-color: #e7e7e7;
 }
-
 
 #_file .highlight {
     color: red;

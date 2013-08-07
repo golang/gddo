@@ -33,28 +33,28 @@
       {{if .Name}}<h4 id="pkg-files">{{with .BrowseURL}}<a href="{{.}}">Package Files</a>{{else}}Package Files{{end}} <a class="permalink" href="#pkg-files">&para;</a></h4>
       <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
 
-      {{if .Consts}}<h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>{{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
+      {{if .Consts}}<h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>{{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 
-      {{if .Vars}}<h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>{{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
+      {{if .Vars}}<h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>{{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 
       {{range .Funcs}}<h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
+      <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
       {{template "Examples" .|$.pdoc.ObjExamples}}
       {{end}}
 
       {{range $t := .Types}}<h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <pre class="pre-x-scrollable">{{code .Decl $t}}</pre>{{.Doc|comment}}
-      {{range .Consts}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-      {{range .Vars}}<pre class="pre-x-scrollable">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+      <pre>{{code .Decl $t}}</pre>{{.Doc|comment}}
+      {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+      {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
       {{template "Examples" .|$.pdoc.ObjExamples}}
 
         {{range .Funcs}}<h4 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-        <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
+        <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
         {{template "Examples" .|$.pdoc.ObjExamples}}
         {{end}}
 
         {{range .Methods}}<h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name (printf "%s.%s" $t.Name .Name)}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
-        <pre>{{code .Decl nil}}</pre>{{.Doc|comment}}
+        <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
         {{template "Examples" .|$.pdoc.ObjExamples}}
         {{end}}
 
@@ -76,8 +76,8 @@
   <div id="ex-{{.Id}}" class="accordion-body collapse"><div class="accordion-inner">
     {{with .Example.Doc}}<p>{{.|comment}}{{end}}
     <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.Id}}">play</a>&nbsp;</span>{{end}}
-    <pre class="pre-x-scrollable">{{code .Example.Code nil}}</pre>
-    {{with .Example.Output}}<p>Output:<pre class="pre-x-scrollable">{{.}}</pre>{{end}}
+    <pre>{{code .Example.Code nil}}</pre>
+    {{with .Example.Output}}<p>Output:<pre>{{.}}</pre>{{end}}
   </div></div>
 </div>
 {{end}}

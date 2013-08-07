@@ -20,20 +20,20 @@
         <li{{if equal "index.html" templateName}} class="active"{{end}}><a href="/-/index">Index</a></li>
         <li{{if equal "about.html" templateName}} class="active"{{end}}><a href="/-/about">About</a></li>
       </ul>
-      <form class="navbar-form pull-right" action="/"><input class="form-control search-query" id="x-search" type="text" name="q" placeholder="Search"></form>
+      <form class="navbar-form" id="x-search" action="/"><input class="form-control" id="x-search-query" type="text" name="q" placeholder="Search"></form>
     </div>
   </div>
 </div>
-<div class="container">
+<div class="container"><div class="row"><div class="col-12">
   {{template "Body" $}}
-</div>
-<div id="x-footer">
-  <div class="container">
+</div></div></div>
+<div id="x-footer" class="clearfix">
+  <div class="container"><div class="row"><div class="col-12">
     <a href="http://twitter.com/GoDocDotOrg">@GoDocDotOrg</a>
     <span class="text-muted">|</span> <a href="mailto:info@godoc.org">Feedback</a>
     <span class="text-muted">|</span> <a href="https://github.com/garyburd/gddo/issues">Website Issues</a>
     <span class="pull-right"><a href="#">Back to top</a></span>
-  </div>
+  </div></div></div>
 </div>
 
 <div id="x-shortcuts" tabindex="-1" class="modal fade">

@@ -50,7 +50,7 @@ $(function() {
 
         switch (ch) {
         case "/":
-            $('#x-search').focus();
+            $('#x-search-query').focus();
             return false;
         case "?":
             $('#x-shortcuts').modal();
