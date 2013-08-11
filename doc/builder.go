@@ -113,29 +113,27 @@ Loop:
 	return s
 }
 
-var referencePat = regexp.MustCompile(`\b(?:` + strings.Join([]string{
-	`go\s+get\s+`,
-	`goinstall\s+`,
-	regexp.QuoteMeta("http://godoc.org/"),
-	regexp.QuoteMeta("http://gopkgdoc.appspot.com/pkg/"),
-	regexp.QuoteMeta("http://go.pkgdoc.org/"),
-	regexp.QuoteMeta("http://gowalker.org/"),
-}, "|") + `)([-a-zA-Z0-9~+_./]+)`)
-
-var quotedReferencePat = regexp.MustCompile(`"([-a-zA-Z0-9~+_./]+)"`)
+var referencesPats = []*regexp.Regexp{
+	regexp.MustCompile(`"([-a-zA-Z0-9~+_./]+)"`), // quoted path
+	regexp.MustCompile(`https://drone\.io/([-a-zA-Z0-9~+_./]+)/status\.png`),
+	regexp.MustCompile(`\b(?:` + strings.Join([]string{
+		`go\s+get\s+`,
+		`goinstall\s+`,
+		regexp.QuoteMeta("http://godoc.org/"),
+		regexp.QuoteMeta("http://gopkgdoc.appspot.com/pkg/"),
+		regexp.QuoteMeta("http://go.pkgdoc.org/"),
+		regexp.QuoteMeta("http://gowalker.org/"),
+	}, "|") + `)([-a-zA-Z0-9~+_./]+)`),
+}
 
 // addReferences adds packages referenced in plain text s.
 func addReferences(references map[string]bool, s []byte) {
-	for _, m := range referencePat.FindAllSubmatch(s, -1) {
-		p := string(m[1])
-		if IsValidRemotePath(p) {
-			references[p] = true
-		}
-	}
-	for _, m := range quotedReferencePat.FindAllSubmatch(s, -1) {
-		p := string(m[1])
-		if IsValidRemotePath(p) {
-			references[p] = true
+	for _, pat := range referencesPats {
+		for _, m := range pat.FindAllSubmatch(s, -1) {
+			p := string(m[1])
+			if IsValidRemotePath(p) {
+				references[p] = true
+			}
 		}
 	}
 }

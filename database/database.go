@@ -520,6 +520,10 @@ func (db *Database) GoIndex() ([]Package, error) {
 	return db.getPackages("index:project:go", false)
 }
 
+func (db *Database) GoSubrepoIndex() ([]Package, error) {
+	return db.getPackages("index:project:subrepo", false)
+}
+
 func (db *Database) Index() ([]Package, error) {
 	return db.getPackages("index:all:", false)
 }

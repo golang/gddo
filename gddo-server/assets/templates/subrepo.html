@@ -1,0 +1,7 @@
+{{define "Head"}}<title>Go Sub-Repository Packages - GoDoc</title>{{end}}
+
+{{define "Body"}}
+  <h1>Go Sub-repository Packages</h1>
+  These packages are part of the Go Project but outside the main Go tree. They are developed under looser compatibility requirements than the Go core.
+  {{template "Pkgs" .pkgs}}
+{{end}}

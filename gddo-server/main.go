@@ -379,6 +379,16 @@ func serveGoIndex(resp web.Response, req *web.Request) error {
 	})
 }
 
+func serveGoSubrepoIndex(resp web.Response, req *web.Request) error {
+	pkgs, err := db.GoSubrepoIndex()
+	if err != nil {
+		return err
+	}
+	return executeTemplate(resp, "subrepo.html", web.StatusOK, nil, map[string]interface{}{
+		"pkgs": pkgs,
+	})
+}
+
 func serveIndex(resp web.Response, req *web.Request) error {
 	pkgs, err := db.Index()
 	if err != nil {
@@ -718,8 +728,6 @@ var (
 	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
-	crawlInterval   = flag.Duration("crawl_interval", 0, "Package updater sleeps for this duration between package updates. Zero disables updates.")
-	gitHubInterval  = flag.Duration("github_interval", 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler.")
 	secretsPath     = flag.String("secrets", "secrets.json", "Path to file containing application ids and credentials for other services.")
 	redirGoTalks    = flag.Bool("redirGoTalks", true, "Redirect paths with prefix 'code.google.com/p/go.talks/' to talks.golang.org")
 	srcZip          = flag.String("srcZip", "", "")
@@ -809,6 +817,7 @@ func main() {
 		{"pkg.html", "common.html", "layout.html"},
 		{"results.html", "common.html", "layout.html"},
 		{"std.html", "common.html", "layout.html"},
+		{"subrepo.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
 	}); err != nil {
 		log.Fatal(err)
@@ -840,13 +849,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *crawlInterval > 0 {
-		go crawl(*crawlInterval)
-	}
-
-	if *gitHubInterval > 0 {
-		go crawlGitHubUpdates(*gitHubInterval)
-	}
+	go runBackgroundTasks()
 
 	staticConfig := &web.StaticConfig{
 		Header:      web.Header{web.HeaderCacheControl: {"public, max-age=3600"}},
@@ -902,6 +905,7 @@ func main() {
 	r.Add("/-/opensearch.xml").GetFunc(serveOpenSearchDescription)
 	r.Add("/-/typeahead").GetFunc(serveTypeahead)
 	r.Add("/-/go").GetFunc(serveGoIndex)
+	r.Add("/-/subrepo").GetFunc(serveGoSubrepoIndex)
 	r.Add("/-/index").GetFunc(serveIndex)
 	r.Add("/-/refresh").PostFunc(serveRefresh)
 	r.Add("/-/static/<path:.*>").Get(staticConfig.DirectoryHandler("static"))
