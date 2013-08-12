@@ -202,9 +202,12 @@ func servePackage(resp web.Response, req *web.Request) error {
 			return err
 		}
 
-		template := "pkg"
-		if pdoc.IsCmd {
+		template := "dir"
+		switch {
+		case pdoc.IsCmd:
 			template = "cmd"
+		case pdoc.Name != "":
+			template = "pkg"
 		}
 		template += templateExt(req)
 
@@ -808,6 +811,7 @@ func main() {
 		{"about.html", "common.html", "layout.html"},
 		{"bot.html", "common.html", "layout.html"},
 		{"cmd.html", "common.html", "layout.html"},
+		{"dir.html", "common.html", "layout.html"},
 		{"home.html", "common.html", "layout.html"},
 		{"importers.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
@@ -825,6 +829,7 @@ func main() {
 
 	if err := parseTextTemplates([][]string{
 		{"cmd.txt", "common.txt"},
+		{"dir.txt", "common.txt"},
 		{"home.txt", "common.txt"},
 		{"notfound.txt", "common.txt"},
 		{"pkg.txt", "common.txt"},

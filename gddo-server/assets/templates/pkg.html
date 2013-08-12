@@ -3,44 +3,44 @@
 {{define "Body"}}
   {{template "ProjectNav" $}}
   {{with .pdoc}}
-    {{if .Name}}<h2>package {{.Name}}</h2>
-      <p><code>import "{{.ImportPath}}"</code>
-      {{.Doc|comment}}
-      {{template "Examples" .|$.pdoc.ObjExamples}}
+    <h2>package {{.Name}}</h2>
+    <p><code>import "{{.ImportPath}}"</code>
+    {{.Doc|comment}}
+    {{template "Examples" .|$.pdoc.ObjExamples}}
 
-      <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-      {{if .Truncated}}<div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>{{end}}
+    <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
+    {{if .Truncated}}<div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>{{end}}
 
-      <ul class="list-unstyled">
-      {{if .Consts}}<li><a href="#pkg-constants">Constants</a>{{end}}
-      {{if .Vars}}<li><a href="#pkg-variables">Variables</a>{{end}}
-      {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a>{{end}}
-      {{range $t := .Types}}
-        <li><a href="#{{.Name}}">type {{.Name}}</a>
-          {{if or .Funcs .Methods}}<ul>{{end}}
-          {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a>{{end}}
-          {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{.Decl.Text}}</a>{{end}}
-          {{if or .Funcs .Methods}}</ul>{{end}}
-      {{end}}
-      </ul>
+    <ul class="list-unstyled">
+    {{if .Consts}}<li><a href="#pkg-constants">Constants</a>{{end}}
+    {{if .Vars}}<li><a href="#pkg-variables">Variables</a>{{end}}
+    {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a>{{end}}
+    {{range $t := .Types}}
+      <li><a href="#{{.Name}}">type {{.Name}}</a>
+        {{if or .Funcs .Methods}}<ul>{{end}}
+        {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a>{{end}}
+        {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{.Decl.Text}}</a>{{end}}
+        {{if or .Funcs .Methods}}</ul>{{end}}
+    {{end}}
+    </ul>
 
-      {{with .AllExamples}}<h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4><ul class="list-unstyled">{{range . }}
-      <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').height('auto')">{{.Label}}</a>{{end}}
-      </ul>{{else}}<span id="pkg-examples"></span>{{end}}
+    {{with .AllExamples}}<h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4><ul class="list-unstyled">{{range . }}
+    <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').height('auto')">{{.Label}}</a>{{end}}
+    </ul>{{else}}<span id="pkg-examples"></span>{{end}}
 
-      {{if .Name}}<h4 id="pkg-files">{{with .BrowseURL}}<a href="{{.}}">Package Files</a>{{else}}Package Files{{end}} <a class="permalink" href="#pkg-files">&para;</a></h4>
-      <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
+    <h4 id="pkg-files">{{with .BrowseURL}}<a href="{{.}}">Package Files</a>{{else}}Package Files{{end}} <a class="permalink" href="#pkg-files">&para;</a></h4>
+    <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
 
-      {{if .Consts}}<h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>{{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
+    {{if .Consts}}<h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>{{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 
-      {{if .Vars}}<h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>{{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
+    {{if .Vars}}<h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>{{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}{{end}}
 
-      {{range .Funcs}}<h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
-      {{template "Examples" .|$.pdoc.ObjExamples}}
-      {{end}}
+    {{range .Funcs}}<h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+    <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
+    {{template "Examples" .|$.pdoc.ObjExamples}}
+    {{end}}
 
-      {{range $t := .Types}}<h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+   {{range $t := .Types}}<h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
       <pre>{{code .Decl $t}}</pre>{{.Doc|comment}}
       {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
       {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
@@ -56,15 +56,12 @@
         {{template "Examples" .|$.pdoc.ObjExamples}}
         {{end}}
 
-      {{end}}{{/* range .Types */}}
+    {{end}}{{/* range .Types */}}
 
-      {{with .Notes}}{{with .BUG}}<h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}{{end}}{{end}}
-
-    {{end}}{{/* if .Name */}}
+    {{with .Notes}}{{with .BUG}}<h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}{{end}}{{end}}
 
   {{end}}
 
-{{end}}
 {{template "PkgCmdFooter" $}}
 {{end}}
 

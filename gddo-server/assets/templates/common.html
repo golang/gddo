@@ -56,7 +56,7 @@
 {{end}}{{end}}
 
 {{define "PkgCmdFooter"}}
-{{if $.pkgs}}<h3 id="pkg-subdirectories">{{if $.pdoc.Name}}Directories{{else}}Directory{{end}} <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
+{{if $.pkgs}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>{{range $.pkgs}}<tr><td><a href="/{{.Path}}">{{relativePath .Path $.pdoc.ImportPath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
