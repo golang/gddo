@@ -33,14 +33,6 @@
   {{end}}
 </div>{{end}}
 
-{{define "Errors"}}{{with .pdoc.Errors}}<div class="well">
-    <p>The <a href="http://golang.org/cmd/go/#Download_and_install_packages_and_dependencies">go get</a>
-    command cannot install this package because of the following issues:
-    <ul>
-      {{range .}}<li>{{.}}{{end}}
-  </ul>
-</div>{{end}}{{end}}
-
 {{define "Pkgs"}}
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
@@ -64,17 +56,27 @@
 {{end}}{{end}}
 
 {{define "PkgCmdFooter"}}
-{{if $.pkgs}}{{if $.pdoc.Name}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>{{else}}<h3>Directory</h3>{{end}}
+{{if $.pkgs}}<h3 id="pkg-subdirectories">{{if $.pdoc.Name}}Directories{{else}}Directory{{end}} <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>{{range $.pkgs}}<tr><td><a href="/{{.Path}}">{{relativePath .Path $.pdoc.ImportPath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
     </table>
 {{end}}
+<div id="x-pkginfo">
 {{with $.pdoc}}
   <form name="x-refresh" method="POST" action="/-/refresh"><input type="hidden" name="path" value="{{.ImportPath}}"></form>
   <p>{{if or .Imports $.importerCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.importerCount}} and {{end}}{{if $.importerCount}}is imported by <a href="?importers">{{$.importerCount}} packages</a>{{end}}.{{end}}
   {{if not .Updated.IsZero}}Updated <span class="timeago" title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{.Updated.Format "2006-01-02"}}</span>{{if or (equal .GOOS "windows") (equal .GOOS "darwin")}} with GOOS={{.GOOS}}{{end}}.{{end}}
   <a href="javascript:document.getElementsByName('x-refresh')[0].submit();" title="Refresh this page from the source.">Refresh</a>.
-{{end}}{{end}}
+{{end}}
+{{with $.pdoc.Errors}}
+    <p>The <a href="http://golang.org/cmd/go/#Download_and_install_packages_and_dependencies">go get</a>
+    command cannot install this package because of the following issues:
+    <ul>
+      {{range .}}<li>{{.}}{{end}}
+  </ul>
+{{end}}
+</div>
+{{end}}
 
 {{define "jQuery"}}<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>{{end}}

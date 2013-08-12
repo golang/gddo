@@ -18,6 +18,13 @@ h4 { margin-top: 20px; }
     background-color: #eee;
 }
 
+#x-pkginfo {
+    margin-top: 25px;
+    border-top: 1px solid #ccc;
+    padding-top: 20px;
+    margin-bottom: 15px;
+}
+
 @media screen and (min-width: 768px) {
     #x-search {
         float: right;

@@ -3,7 +3,6 @@
 {{define "Body"}}
   {{template "ProjectNav" $}}
   <h2>Command {{$.pdoc.PageName}}</h2>
-  {{template "Errors" $}}
   {{$.pdoc.Doc|comment}}
   {{template "PkgCmdFooter" $}}
 {{end}}

@@ -3,9 +3,7 @@
 {{define "Body"}}
   {{template "ProjectNav" $}}
   {{with .pdoc}}
-    {{if .Name}}<h2>package {{.Name}}</h2>{{end}}
-    {{template "Errors" $}}
-    {{if .Name}}
+    {{if .Name}}<h2>package {{.Name}}</h2>
       <p><code>import "{{.ImportPath}}"</code>
       {{.Doc|comment}}
       {{template "Examples" .|$.pdoc.ObjExamples}}
