@@ -15,7 +15,7 @@
 // Redis keys and types:
 //
 // maxPackageId string: next id to assign
-// id:<path> string: id for given import path
+// ids hset maps import path to package id
 // pkg:<id> hash
 //      terms: space separated search terms
 //      path: import path
@@ -132,7 +132,7 @@ func New() (*Database, error) {
 func (db *Database) Exists(path string) (bool, error) {
 	c := db.Pool.Get()
 	defer c.Close()
-	return redis.Bool(c.Do("EXISTS", "id:"+path))
+	return redis.Bool(c.Do("HEXISTS", "ids", path))
 }
 
 var putScript = redis.NewScript(0, `
@@ -145,10 +145,10 @@ var putScript = redis.NewScript(0, `
     local kind = ARGV[7]
     local nextCrawl = ARGV[8]
 
-    local id = redis.call('GET', 'id:' .. path)
+    local id = redis.call('HGET', 'ids', path)
     if not id then
         id = redis.call('INCR', 'maxPackageId')
-        redis.call('SET', 'id:' .. path, id)
+        redis.call('HSET', 'ids', path, id)
     end
 
     if etag ~= '' and etag == redis.call('HGET', 'pkg:' .. id, 'clone') then
@@ -172,7 +172,7 @@ var putScript = redis.NewScript(0, `
             redis.call('SADD', 'index:' .. term, id)
             if string.sub(term, 1, 7) == 'import:' then
                 local import = string.sub(term, 8)
-                if redis.call('EXISTS', 'id:' .. import) == 0  and redis.call('SISMEMBER', 'badCrawl', import) == 0 then
+                if redis.call('HEXISTS', 'ids',  import) == 0  and redis.call('SISMEMBER', 'badCrawl', import) == 0 then
                     redis.call('SADD', 'newCrawl', import)
                 end
             end
@@ -316,7 +316,7 @@ var getDocScript = redis.NewScript(0, `
         end
         id = r[1]
     else
-        id = redis.call('GET', 'id:' .. path)
+        id = redis.call('HGET', 'ids', path)
         if not id then
             return false
         end
@@ -457,7 +457,7 @@ func (db *Database) GetDoc(path string) (*doc.Package, time.Time, error) {
 var deleteScript = redis.NewScript(0, `
     local path = ARGV[1]
 
-    local id = redis.call('GET', 'id:' .. path)
+    local id = redis.call('HGET', 'ids', path)
     if not id then
         return false
     end
@@ -471,7 +471,7 @@ var deleteScript = redis.NewScript(0, `
     redis.call('SREM', 'newCrawl', path)
     redis.call('ZREM', 'popular', id)
     redis.call('DEL', 'pkg:' .. id)
-    return redis.call('DEL', 'id:' .. path)
+    return redis.call('HDEL', 'ids', path)
 `)
 
 // Delete deletes the documenation for the given import path.
@@ -561,7 +561,7 @@ var packagesScript = redis.NewScript(0, `
         local path = ARGV[i]
         local synopsis = ''
         local kind = 'u'
-        local id = redis.call('GET', 'id:' .. path)
+        local id = redis.call('HGET', 'ids',  path)
         if id then
             synopsis = redis.call('HGET', 'pkg:' .. id, 'synopsis')
             kind = redis.call('HGET', 'pkg:' .. id, 'kind')
@@ -605,14 +605,13 @@ func (db *Database) Block(root string) error {
 	if _, err := c.Do("SADD", "block", root); err != nil {
 		return err
 	}
-	keys, err := redis.Values(c.Do("KEYS", "id:"+root+"*"))
+	keys, err := redis.Strings(c.Do("HKEYS", "ids"))
 	if err != nil {
 		return err
 	}
 	for _, key := range keys {
-		path := string(key.([]byte)[len("id:"):])
-		if path == root || strings.HasPrefix(path, root) && path[len(root)] == '/' {
-			if _, err := deleteScript.Do(c, path); err != nil {
+		if key == root || strings.HasPrefix(key, root) && key[len(root)] == '/' {
+			if _, err := deleteScript.Do(c, key); err != nil {
 				return err
 			}
 		}
@@ -734,7 +733,7 @@ func (db *Database) Do(f func(*PackageInfo) error) error {
 var importGraphScript = redis.NewScript(0, `
     local path = ARGV[1]
 
-    local id = redis.call('GET', 'id:' .. path)
+    local id = redis.call('HGET', 'ids', path)
     if not id then
         return false
     end
@@ -827,7 +826,7 @@ var incrementPopularScore = redis.NewScript(0, `
     local n = ARGV[2]
     local t = ARGV[3]
 
-    local id = redis.call('GET', 'id:' .. path)
+    local id = redis.call('HGET', 'ids', path)
     if not id then
         return
     end

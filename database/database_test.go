@@ -197,8 +197,13 @@ func TestPutGet(t *testing.T) {
 	c.Send("DEL", "block")
 	c.Send("DEL", "popular:0")
 	c.Send("DEL", "newCrawl")
-	if n, err := c.Do("DBSIZE"); n != int64(0) || err != nil {
-		t.Errorf("c.Do(DBSIZE) = %d, %v, want 0, nil", n, err)
+	keys, err := redis.Values(c.Do("HKEYS", "ids"))
+	for _, key := range keys {
+		t.Errorf("unexpected id %s", key)
+	}
+	keys, err = redis.Values(c.Do("KEYS", "*"))
+	for _, key := range keys {
+		t.Errorf("unexpected key %s", key)
 	}
 }
 
@@ -215,7 +220,7 @@ func TestPopular(t *testing.T) {
 	score := float64(4048)
 	for id := 12; id >= 0; id-- {
 		path := "github.com/user/repo/p" + strconv.Itoa(id)
-		c.Do("SET", "id:"+path, id)
+		c.Do("HSET", "ids", path, id)
 		_, err := incrementPopularScore.Do(c, path, score, scaledTime(now))
 		if err != nil {
 			t.Fatal(err)
@@ -226,7 +231,7 @@ func TestPopular(t *testing.T) {
 
 	values, _ := redis.Values(c.Do("ZRANGE", "popular", "0", "100000", "WITHSCORES"))
 	if len(values) != 26 {
-		t.Errorf("Expected 26 values, got %d", len(values))
+		t.Fatalf("Expected 26 values, got %d", len(values))
 	}
 
 	// Check for equal scores.
