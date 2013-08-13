@@ -657,6 +657,19 @@ func serveAPIPackages(resp web.Response, req *web.Request) error {
 	return json.NewEncoder(w).Encode(&data)
 }
 
+func serveAPIImporters(resp web.Response, req *web.Request) error {
+	pkgs, err := db.Importers(req.RouteVars["path"])
+	if err != nil {
+		return err
+	}
+	var data struct {
+		Results []database.Package `json:"results"`
+	}
+	data.Results = pkgs
+	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=uft-8"}})
+	return json.NewEncoder(w).Encode(&data)
+}
+
 func handleError(resp web.Response, req *web.Request, status int, err error, r interface{}) {
 	logError(req, err, r)
 	switch status {
@@ -893,6 +906,7 @@ func main() {
 	r.Add("/robots.txt").Get(staticConfig.FileHandler("presentRobots.txt"))
 	r.Add("/search").GetFunc(serveAPISearch)
 	r.Add("/packages").GetFunc(serveAPIPackages)
+	r.Add("/importers/<path:.+>").GetFunc(serveAPIImporters)
 
 	h.Add("api.<:.*>", web.ErrorHandler(handleAPIError, web.FormAndCookieHandler(6000, false, r)))
 
