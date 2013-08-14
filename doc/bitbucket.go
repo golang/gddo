@@ -33,7 +33,7 @@ func getBitbucketDoc(client *http.Client, match map[string]string, savedEtag str
 		var repo struct {
 			Scm string
 		}
-		if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
+		if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), nil, &repo); err != nil {
 			return nil, err
 		}
 		match["vcs"] = repo.Scm
@@ -44,7 +44,7 @@ func getBitbucketDoc(client *http.Client, match map[string]string, savedEtag str
 		var nodes map[string]struct {
 			Node string
 		}
-		if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/{0}", match, nodeType), &nodes); err != nil {
+		if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/{0}", match, nodeType), nil, &nodes); err != nil {
 			return nil, err
 		}
 		for t, n := range nodes {
@@ -69,7 +69,7 @@ func getBitbucketDoc(client *http.Client, match map[string]string, savedEtag str
 		}
 	}
 
-	if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), &directory); err != nil {
+	if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), nil, &directory); err != nil {
 		return nil, err
 	}
 

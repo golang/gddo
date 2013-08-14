@@ -20,12 +20,14 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
-	gitHubRawHeader = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
-	gitHubPattern   = regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
-	gitHubCred      string
+	gitHubRawHeader     = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
+	gitHubPreviewHeader = http.Header{"Accept": {"application/vnd.github.preview"}}
+	gitHubPattern       = regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
+	gitHubCred          string
 )
 
 func SetGitHubCredentials(id, secret string) {
@@ -46,7 +48,7 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 		Url string
 	}
 
-	err := httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/refs?{cred}", match), &refs)
+	err := httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/refs?{cred}", match), nil, &refs)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 		Url string
 	}
 
-	err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/trees/{tag}?recursive=1&{cred}", match), &tree)
+	err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/trees/{tag}?recursive=1&{cred}", match), nil, &tree)
 	if err != nil {
 		return nil, err
 	}
@@ -185,4 +187,39 @@ func getGitHubPresentation(client *http.Client, match map[string]string) (*Prese
 	}
 
 	return b.build()
+}
+
+type GitHubUpdate struct {
+	OwnerRepo string
+	Fork      bool
+}
+
+func GetGitHubUpdates(client *http.Client, last string) (string, []GitHubUpdate, error) {
+	if last == "" {
+		last = time.Now().Add(-24 * time.Hour).UTC().Format("2006-01-02T15:04:05Z")
+	}
+	u := "https://api.github.com/search/repositories?q=language:Go+pushed:>" + last
+	//u := "https://api.github.com/search/repositories?order=asc&sort=updated&q=language:Go+pushed:>" + last
+	if gitHubCred != "" {
+		u += "&" + gitHubCred
+	}
+	var updates struct {
+		Items []struct {
+			FullName string `json:"full_name"`
+			Fork     bool
+			PushedAt string `json:"pushed_at"`
+		}
+	}
+	err := httpGetJSON(client, u, gitHubPreviewHeader, &updates)
+	if err != nil {
+		return "", nil, err
+	}
+	var result []GitHubUpdate
+	for _, item := range updates.Items {
+		result = append(result, GitHubUpdate{OwnerRepo: item.FullName, Fork: item.Fork})
+		if item.PushedAt > last {
+			last = item.PushedAt
+		}
+	}
+	return last, result, nil
 }

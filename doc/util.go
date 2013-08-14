@@ -148,8 +148,8 @@ func httpGet(client *http.Client, url string, header http.Header) (io.ReadCloser
 	return nil, err
 }
 
-func httpGetJSON(client *http.Client, url string, v interface{}) error {
-	rc, err := httpGet(client, url, nil)
+func httpGetJSON(client *http.Client, url string, header http.Header, v interface{}) error {
+	rc, err := httpGet(client, url, header)
 	if err != nil {
 		return err
 	}

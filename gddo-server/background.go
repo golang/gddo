@@ -15,14 +15,9 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
-	"io/ioutil"
+	"github.com/garyburd/gddo/doc"
 	"log"
-	"net/http"
-	"regexp"
-	"strconv"
 	"time"
 )
 
@@ -102,67 +97,26 @@ func doCrawl() error {
 	return nil
 }
 
-var gitHubProjectPat = regexp.MustCompile(`href="/([^/]+/[^/]+)/stargazers"`)
-var gitHubUpdatedPat = regexp.MustCompile(`datetime="([^"]+)"`)
-
 func readGitHubUpdates() error {
-	updates := make(map[string]string)
-	for i := 0; i < 2; i++ {
-		resp, err := http.Get("https://github.com/languages/Go/updated?page=" + strconv.Itoa(i+1))
-		if err != nil {
-			return err
-		}
-		p, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		for {
-			m := gitHubProjectPat.FindSubmatchIndex(p)
-			if m == nil {
-				break
-			}
-			ownerRepo := string(p[m[2]:m[3]])
-			p = p[m[1]:]
-
-			m = gitHubUpdatedPat.FindSubmatchIndex(p)
-			if m == nil {
-				return fmt.Errorf("updated not found for %s", ownerRepo)
-			}
-			updated := string(p[m[2]:m[3]])
-			p = p[m[1]:]
-
-			if _, found := updates[ownerRepo]; !found {
-				updates[ownerRepo] = updated
-			}
-		}
-	}
-	if len(updates) == 0 {
-		return errors.New("no updates found")
-	}
-
-	const key = "ghupdates"
-	var prev map[string]string
-	if err := db.GetGob(key, &prev); err != nil {
+	const key = "gitHubUpdates"
+	var last string
+	if err := db.GetGob(key, &last); err != nil {
 		return err
 	}
-	if prev == nil {
-		prev = make(map[string]string)
+	last, updates, err := doc.GetGitHubUpdates(httpClient, last)
+	if err != nil {
+		return err
 	}
-	for ownerRepo, t := range updates {
-		if prev[ownerRepo] != t {
-			d := time.Duration(0)
-			if prev[ownerRepo] != "" {
-				// Delay crawl if repo was updated recently.
-				d = time.Hour
-			}
-			log.Printf("Set next crawl for %s to %v from now", ownerRepo, d)
-			if err := db.SetNextCrawl("github.com/"+ownerRepo, time.Now().Add(d)); err != nil {
-				log.Println("ERROR set next crawl:", err)
-			}
+
+	for _, update := range updates {
+		d := time.Duration(0) // todo: adjust for frequently udpated repos.
+		log.Printf("Set next crawl for %s to %v from now", update.OwnerRepo, d)
+		if err := db.SetNextCrawl("github.com/"+update.OwnerRepo, time.Now().Add(d)); err != nil {
+			log.Println("ERROR set next crawl:", err)
 		}
 	}
-	if err := db.PutGob(key, updates); err != nil {
+
+	if err := db.PutGob(key, last); err != nil {
 		return err
 	}
 	return nil
