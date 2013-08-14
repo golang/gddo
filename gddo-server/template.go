@@ -159,8 +159,8 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 		}
 		link := j < len(pdoc.ImportPath) || (templateName != "cmd.html" && templateName != "pkg.html")
 		if link {
-			buf.WriteString(`<a href="/`)
-			buf.WriteString(escapePath(pdoc.ImportPath[:j]))
+			buf.WriteString(`<a href="`)
+			buf.WriteString(formatPathFrag(pdoc.ImportPath[:j], ""))
 			buf.WriteString(`">`)
 		} else {
 			buf.WriteString(`<span class="text-muted">`)
@@ -185,8 +185,8 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 	return htemp.HTML(buf.String())
 }
 
-func escapePath(s string) string {
-	u := url.URL{Path: s}
+func formatPathFrag(path, fragment string) string {
+	u := url.URL{Path: path, Fragment: fragment}
 	return u.String()
 }
 
@@ -353,25 +353,22 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 		htemp.HTMLEscape(&buf, src[last:a.Pos])
 		switch a.Kind {
 		case doc.PackageLinkAnnotation:
-			p := "/" + c.Paths[a.PathIndex]
 			buf.WriteString(`<a href="`)
-			buf.WriteString(escapePath(p))
+			buf.WriteString(formatPathFrag(c.Paths[a.PathIndex], ""))
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
 		case doc.LinkAnnotation, doc.BuiltinAnnotation:
 			var p string
 			if a.Kind == doc.BuiltinAnnotation {
-				p = "/builtin"
+				p = "builtin"
 			} else if a.PathIndex >= 0 {
-				p = "/" + c.Paths[a.PathIndex]
+				p = c.Paths[a.PathIndex]
 			}
 			n := src[a.Pos:a.End]
 			n = n[bytes.LastIndex(n, period)+1:]
 			buf.WriteString(`<a href="`)
-			buf.WriteString(escapePath(p))
-			buf.WriteByte('#')
-			buf.WriteString(escapePath(string(n)))
+			buf.WriteString(formatPathFrag(p, string(n)))
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
