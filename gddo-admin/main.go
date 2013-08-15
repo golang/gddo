@@ -42,6 +42,7 @@ var commands = []*command{
 	popularCommand,
 	dangleCommand,
 	crawlCommand,
+	statsCommand,
 }
 
 func printUsage() {

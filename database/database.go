@@ -27,10 +27,10 @@
 // index:<term> set: package ids for given search term
 // index:import:<path> set: packages with import path
 // index:project:<root> set: packages in project with root
-// nextCrawl zset: package id, Unix time for next crawl
 // block set: packages to block
 // popular zset: package id, score
 // popular:0 string: scaled base time for popular scores
+// nextCrawl zset: package id, Unix time for next crawl
 // newCrawl set: new paths to crawl
 // badCrawl set: paths that returned error when crawling.
 
@@ -184,6 +184,7 @@ var putScript = redis.NewScript(0, `
 
     if nextCrawl ~= '0' then
         redis.call('ZADD', 'nextCrawl', nextCrawl, id)
+        redis.call('HSET', 'pkg:' .. id, 'crawl', nextCrawl)
     end
 
     return redis.call('HMSET', 'pkg:' .. id, 'path', path, 'synopsis', synopsis, 'score', score, 'gob', gob, 'terms', terms, 'etag', etag, 'kind', kind)
@@ -239,27 +240,6 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
 	return err
 }
 
-var setCloneScript = redis.NewScript(0, `
-    local root = ARGV[1]
-    local etag = ARGV[2]
-
-    local pkgs = redis.call('SORT', 'index:project:' .. root, 'GET', '#',  'GET', 'pkg:*->etag')
-
-    for i=1,#pkgs,2 do
-        if pkgs[i+1] == etag then
-            redis.call('HSET', 'pkg:' .. pkgs[i], 'clone', etag)
-        end
-    end
-`)
-
-// SetClone sets the tag for which a project is considered to be a clone.
-func (db *Database) SetClone(projectRoot string, etag string) error {
-	c := db.Pool.Get()
-	defer c.Close()
-	_, err := setCloneScript.Do(c, normalizeProjectRoot(projectRoot), etag)
-	return err
-}
-
 var setNextCrawlEtagScript = redis.NewScript(0, `
     local root = ARGV[1]
     local etag = ARGV[2]
@@ -270,6 +250,7 @@ var setNextCrawlEtagScript = redis.NewScript(0, `
     for i=1,#pkgs,2 do
         if pkgs[i+1] == etag then
             redis.call('ZADD', 'nextCrawl', nextCrawl, pkgs[i])
+            redis.call('HSET', 'pkg:' .. pkgs[i], 'crawl', nextCrawl)
         end
     end
 `)
@@ -282,24 +263,29 @@ func (db *Database) SetNextCrawlEtag(projectRoot string, etag string, t time.Tim
 	return err
 }
 
-var setNextCrawlScript = redis.NewScript(0, `
+var bumpCrawlScript = redis.NewScript(0, `
     local root = ARGV[1]
-    local nextCrawl = tonumber(ARGV[2])
-
+    local now = tonumber(ARGV[2])
+    local nextCrawl = now + 3600
     local pkgs = redis.call('SORT', 'index:project:' .. root, 'GET', '#')
 
     for i=1,#pkgs do
-        if nextCrawl < tonumber(redis.call('ZSCORE', 'nextCrawl', pkgs[i])) then
+        local t = tonumber(redis.call('HGET', 'pkg:' .. pkgs[i], 'crawl') or 0)
+        if t == 0 or now < t then
+            redis.call('HSET', 'pkg:' .. pkgs[i], 'crawl', now)
+        end
+        t = tonumber(redis.call('ZSCORE', 'nextCrawl', pkgs[i]) or 0)
+        if t == 0 or nextCrawl < t then
             redis.call('ZADD', 'nextCrawl', nextCrawl, pkgs[i])
+            nextCrawl = nextCrawl + 30
         end
     end
 `)
 
-// SetNextCrawl sets the maximum next crawl time for all packages in the project.
-func (db *Database) SetNextCrawl(projectRoot string, t time.Time) error {
+func (db *Database) BumpCrawl(projectRoot string) error {
 	c := db.Pool.Get()
 	defer c.Close()
-	_, err := setNextCrawlScript.Do(c, normalizeProjectRoot(projectRoot), t.Unix())
+	_, err := bumpCrawlScript.Do(c, normalizeProjectRoot(projectRoot), time.Now().Unix())
 	return err
 }
 
@@ -327,9 +313,12 @@ var getDocScript = redis.NewScript(0, `
         return false
     end
 
-    local nextCrawl = redis.call('ZSCORE', 'nextCrawl', id)
+    local nextCrawl = redis.call('HGET', 'pkg:' .. id, 'crawl')
     if not nextCrawl then 
-        nextCrawl = 0
+        nextCrawl = redis.call('ZSCORE', 'nextCrawl', id)
+        if not nextCrawl then
+            nextCrawl = 0
+        end
     end
     
     return {gob, nextCrawl}

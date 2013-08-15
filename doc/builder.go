@@ -418,6 +418,9 @@ type Package struct {
 	// The tag is "" if there is no meaningful cache validation for the VCS.
 	Etag string
 
+	// Subdirectories, possibly containing Go code.
+	Subdirectories []string
+
 	// Package name or "" if no package for this import path. The proceeding
 	// fields are set even if a package is not found for the import path.
 	Name string

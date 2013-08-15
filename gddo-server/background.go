@@ -109,10 +109,9 @@ func readGitHubUpdates() error {
 	}
 
 	for _, update := range updates {
-		d := time.Duration(0) // todo: adjust for frequently udpated repos.
-		log.Printf("Set next crawl for %s to %v from now", update.OwnerRepo, d)
-		if err := db.SetNextCrawl("github.com/"+update.OwnerRepo, time.Now().Add(d)); err != nil {
-			log.Println("ERROR set next crawl:", err)
+		log.Printf("bump crawl %s", update.OwnerRepo)
+		if err := db.BumpCrawl("github.com/" + update.OwnerRepo); err != nil {
+			log.Println("ERROR force crawl:", err)
 		}
 	}
 

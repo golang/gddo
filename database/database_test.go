@@ -55,8 +55,7 @@ func closeDB(db *Database) {
 }
 
 func TestPutGet(t *testing.T) {
-	var updated = time.Unix(1221681866, 0).UTC()
-	var nextCrawl = time.Unix(1231681866, 0).UTC()
+	var nextCrawl = time.Unix(time.Now().Add(time.Hour).Unix(), 0).UTC()
 
 	db := newDB(t)
 	defer closeDB(db)
@@ -66,7 +65,7 @@ func TestPutGet(t *testing.T) {
 		Synopsis:    "hello",
 		ProjectRoot: "github.com/user/repo",
 		ProjectName: "foo",
-		Updated:     updated,
+		Updated:     time.Now().Add(-time.Hour),
 		Imports:     []string{"C", "errors", "github.com/user/repo/foo/bar"}, // self import for testing convenience.
 	}
 	if err := db.Put(pdoc, nextCrawl); err != nil {
@@ -87,37 +86,24 @@ func TestPutGet(t *testing.T) {
 		t.Errorf("db.Get(.../foo/bar) returned doc %v, want %v", actualPdoc, pdoc)
 	}
 	if !nextCrawl.Equal(actualCrawl) {
-		t.Errorf("db.Get(.../foo/bar) returned crawl %v, want %v", actualCrawl, updated)
+		t.Errorf("db.Get(.../foo/bar) returned crawl %v, want %v", actualCrawl, nextCrawl)
+	}
+
+	before := time.Now().Unix()
+	if err := db.BumpCrawl(pdoc.ProjectRoot); err != nil {
+		t.Errorf("db.BumpCrawl() returned %v", err)
+	}
+	after := time.Now().Unix()
+
+	_, _, actualCrawl, _ = db.Get("github.com/user/repo/foo/bar")
+	if actualCrawl.Unix() < before || after < actualCrawl.Unix() {
+		t.Errorf("actualCrawl=%v, expect value between %v and %v", actualCrawl.Unix(), before, after)
 	}
 
 	// Popular
 
 	if err := db.IncrementPopularScore(pdoc.ImportPath); err != nil {
 		t.Errorf("db.IncrementPopularScore() returned %v", err)
-	}
-
-	// Next crawl
-
-	if err := db.SetNextCrawl(pdoc.ProjectRoot, nextCrawl.Add(time.Hour)); err != nil {
-		t.Errorf("db.SetNextCrawl(...) returned %v", err)
-	}
-	_, _, actualCrawl, err = db.Get("github.com/user/repo/foo/bar")
-	if err != nil {
-		t.Fatalf("db.Get(.../foo/bar) returned %v", err)
-	}
-	if !nextCrawl.Equal(actualCrawl) {
-		t.Errorf("db.Get(.../foo/bar) returned crawl %v, want %v", actualCrawl, updated)
-	}
-	nextCrawl = nextCrawl.Add(-time.Hour)
-	if err := db.SetNextCrawl(pdoc.ProjectRoot, nextCrawl); err != nil {
-		t.Errorf("db.SetNextCrawl(...) returned %v", err)
-	}
-	_, _, actualCrawl, err = db.Get("github.com/user/repo/foo/bar")
-	if err != nil {
-		t.Fatalf("db.Get(.../foo/bar) returned %v", err)
-	}
-	if !nextCrawl.Equal(actualCrawl) {
-		t.Errorf("db.Get(.../foo/bar) returned crawl %v, want %v", actualCrawl, updated)
 	}
 
 	// Get "-"
