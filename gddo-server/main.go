@@ -524,7 +524,7 @@ func serveTypeahead(resp web.Response, req *web.Request) error {
 		items[i] = pkg.Path
 	}
 	data := map[string]interface{}{"items": items}
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=uft-8"}})
+	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 	return json.NewEncoder(w).Encode(data)
 }
 
@@ -640,7 +640,7 @@ func serveAPISearch(resp web.Response, req *web.Request) error {
 		Results []database.Package `json:"results"`
 	}
 	data.Results = pkgs
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=uft-8"}})
+	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 	return json.NewEncoder(w).Encode(&data)
 }
 
@@ -653,7 +653,7 @@ func serveAPIPackages(resp web.Response, req *web.Request) error {
 		Results []database.Package `json:"results"`
 	}
 	data.Results = pkgs
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=uft-8"}})
+	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 	return json.NewEncoder(w).Encode(&data)
 }
 
@@ -666,7 +666,7 @@ func serveAPIImporters(resp web.Response, req *web.Request) error {
 		Results []database.Package `json:"results"`
 	}
 	data.Results = pkgs
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=uft-8"}})
+	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 	return json.NewEncoder(w).Encode(&data)
 }
 
@@ -684,7 +684,7 @@ func handleError(resp web.Response, req *web.Request, status int, err error, r i
 		} else if e, ok := err.(*doc.RemoteError); ok {
 			s = "Error getting package files from " + e.Host + "."
 		}
-		w := resp.Start(web.StatusInternalServerError, web.Header{web.HeaderContentType: {"text/plan; charset=uft-8"}})
+		w := resp.Start(web.StatusInternalServerError, web.Header{web.HeaderContentType: {"text/plan; charset=utf-8"}})
 		io.WriteString(w, s)
 	}
 }
@@ -704,7 +704,7 @@ func handlePresentError(resp web.Response, req *web.Request, status int, err err
 		} else if e, ok := err.(*doc.RemoteError); ok {
 			s = "Error getting package files from " + e.Host + "."
 		}
-		w := resp.Start(status, web.Header{web.HeaderContentType: {"text/plan; charset=uft-8"}})
+		w := resp.Start(status, web.Header{web.HeaderContentType: {"text/plan; charset=utf-8"}})
 		io.WriteString(w, s)
 	}
 }
@@ -721,7 +721,7 @@ func handleAPIError(resp web.Response, req *web.Request, status int, err error, 
 			} `json:"error"`
 		}
 		data.Error.Message = web.StatusText(status)
-		w := resp.Start(status, web.Header{web.HeaderContentType: {"application/json; charset=uft-8"}})
+		w := resp.Start(status, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 		json.NewEncoder(w).Encode(&data)
 	}
 }
