@@ -72,8 +72,10 @@ $(function() {
 
     $('span.timeago').timeago();
     if (window.location.hash.substring(0, 9) == '#example-') {
-        console.log(window.location.hash.substring(1, 9));
-       $('#ex-' + window.location.hash.substring(9)).addClass('in').height('auto');
+        var id = '#ex-' + window.location.hash.substring(9);
+        console.log(id);
+        console.log($(id));
+       $(id).addClass('in').removeClass('collapse').height('auto');
     }
 
     var highlighted;

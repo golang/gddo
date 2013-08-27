@@ -65,15 +65,15 @@ func runBackgroundTasks() {
 
 func doCrawl() error {
 	// Look for new package to crawl.
-	importPath, err := db.GetNewCrawl()
+	importPath, hasSubdirs, err := db.PopNewCrawl()
 	if err != nil {
-		log.Printf("db.GetNewCrawl() returned error %v", err)
+		log.Printf("db.PopNewCrawl() returned error %v", err)
 		return nil
 	}
 	if importPath != "" {
-		if pdoc, err := crawlDoc("new", importPath, nil, false, time.Time{}); err != nil || pdoc == nil {
-			if err := db.SetBadCrawl(importPath); err != nil {
-				log.Printf("ERROR db.SetBadCrawl(%q): %v", importPath, err)
+		if pdoc, err := crawlDoc("new", importPath, nil, hasSubdirs, time.Time{}); pdoc == nil && err == nil {
+			if err := db.AddBadCrawl(importPath); err != nil {
+				log.Printf("ERROR db.AddBadCrawl(%q): %v", importPath, err)
 			}
 		}
 		return nil

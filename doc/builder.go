@@ -16,6 +16,7 @@ package doc
 
 import (
 	"bytes"
+	"errors"
 	"go/ast"
 	"go/build"
 	"go/doc"
@@ -327,19 +328,22 @@ var packageNamePats = []*regexp.Regexp{
 
 func simpleImporter(imports map[string]*ast.Object, path string) (*ast.Object, error) {
 	pkg := imports[path]
-	if pkg == nil {
-		// Guess the package name without importing it.
-		for _, pat := range packageNamePats {
-			m := pat.FindStringSubmatch(path)
-			if m != nil {
-				pkg = ast.NewObj(ast.Pkg, m[1])
-				pkg.Data = ast.NewScope(nil)
-				imports[path] = pkg
-				break
-			}
+	if pkg != nil {
+		return pkg, nil
+	}
+
+	// Guess the package name without importing it.
+	for _, pat := range packageNamePats {
+		m := pat.FindStringSubmatch(path)
+		if m != nil {
+			pkg = ast.NewObj(ast.Pkg, m[1])
+			pkg.Data = ast.NewScope(nil)
+			imports[path] = pkg
+			return pkg, nil
 		}
 	}
-	return pkg, nil
+
+	return nil, errors.New("package not found")
 }
 
 type File struct {

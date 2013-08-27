@@ -25,7 +25,7 @@
     </ul>
 
     {{with .AllExamples}}<h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4><ul class="list-unstyled">{{range . }}
-    <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').height('auto')">{{.Label}}</a>{{end}}
+    <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a>{{end}}
     </ul>{{else}}<span id="pkg-examples"></span>{{end}}
 
     <h4 id="pkg-files">{{with .BrowseURL}}<a href="{{.}}">Package Files</a>{{else}}Package Files{{end}} <a class="permalink" href="#pkg-files">&para;</a></h4>
@@ -65,10 +65,10 @@
 {{template "PkgCmdFooter" $}}
 {{end}}
 
-{{define "Examples"}}{{if .}}<div class="accordian">{{range .}}
-<div class="accordion-group">
-  <div class="accordion-heading"><a class="accordion-toggle" data-toggle="collapse" id="example-{{.Id}}" href="#ex-{{.Id}}">Example{{with .Example.Name}} ({{.}}){{end}}</a></div>
-  <div id="ex-{{.Id}}" class="accordion-body collapse"><div class="accordion-inner">
+{{define "Examples"}}{{if .}}<div class="panel-group">{{range .}}
+<div class="panel panel-default" id="example-{{.Id}}">
+  <div class="panel-heading"><a class="accordion-toggle" data-toggle="collapse" href="#ex-{{.Id}}">Example{{with .Example.Name}} ({{.}}){{end}}</a></div>
+  <div id="ex-{{.Id}}" class="panel-collapse collapse"><div class="panel-body">
     {{with .Example.Doc}}<p>{{.|comment}}{{end}}
     <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.Id}}">play</a>&nbsp;</span>{{end}}
     <pre>{{code .Example.Code nil}}</pre>

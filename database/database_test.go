@@ -193,6 +193,8 @@ func TestPutGet(t *testing.T) {
 	}
 }
 
+const epsilon = 0.000001
+
 func TestPopular(t *testing.T) {
 	db := newDB(t)
 	defer closeDB(db)
@@ -207,7 +209,7 @@ func TestPopular(t *testing.T) {
 	for id := 12; id >= 0; id-- {
 		path := "github.com/user/repo/p" + strconv.Itoa(id)
 		c.Do("HSET", "ids", path, id)
-		_, err := incrementPopularScore.Do(c, path, score, scaledTime(now))
+		err := db.incrementPopularScoreInternal(path, score, now)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -227,8 +229,39 @@ func TestPopular(t *testing.T) {
 	}
 	for i := 3; i < len(values); i += 2 {
 		s, _ := redis.Float64(values[i], nil)
-		if math.Abs(score-s)/score > 0.0001 {
+		if math.Abs(score-s)/score > epsilon {
 			t.Errorf("Bad score, score[1]=%g, score[%d]=%g", score, i, s)
 		}
+	}
+}
+
+func TestCounter(t *testing.T) {
+	db := newDB(t)
+	defer closeDB(db)
+
+	const key = "127.0.0.1"
+
+	now := time.Now()
+	n, err := db.incrementCounterInternal(key, 1, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(n-1.0) > epsilon {
+		t.Errorf("1: got n=%g, want 1", n)
+	}
+	n, err = db.incrementCounterInternal(key, 1, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(n-2.0)/2.0 > epsilon {
+		t.Errorf("2: got n=%g, want 2", n)
+	}
+	now = now.Add(counterHalflife)
+	n, err = db.incrementCounterInternal(key, 1, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(n-2.0)/2.0 > epsilon {
+		t.Errorf("3: got n=%g, want 2", n)
 	}
 }

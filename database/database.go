@@ -170,12 +170,6 @@ var putScript = redis.NewScript(0, `
             redis.call('SREM', 'index:' .. term, id)
         elseif x == 2 then 
             redis.call('SADD', 'index:' .. term, id)
-            if string.sub(term, 1, 7) == 'import:' then
-                local import = string.sub(term, 8)
-                if redis.call('HEXISTS', 'ids',  import) == 0  and redis.call('SISMEMBER', 'badCrawl', import) == 0 then
-                    redis.call('SADD', 'newCrawl', import)
-                end
-            end
         end
     end
 
@@ -188,6 +182,15 @@ var putScript = redis.NewScript(0, `
     end
 
     return redis.call('HMSET', 'pkg:' .. id, 'path', path, 'synopsis', synopsis, 'score', score, 'gob', gob, 'terms', terms, 'etag', etag, 'kind', kind)
+`)
+
+var addCrawlScript = redis.NewScript(0, `
+    for i=1,#ARGV do
+        local pkg = ARGV[i]
+        if redis.call('HEXISTS', 'ids',  pkg) == 0  and redis.call('SISMEMBER', 'badCrawl', pkg) == 0 then
+            redis.call('SADD', 'newCrawl', pkg)
+        end
+    end
 `)
 
 // Put adds the package documentation to the database.
@@ -204,7 +207,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
 	}
 
 	// Truncate large documents.
-	if gobBuf.Len() > 700000 {
+	if gobBuf.Len() > 200000 {
 		pdocNew := *pdoc
 		pdoc = &pdocNew
 		pdoc.Truncated = true
@@ -236,7 +239,45 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
 	if !nextCrawl.IsZero() {
 		t = nextCrawl.Unix()
 	}
+
 	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
+	if err != nil {
+		return err
+	}
+
+	if nextCrawl.IsZero() {
+		// Skip crawling related packages if this is not a full save.
+		return nil
+	}
+
+	paths := make(map[string]bool)
+	for _, p := range pdoc.Imports {
+		if doc.IsValidRemotePath(p) {
+			paths[p] = true
+		}
+	}
+	for _, p := range pdoc.TestImports {
+		if doc.IsValidRemotePath(p) {
+			paths[p] = true
+		}
+	}
+	for _, p := range pdoc.XTestImports {
+		if doc.IsValidRemotePath(p) {
+			paths[p] = true
+		}
+	}
+	if pdoc.ImportPath != pdoc.ProjectRoot && pdoc.ProjectRoot != "" {
+		paths[pdoc.ProjectRoot] = true
+	}
+	for _, p := range pdoc.Subdirectories {
+		paths[pdoc.ImportPath+"/"+p] = true
+	}
+
+	args := make([]interface{}, 0, len(paths))
+	for p := range paths {
+		args = append(args, p)
+	}
+	_, err = addCrawlScript.Do(c, args...)
 	return err
 }
 
@@ -456,7 +497,6 @@ var deleteScript = redis.NewScript(0, `
     end
 
     redis.call('ZREM', 'nextCrawl', id)
-    redis.call('SREM', 'badCrawl', path)
     redis.call('SREM', 'newCrawl', path)
     redis.call('ZREM', 'popular', id)
     redis.call('DEL', 'pkg:' .. id)
@@ -670,6 +710,7 @@ type PackageInfo struct {
 	Pkgs  []Package
 	Score float64
 	Kind  string
+	Size  int
 }
 
 // Do executes function f for each document in the database.
@@ -681,24 +722,28 @@ func (db *Database) Do(f func(*PackageInfo) error) error {
 		return err
 	}
 	for _, key := range keys {
-		values, err := redis.Values(c.Do("HMGET", key, "gob", "score", "kind", "path"))
+		values, err := redis.Values(c.Do("HMGET", key, "gob", "score", "kind", "path", "terms", "synopis"))
 		if err != nil {
 			return err
 		}
 
 		var (
-			pi   PackageInfo
-			p    []byte
-			path string
+			pi       PackageInfo
+			p        []byte
+			path     string
+			terms    string
+			synopsis string
 		)
 
-		if _, err := redis.Scan(values, &p, &pi.Score, &pi.Kind, &path); err != nil {
+		if _, err := redis.Scan(values, &p, &pi.Score, &pi.Kind, &path, &terms, &synopsis); err != nil {
 			return err
 		}
 
 		if p == nil {
 			continue
 		}
+
+		pi.Size = len(path) + len(p) + len(terms) + len(synopsis)
 
 		p, err = snappy.Decode(nil, p)
 		if err != nil {
@@ -810,7 +855,7 @@ func (db *Database) GetGob(key string, value interface{}) error {
 	return gob.NewDecoder(bytes.NewReader(p)).Decode(value)
 }
 
-var incrementPopularScore = redis.NewScript(0, `
+var incrementPopularScoreScript = redis.NewScript(0, `
     local path = ARGV[1]
     local n = ARGV[2]
     local t = ARGV[3]
@@ -832,18 +877,19 @@ var incrementPopularScore = redis.NewScript(0, `
 
 const popularHalfLife = time.Hour * 24 * 7
 
-func scaledTime(t time.Time) float64 {
-	const lambda = math.Ln2 / float64(popularHalfLife)
-	return lambda * float64(t.Sub(time.Unix(1257894000, 0)))
-}
-
-func (db *Database) IncrementPopularScore(path string) error {
+func (db *Database) incrementPopularScoreInternal(path string, delta float64, t time.Time) error {
 	// nt = n0 * math.Exp(-lambda * t)
 	// lambda = math.Ln2 / thalf
 	c := db.Pool.Get()
 	defer c.Close()
-	_, err := incrementPopularScore.Do(c, path, 1, scaledTime(time.Now()))
+	const lambda = math.Ln2 / float64(popularHalfLife)
+	scaledTime := lambda * float64(t.Sub(time.Unix(1257894000, 0)))
+	_, err := incrementPopularScoreScript.Do(c, path, delta, scaledTime)
 	return err
+}
+
+func (db *Database) IncrementPopularScore(path string) error {
+	return db.incrementPopularScoreInternal(path, 1, time.Now())
 }
 
 var popularScript = redis.NewScript(0, `
@@ -892,26 +938,59 @@ func (db *Database) PopularWithScores() ([]Package, error) {
 	return pkgs, err
 }
 
-func (db *Database) GetNewCrawl() (string, error) {
+func (db *Database) PopNewCrawl() (string, bool, error) {
 	c := db.Pool.Get()
 	defer c.Close()
-	v, err := redis.String(c.Do("SRANDMEMBER", "newCrawl"))
-	if err == redis.ErrNil {
+
+	var subdirs []Package
+
+	path, err := redis.String(c.Do("SPOP", "newCrawl"))
+	switch {
+	case err == redis.ErrNil:
 		err = nil
+		path = ""
+	case err == nil:
+		subdirs, err = db.getSubdirs(c, path, nil)
 	}
-	return v, err
+	return path, len(subdirs) > 0, err
 }
 
-var setBadCrawlScript = redis.NewScript(0, `
-    local path = ARGV[1]
-    if redis.call('SREM', 'newCrawl', path) == 1 then
-        redis.call('SADD', 'badCrawl', path)
-    end
-`)
-
-func (db *Database) SetBadCrawl(path string) error {
+func (db *Database) AddBadCrawl(path string) error {
 	c := db.Pool.Get()
 	defer c.Close()
-	_, err := setBadCrawlScript.Do(c, path)
+	_, err := c.Do("SADD", "badCrawl", path)
 	return err
+}
+
+var incrementCounterScript = redis.NewScript(0, `
+    local key = 'counter:' .. ARGV[1]
+    local n = tonumber(ARGV[2])
+    local t = tonumber(ARGV[3])
+    local exp = tonumber(ARGV[4])
+
+    local counter = redis.call('GET', key)
+    if counter then
+        counter = cjson.decode(counter)
+        n = n + counter.n * math.exp(counter.t - t)
+    end
+
+    redis.call('SET', key, cjson.encode({n = n; t = t}))
+    redis.call('EXPIRE', key, exp)
+    return tostring(n)
+`)
+
+const counterHalflife = time.Hour
+
+func (db *Database) incrementCounterInternal(key string, delta float64, t time.Time) (float64, error) {
+	// nt = n0 * math.Exp(-lambda * t)
+	// lambda = math.Ln2 / thalf
+	c := db.Pool.Get()
+	defer c.Close()
+	const lambda = math.Ln2 / float64(counterHalflife)
+	scaledTime := lambda * float64(t.Sub(time.Unix(1257894000, 0)))
+	return redis.Float64(incrementCounterScript.Do(c, key, delta, scaledTime, (4*counterHalflife)/time.Second))
+}
+
+func (db *Database) IncrementCounter(key string, delta float64) (float64, error) {
+	return db.incrementCounterInternal(key, delta, time.Now())
 }

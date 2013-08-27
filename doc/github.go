@@ -17,7 +17,6 @@ package doc
 import (
 	"net/http"
 	"net/url"
-	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -73,49 +72,91 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 		return nil, ErrNotModified
 	}
 
-	var tree struct {
-		Tree []struct {
-			Url  string
-			Path string
-			Type string
-		}
-		Url string
+	var contents []*struct {
+		Type     string
+		Name     string
+		Git_URL  string
+		HTML_URL string
 	}
 
-	err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/trees/{tag}?recursive=1&{cred}", match), nil, &tree)
+	err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}&{cred}", match), nil, &contents)
 	if err != nil {
 		return nil, err
 	}
 
-	// Because Github API URLs are case-insensitive, we need to check that the
-	// userRepo returned from Github matches the one that we are requesting.
-	if !strings.HasPrefix(tree.Url, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
+	if len(contents) == 0 {
+		return nil, NotFoundError{"No files in directory."}
+	}
+
+	// Because Github API URLs are case-insensitive, we check that the owner
+	// and repo returned from Github matches the one that we are requesting.
+	if !strings.HasPrefix(contents[0].Git_URL, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
 		return nil, NotFoundError{"Github import path has incorrect case."}
 	}
 
-	inTree := false
-	dirPrefix := match["dir"]
-	if dirPrefix != "" {
-		dirPrefix = dirPrefix[1:] + "/"
-	}
 	var files []*source
-	for _, node := range tree.Tree {
-		if node.Type != "blob" || !strings.HasPrefix(node.Path, dirPrefix) {
-			continue
-		}
-		inTree = true
-		if d, f := path.Split(node.Path); d == dirPrefix && isDocFile(f) {
+	var subdirs []string
+
+	for _, item := range contents {
+		switch {
+		case item.Type == "dir":
+			if isValidPathElement(item.Name) {
+				subdirs = append(subdirs, item.Name)
+			}
+		case isDocFile(item.Name):
 			files = append(files, &source{
-				name:      f,
-				browseURL: expand("https://github.com/{owner}/{repo}/blob/{tag}/{0}", match, node.Path),
-				rawURL:    node.Url + "?" + gitHubCred,
+				name:      item.Name,
+				browseURL: item.HTML_URL,
+				rawURL:    item.Git_URL + "?" + gitHubCred,
 			})
 		}
 	}
 
-	if !inTree {
-		return nil, NotFoundError{"Directory tree does not contain Go files."}
-	}
+	/*
+		var tree struct {
+			Tree []struct {
+				Url  string
+				Path string
+				Type string
+			}
+			Url string
+		}
+
+		err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/trees/{tag}?recursive=1&{cred}", match), nil, &tree)
+		if err != nil {
+			return nil, err
+		}
+
+		// Because Github API URLs are case-insensitive, we need to check that the
+		// userRepo returned from Github matches the one that we are requesting.
+		if !strings.HasPrefix(tree.Url, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
+			return nil, NotFoundError{"Github import path has incorrect case."}
+		}
+
+		inTree := false
+		dirPrefix := match["dir"]
+		if dirPrefix != "" {
+			dirPrefix = dirPrefix[1:] + "/"
+		}
+		var files []*source
+		for _, node := range tree.Tree {
+			if node.Type != "blob" || !strings.HasPrefix(node.Path, dirPrefix) {
+				continue
+			}
+			inTree = true
+			if d, f := path.Split(node.Path); d == dirPrefix && isDocFile(f) {
+				files = append(files, &source{
+					name:      f,
+					browseURL: expand("https://github.com/{owner}/{repo}/blob/{tag}/{0}", match, node.Path),
+					rawURL:    node.Url + "?" + gitHubCred,
+				})
+			}
+		}
+
+		if !inTree {
+			return nil, NotFoundError{"Directory tree does not contain Go files."}
+		}
+	*/
 
 	if err := fetchFiles(client, files, gitHubRawHeader); err != nil {
 		return nil, err
@@ -128,14 +169,15 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 
 	b := &builder{
 		pdoc: &Package{
-			LineFmt:     "%s#L%d",
-			ImportPath:  match["originalImportPath"],
-			ProjectRoot: expand("github.com/{owner}/{repo}", match),
-			ProjectName: match["repo"],
-			ProjectURL:  expand("https://github.com/{owner}/{repo}", match),
-			BrowseURL:   browseURL,
-			Etag:        commit,
-			VCS:         "git",
+			LineFmt:        "%s#L%d",
+			ImportPath:     match["originalImportPath"],
+			ProjectRoot:    expand("github.com/{owner}/{repo}", match),
+			ProjectName:    match["repo"],
+			ProjectURL:     expand("https://github.com/{owner}/{repo}", match),
+			BrowseURL:      browseURL,
+			Etag:           commit,
+			VCS:            "git",
+			Subdirectories: subdirs,
 		},
 	}
 

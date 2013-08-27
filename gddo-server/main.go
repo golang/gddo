@@ -130,11 +130,27 @@ func templateExt(req *web.Request) string {
 }
 
 var (
-	robotPat = regexp.MustCompile(`(:?\+https?://)|(?:\Wbot\W)`)
+	robotPat = regexp.MustCompile(`(:?\+https?://)|(?:\Wbot\W)|(?:^Python-urllib)|(?:^Go )|(?:^Java/)`)
 )
 
 func isRobot(req *web.Request) bool {
-	return *robot || robotPat.MatchString(req.Header.Get(web.HeaderUserAgent))
+	if robotPat.MatchString(req.Header.Get(web.HeaderUserAgent)) {
+		return true
+	}
+	host := req.RemoteAddr
+	if h, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		host = h
+	}
+	n, err := db.IncrementCounter(host, 1)
+	if err != nil {
+		log.Printf("error incrementing counter for %s,  %v\n", host, err)
+		return false
+	}
+	if n > *robot {
+		log.Printf("robot %.2f %s %s", n, host, req.Header.Get(web.HeaderUserAgent))
+		return true
+	}
+	return false
 }
 
 func popularLinkReferral(req *web.Request) bool {
@@ -300,7 +316,12 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if err != nil {
 			return err
 		}
-		return executeTemplate(resp, "importers.html", web.StatusOK, nil, map[string]interface{}{
+		template := "importers.html"
+		if requestType == robotRequest {
+			// Hide back links from robots.
+			template = "importers_robot.html"
+		}
+		return executeTemplate(resp, template, web.StatusOK, nil, map[string]interface{}{
 			"pkgs": pkgs,
 			"pdoc": newTDoc(pdoc),
 		})
@@ -736,7 +757,7 @@ func defaultBase(path string) string {
 
 var (
 	db              *database.Database
-	robot           = flag.Bool("robot", false, "Robot mode")
+	robot           = flag.Float64("robot", 100, "Request counter threshold for robots")
 	assetsDir       = flag.String("assets", filepath.Join(defaultBase("github.com/garyburd/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	gzAssetsDir     = flag.String("gzassets", "", "Base directory for compressed static files.")
 	presentDir      = flag.String("present", defaultBase("code.google.com/p/go.talks/present"), "Base directory for templates and static files.")
@@ -827,6 +848,7 @@ func main() {
 		{"dir.html", "common.html", "layout.html"},
 		{"home.html", "common.html", "layout.html"},
 		{"importers.html", "common.html", "layout.html"},
+		{"importers_robot.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
 		{"file.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
@@ -946,7 +968,10 @@ func main() {
 		return
 	}
 	defer listener.Close()
-	s := &server.Server{Listener: listener, Handler: h} // add logger
+	s := &server.Server{
+		Listener: listener,
+		Handler:  web.ProxyHeaderHandler("X-Real-Ip", "X-Scheme", h),
+	}
 	err = s.Serve()
 	if err != nil {
 		log.Fatal("Server", err)

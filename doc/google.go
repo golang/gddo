@@ -26,7 +26,7 @@ var (
 	googleRepoRe     = regexp.MustCompile(`id="checkoutcmd">(hg|git|svn)`)
 	googleRevisionRe = regexp.MustCompile(`<h2>(?:[^ ]+ - )?Revision *([^:]+):`)
 	googleEtagRe     = regexp.MustCompile(`^(hg|git|svn)-`)
-	googleFileRe     = regexp.MustCompile(`<li><a href="([^"/]+)"`)
+	googleFileRe     = regexp.MustCompile(`<li><a href="([^"]+)"`)
 	googlePattern    = regexp.MustCompile(`^code\.google\.com/p/(?P<repo>[a-z0-9\-]+)(:?\.(?P<subrepo>[a-z0-9\-]+))?(?P<dir>/[a-z0-9A-Z_.\-/]+)?$`)
 )
 
@@ -54,10 +54,17 @@ func getGoogleDoc(client *http.Client, match map[string]string, savedEtag string
 		}
 	}
 
+	var subdirs []string
 	var files []*source
 	for _, m := range googleFileRe.FindAllSubmatch(p, -1) {
 		fname := string(m[1])
-		if isDocFile(fname) {
+		switch {
+		case strings.HasSuffix(fname, "/"):
+			fname = fname[:len(fname)-1]
+			if isValidPathElement(fname) {
+				subdirs = append(subdirs, fname)
+			}
+		case isDocFile(fname):
 			files = append(files, &source{
 				name:      fname,
 				browseURL: expand("http://code.google.com/p/{repo}/source/browse{dir}/{0}{query}", match, fname),

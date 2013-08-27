@@ -89,7 +89,7 @@ type vcsCmd struct {
 }
 
 var vcsCmds = map[string]*vcsCmd{
-	"git": &vcsCmd{
+	"git": {
 		schemes:  []string{"http", "https", "git"},
 		download: downloadGit,
 	},
@@ -216,33 +216,39 @@ func getVCSDoc(client *http.Client, match map[string]string, etagSaved string) (
 	}
 
 	var files []*source
+	var subdirs []string
 	for _, fi := range fis {
-		if fi.IsDir() || !isDocFile(fi.Name()) {
-			continue
+		switch {
+		case fi.IsDir():
+			if isValidPathElement(fi.Name()) {
+				subdirs = append(subdirs, fi.Name())
+			}
+		case isDocFile(fi.Name()):
+			b, err := ioutil.ReadFile(path.Join(d, fi.Name()))
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, &source{
+				name:      fi.Name(),
+				browseURL: expand(template.fileBrowse, urlMatch, fi.Name()),
+				data:      b,
+			})
 		}
-		b, err := ioutil.ReadFile(path.Join(d, fi.Name()))
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, &source{
-			name:      fi.Name(),
-			browseURL: expand(template.fileBrowse, urlMatch, fi.Name()),
-			data:      b,
-		})
 	}
 
 	// Create the documentation.
 
 	b := &builder{
 		pdoc: &Package{
-			LineFmt:     template.line,
-			ImportPath:  match["importPath"],
-			ProjectRoot: expand("{repo}.{vcs}", match),
-			ProjectName: path.Base(match["repo"]),
-			ProjectURL:  expand(template.project, urlMatch),
-			BrowseURL:   "",
-			Etag:        etag,
-			VCS:         match["vcs"],
+			LineFmt:        template.line,
+			ImportPath:     match["importPath"],
+			ProjectRoot:    expand("{repo}.{vcs}", match),
+			ProjectName:    path.Base(match["repo"]),
+			ProjectURL:     expand(template.project, urlMatch),
+			BrowseURL:      "",
+			Etag:           etag,
+			VCS:            match["vcs"],
+			Subdirectories: subdirs,
 		},
 	}
 

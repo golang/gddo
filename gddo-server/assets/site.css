@@ -2,7 +2,7 @@ html { background-color: whitesmoke; }
 body { background-color: white; }
 h4 { margin-top: 20px; }
 .container { max-width: 728px; }
- 
+
 #x-projnav {
   min-height: 20px;
   margin-bottom: 20px;
@@ -12,10 +12,13 @@ h4 { margin-top: 20px; }
 }
 
 #x-footer {
-    padding-top: 15px;
+    padding-top: 14px;
     padding-bottom: 15px;
     margin-top: 5px;
     background-color: #eee;
+    border-top-style: solid;
+    border-top-width: 1px;
+
 }
 
 #x-pkginfo {
@@ -25,12 +28,6 @@ h4 { margin-top: 20px; }
     margin-bottom: 15px;
 }
 
-@media screen and (min-width: 768px) {
-    #x-search {
-        float: right;
-    }
-}
-  
 code { 
   background-color: inherit; 
   border: none; 
@@ -55,22 +52,29 @@ pre .com {
   color: rgb(147, 161, 161);
 }
 
-a, .navbar-brand {
+a, .navbar-default .navbar-brand {
     color: #375eab;
 }
 
-.btn-default {
-    background-color: #375eab;
+.navbar-default, #x-footer {
+    background-color: hsl(209, 51%, 92%);
+    border-color: hsl(209, 51%, 88%);
 }
 
-.navbar, #x-footer {
-    background-color: #E0EBF5;
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus {
+    background-color: hsl(209, 51%, 88%);
 }
 
-.navbar-nav > .active > a,
-.navbar-nav > .active > a:hover,
-.navbar-nav > .active > a:focus {
-  background-color: #e7e7e7;
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus {
+    color: #000;
+}
+
+.panel-default > .panel-heading {
+    color: #333;
+    background-color: transparent;
 }
 
 #x-file .highlight {

@@ -63,18 +63,19 @@ func getBitbucketDoc(client *http.Client, match map[string]string, savedEtag str
 		return nil, ErrNotModified
 	}
 
-	var directory struct {
-		Files []struct {
+	var contents struct {
+		Directories []string
+		Files       []struct {
 			Path string
 		}
 	}
 
-	if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), nil, &directory); err != nil {
+	if err := httpGetJSON(client, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), nil, &contents); err != nil {
 		return nil, err
 	}
 
 	var files []*source
-	for _, f := range directory.Files {
+	for _, f := range contents.Files {
 		_, name := path.Split(f.Path)
 		if isDocFile(name) {
 			files = append(files, &source{
@@ -91,14 +92,15 @@ func getBitbucketDoc(client *http.Client, match map[string]string, savedEtag str
 
 	b := builder{
 		pdoc: &Package{
-			LineFmt:     "%s#cl-%d",
-			ImportPath:  match["originalImportPath"],
-			ProjectRoot: expand("bitbucket.org/{owner}/{repo}", match),
-			ProjectName: match["repo"],
-			ProjectURL:  expand("https://bitbucket.org/{owner}/{repo}/", match),
-			BrowseURL:   expand("https://bitbucket.org/{owner}/{repo}/src/{tag}{dir}", match),
-			Etag:        etag,
-			VCS:         match["vcs"],
+			LineFmt:        "%s#cl-%d",
+			ImportPath:     match["originalImportPath"],
+			ProjectRoot:    expand("bitbucket.org/{owner}/{repo}", match),
+			ProjectName:    match["repo"],
+			ProjectURL:     expand("https://bitbucket.org/{owner}/{repo}/", match),
+			BrowseURL:      expand("https://bitbucket.org/{owner}/{repo}/src/{tag}{dir}", match),
+			Etag:           etag,
+			VCS:            match["vcs"],
+			Subdirectories: contents.Directories,
 		},
 	}
 

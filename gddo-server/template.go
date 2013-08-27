@@ -157,7 +157,8 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 		if i != 0 {
 			buf.WriteString(`<span class="text-muted">/</span>`)
 		}
-		link := j < len(pdoc.ImportPath) || (templateName != "cmd.html" && templateName != "pkg.html")
+		link := j < len(pdoc.ImportPath) ||
+			(templateName != "dir.html" && templateName != "cmd.html" && templateName != "pkg.html")
 		if link {
 			buf.WriteString(`<a href="`)
 			buf.WriteString(formatPathFrag(pdoc.ImportPath[:j], ""))
