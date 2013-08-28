@@ -139,6 +139,20 @@ func addReferences(references map[string]bool, s []byte) {
 	}
 }
 
+type byFuncName []*doc.Func
+
+func (s byFuncName) Len() int           { return len(s) }
+func (s byFuncName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s byFuncName) Less(i, j int) bool { return s[i].Name < s[j].Name }
+
+func removeAssociations(dpkg *doc.Package) {
+	for _, t := range dpkg.Types {
+		dpkg.Funcs = append(dpkg.Funcs, t.Funcs...)
+		t.Funcs = nil
+	}
+	sort.Sort(byFuncName(dpkg.Funcs))
+}
+
 // builder holds the state used when building the documentation.
 type builder struct {
 	pdoc *Package
@@ -581,6 +595,10 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 	}
 
 	dpkg := doc.New(apkg, b.pdoc.ImportPath, mode)
+
+	if b.pdoc.ImportPath == "builtin" {
+		removeAssociations(dpkg)
+	}
 
 	b.pdoc.Name = dpkg.Name
 	b.pdoc.Doc = strings.TrimRight(dpkg.Doc, " \t\n\r")

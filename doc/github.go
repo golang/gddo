@@ -41,10 +41,10 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 		Object struct {
 			Type string
 			Sha  string
-			Url  string
+			URL  string
 		}
 		Ref string
-		Url string
+		URL string
 	}
 
 	err := httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/refs?{cred}", match), nil, &refs)
@@ -73,10 +73,10 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 	}
 
 	var contents []*struct {
-		Type     string
-		Name     string
-		Git_URL  string
-		HTML_URL string
+		Type    string
+		Name    string
+		GitURL  string `json:"git_url"`
+		HTMLURL string `json:"html_url"`
 	}
 
 	err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}&{cred}", match), nil, &contents)
@@ -90,7 +90,7 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 
 	// Because Github API URLs are case-insensitive, we check that the owner
 	// and repo returned from Github matches the one that we are requesting.
-	if !strings.HasPrefix(contents[0].Git_URL, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
+	if !strings.HasPrefix(contents[0].GitURL, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
 		return nil, NotFoundError{"Github import path has incorrect case."}
 	}
 
@@ -106,57 +106,11 @@ func getGitHubDoc(client *http.Client, match map[string]string, savedEtag string
 		case isDocFile(item.Name):
 			files = append(files, &source{
 				name:      item.Name,
-				browseURL: item.HTML_URL,
-				rawURL:    item.Git_URL + "?" + gitHubCred,
+				browseURL: item.HTMLURL,
+				rawURL:    item.GitURL + "?" + gitHubCred,
 			})
 		}
 	}
-
-	/*
-		var tree struct {
-			Tree []struct {
-				Url  string
-				Path string
-				Type string
-			}
-			Url string
-		}
-
-		err = httpGetJSON(client, expand("https://api.github.com/repos/{owner}/{repo}/git/trees/{tag}?recursive=1&{cred}", match), nil, &tree)
-		if err != nil {
-			return nil, err
-		}
-
-		// Because Github API URLs are case-insensitive, we need to check that the
-		// userRepo returned from Github matches the one that we are requesting.
-		if !strings.HasPrefix(tree.Url, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
-			return nil, NotFoundError{"Github import path has incorrect case."}
-		}
-
-		inTree := false
-		dirPrefix := match["dir"]
-		if dirPrefix != "" {
-			dirPrefix = dirPrefix[1:] + "/"
-		}
-		var files []*source
-		for _, node := range tree.Tree {
-			if node.Type != "blob" || !strings.HasPrefix(node.Path, dirPrefix) {
-				continue
-			}
-			inTree = true
-			if d, f := path.Split(node.Path); d == dirPrefix && isDocFile(f) {
-				files = append(files, &source{
-					name:      f,
-					browseURL: expand("https://github.com/{owner}/{repo}/blob/{tag}/{0}", match, node.Path),
-					rawURL:    node.Url + "?" + gitHubCred,
-				})
-			}
-		}
-
-		if !inTree {
-			return nil, NotFoundError{"Directory tree does not contain Go files."}
-		}
-	*/
 
 	if err := fetchFiles(client, files, gitHubRawHeader); err != nil {
 		return nil, err

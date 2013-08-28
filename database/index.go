@@ -96,7 +96,11 @@ func documentTerms(pdoc *doc.Package, score float64) []string {
 }
 
 func documentScore(pdoc *doc.Package) float64 {
-	if pdoc.Name == "" || pdoc.IsCmd || len(pdoc.Errors) > 0 || strings.HasSuffix(pdoc.ImportPath, ".go") {
+	if pdoc.Name == "" ||
+		pdoc.IsCmd ||
+		len(pdoc.Errors) > 0 ||
+		strings.HasSuffix(pdoc.ImportPath, ".go") ||
+		strings.HasPrefix(pdoc.ImportPath, "gist.github.com/") {
 		return 0
 	}
 

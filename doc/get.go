@@ -258,7 +258,7 @@ func Get(client *http.Client, importPath string, etag string) (pdoc *Package, er
 	if pdoc != nil {
 		pdoc.Etag = versionPrefix + pdoc.Etag
 		if pdoc.ImportPath != importPath {
-			return nil, fmt.Errorf("Get: pdoc.ImportPath = %q, want %q", pdoc.ImportPath, importPath)
+			return nil, fmt.Errorf("get: pdoc.ImportPath = %q, want %q", pdoc.ImportPath, importPath)
 		}
 	}
 

@@ -63,7 +63,7 @@ func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
 	return nil
 }
 
-var exampleIdPat = regexp.MustCompile(`([^-]+)(?:-([^-]+)(?:-(.*))?)?`)
+var exampleIdPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
 func playURL(pdoc *doc.Package, id string) (string, error) {
 	if m := exampleIdPat.FindStringSubmatch(id); m != nil {
