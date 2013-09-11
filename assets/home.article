@@ -25,7 +25,7 @@ The supported file extensions (.ext) are .slide and .article.
 
 The .html command is not supported.
 
-This page is [[http://github.com/garyburd/talksapp/blob/master/assets/home.article][an article]].
+This page is [[/github.com/garyburd/talksapp/assets/home.article][an article]].
 
 * Feedback
 
