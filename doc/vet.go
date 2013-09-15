@@ -20,6 +20,8 @@ import (
 	"go/token"
 	"strconv"
 	"strings"
+
+	"github.com/garyburd/gosrc"
 )
 
 // This list of deprecated exports is used to find code that has not been
@@ -66,12 +68,12 @@ func (v *vetVisitor) Visit(n ast.Node) ast.Visitor {
 	return v
 }
 
-func (b *builder) vetPackage(pkg *ast.Package) {
+func (b *builder) vetPackage(pkg *Package, apkg *ast.Package) {
 	errors := make(map[string]token.Pos)
-	for _, file := range pkg.Files {
+	for _, file := range apkg.Files {
 		for _, is := range file.Imports {
 			importPath, _ := strconv.Unquote(is.Path.Value)
-			if !IsValidPath(importPath) &&
+			if !gosrc.IsValidPath(importPath) &&
 				!strings.HasPrefix(importPath, "exp/") &&
 				!strings.HasPrefix(importPath, "appengine") {
 				errors[fmt.Sprintf("Unrecognized import path %q", importPath)] = is.Pos()
@@ -81,7 +83,7 @@ func (b *builder) vetPackage(pkg *ast.Package) {
 		ast.Walk(&v, file)
 	}
 	for message, pos := range errors {
-		b.pdoc.Errors = append(b.pdoc.Errors,
+		pkg.Errors = append(pkg.Errors,
 			fmt.Sprintf("%s (%s)", message, b.fset.Position(pos)))
 	}
 }

@@ -21,18 +21,18 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 )
 
 var (
-	etag    = flag.String("etag", "", "Etag")
-	local   = flag.Bool("local", false, "Get package from local directory.")
-	present = flag.Bool("present", false, "Get presentation.")
+	etag  = flag.String("etag", "", "Etag")
+	local = flag.Bool("local", false, "Get package from local directory.")
 )
 
 func main() {
@@ -40,38 +40,19 @@ func main() {
 	if len(flag.Args()) != 1 {
 		log.Fatal("Usage: go run print.go importPath")
 	}
-	if *present {
-		printPresentation(flag.Args()[0])
-	} else {
-		printPackage(flag.Args()[0])
-	}
-}
+	path := flag.Args()[0]
 
-func printPackage(path string) {
 	var (
 		pdoc *doc.Package
 		err  error
 	)
 	if *local {
-		pdoc, err = doc.GetLocal(path, "", "", "%s", "#L%d")
-	} else {
-		pdoc, err = doc.Get(http.DefaultClient, path, *etag)
+		gosrc.SetLocalDevMode(os.Getenv("GOPATH"))
 	}
+	pdoc, err = doc.Get(http.DefaultClient, path, *etag)
+	//}
 	if err != nil {
 		log.Fatal(err)
 	}
 	spew.Dump(pdoc)
-}
-
-func printPresentation(path string) {
-	pres, err := doc.GetPresentation(http.DefaultClient, path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%s\n", pres.Files[pres.Filename])
-	for name, data := range pres.Files {
-		if name != pres.Filename {
-			fmt.Printf("---------- %s ----------\n%s\n", name, data)
-		}
-	}
 }

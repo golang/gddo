@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/garyburd/gddo/database"
-	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 )
 
 var dangleCommand = &command{
@@ -42,17 +42,17 @@ func dangle(c *command) {
 	err = db.Do(func(pi *database.PackageInfo) error {
 		m[pi.PDoc.ImportPath] |= 1
 		for _, p := range pi.PDoc.Imports {
-			if doc.IsValidPath(p) {
+			if gosrc.IsValidPath(p) {
 				m[p] |= 2
 			}
 		}
 		for _, p := range pi.PDoc.TestImports {
-			if doc.IsValidPath(p) {
+			if gosrc.IsValidPath(p) {
 				m[p] |= 2
 			}
 		}
 		for _, p := range pi.PDoc.XTestImports {
-			if doc.IsValidPath(p) {
+			if gosrc.IsValidPath(p) {
 				m[p] |= 2
 			}
 		}

@@ -38,6 +38,7 @@ import (
 	"code.google.com/p/go.talks/pkg/present"
 
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 	"github.com/garyburd/indigo/web"
 )
 
@@ -69,7 +70,7 @@ func (pdoc *tdoc) SourceLink(pos doc.Pos, text, anchor string) htemp.HTML {
 		u = fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)
 	}
 	u = htemp.HTMLEscapeString(u)
-	return htemp.HTML(fmt.Sprintf(`<a href="%s">%s</a>`, u, text))
+	return htemp.HTML(fmt.Sprintf(`<a title="View Source" href="%s">%s</a>`, u, text))
 }
 
 func (pdoc *tdoc) PageName() string {
@@ -320,7 +321,7 @@ func commentFn(v string) htemp.HTML {
 	})
 	p = replaceAll(p, packagePat, func(out, src []byte, m []int) []byte {
 		path := bytes.TrimRight(src[m[2]:m[3]], ".!?:")
-		if !doc.IsValidPath(string(path)) {
+		if !gosrc.IsValidPath(string(path)) {
 			return append(out, src[m[0]:m[1]]...)
 		}
 		out = append(out, src[m[0]:m[2]]...)
@@ -396,8 +397,10 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 	return htemp.HTML(buf.String())
 }
 
+var gaAccount string
+
 func gaAccountFn() string {
-	return secrets.GAAccount
+	return gaAccount
 }
 
 func noteTitleFn(s string) string {
@@ -456,7 +459,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
 			"importPath":        importPathFn,
-			"isValidImportPath": doc.IsValidPath,
+			"isValidImportPath": gosrc.IsValidPath,
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
 			"relativePath":      relativePathFn,

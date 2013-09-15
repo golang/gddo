@@ -16,7 +16,7 @@ package main
 
 import (
 	"flag"
-	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 	"log"
 	"time"
 )
@@ -103,14 +103,14 @@ func readGitHubUpdates() error {
 	if err := db.GetGob(key, &last); err != nil {
 		return err
 	}
-	last, updates, err := doc.GetGitHubUpdates(httpClient, last)
+	last, names, err := gosrc.GetGitHubUpdates(httpClient, last)
 	if err != nil {
 		return err
 	}
 
-	for _, update := range updates {
-		log.Printf("bump crawl %s", update.OwnerRepo)
-		if err := db.BumpCrawl("github.com/" + update.OwnerRepo); err != nil {
+	for _, name := range names {
+		log.Printf("bump crawl github.com/%s", name)
+		if err := db.BumpCrawl("github.com/" + name); err != nil {
 			log.Println("ERROR force crawl:", err)
 		}
 	}

@@ -45,6 +45,7 @@ import (
 	"code.google.com/p/go.talks/pkg/present"
 	"github.com/garyburd/gddo/database"
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 	"github.com/garyburd/indigo/server"
 	"github.com/garyburd/indigo/web"
 )
@@ -506,7 +507,7 @@ func serveHome(resp web.Response, req *web.Request) error {
 		q = path
 	}
 
-	if doc.IsValidRemotePath(q) {
+	if gosrc.IsValidRemotePath(q) {
 		pdoc, pkgs, err := getDoc(q, queryRequest)
 		if err == nil && (pdoc != nil || len(pkgs) > 0) {
 			return web.Redirect(resp, req, "/"+q, 302, nil)
@@ -594,7 +595,7 @@ func servePresentHome(resp web.Response, req *web.Request) error {
 
 var (
 	presMu        sync.Mutex
-	presentations = map[string]*doc.Presentation{}
+	presentations = map[string]*gosrc.Presentation{}
 )
 
 func servePresentation(resp web.Response, req *web.Request) error {
@@ -615,7 +616,7 @@ func servePresentation(resp web.Response, req *web.Request) error {
 	if pres == nil {
 		var err error
 		log.Println("Fetch presentation ", p)
-		pres, err = doc.GetPresentation(httpClient, p)
+		pres, err = gosrc.GetPresentation(httpClient, p)
 		if err != nil {
 			return err
 		}
@@ -702,7 +703,7 @@ func handleError(resp web.Response, req *web.Request, status int, err error, r i
 		s := web.StatusText(status)
 		if err == errUpdateTimeout {
 			s = "Timeout getting package files from the version control system."
-		} else if e, ok := err.(*doc.RemoteError); ok {
+		} else if e, ok := err.(*gosrc.RemoteError); ok {
 			s = "Error getting package files from " + e.Host + "."
 		}
 		w := resp.Start(web.StatusInternalServerError, web.Header{web.HeaderContentType: {"text/plan; charset=utf-8"}})
@@ -717,12 +718,12 @@ func handlePresentError(resp web.Response, req *web.Request, status int, err err
 		// nothing to do
 	default:
 		s := web.StatusText(status)
-		if doc.IsNotFound(err) {
+		if gosrc.IsNotFound(err) {
 			s = web.StatusText(web.StatusNotFound)
 			status = web.StatusNotFound
 		} else if err == errUpdateTimeout {
 			s = "Timeout getting package files from the version control system."
-		} else if e, ok := err.(*doc.RemoteError); ok {
+		} else if e, ok := err.(*gosrc.RemoteError); ok {
 			s = "Error getting package files from " + e.Host + "."
 		}
 		w := resp.Start(status, web.Header{web.HeaderContentType: {"text/plan; charset=utf-8"}})
@@ -765,43 +766,10 @@ var (
 	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
-	secretsPath     = flag.String("secrets", "secrets.json", "Path to file containing application ids and credentials for other services.")
 	redirGoTalks    = flag.Bool("redirGoTalks", true, "Redirect paths with prefix 'code.google.com/p/go.talks/' to talks.golang.org")
 	srcZip          = flag.String("srcZip", "", "")
-
-	secrets struct {
-		// HTTP user agent for outbound requests
-		UserAgent string
-
-		// GitHub API Credentials
-		GitHubId     string
-		GitHubSecret string
-
-		// Google Analytics account for tracking codes.
-		GAAccount string
-	}
-
-	srcFiles = make(map[string]*zip.File)
+	srcFiles        = make(map[string]*zip.File)
 )
-
-func readSecrets() error {
-	b, err := ioutil.ReadFile(*secretsPath)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(b, &secrets); err != nil {
-		return err
-	}
-	if secrets.UserAgent != "" {
-		doc.SetUserAgent(secrets.UserAgent)
-	}
-	if secrets.GitHubId != "" {
-		doc.SetGitHubCredentials(secrets.GitHubId, secrets.GitHubSecret)
-	} else {
-		log.Printf("GitHub credentials not set in %q.", *secretsPath)
-	}
-	return nil
-}
 
 var cacheBusters = map[string]string{}
 
@@ -825,9 +793,6 @@ func dataHandler(cacheBusterKey, contentType, dir string, names ...string) web.H
 func main() {
 	flag.Parse()
 	log.Printf("Starting server, os.Args=%s", strings.Join(os.Args, " "))
-	if err := readSecrets(); err != nil {
-		log.Fatal(err)
-	}
 
 	if *srcZip != "" {
 		r, err := zip.OpenReader(*srcZip)

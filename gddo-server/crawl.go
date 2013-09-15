@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 )
 
 var nestedProjectPat = regexp.MustCompile(`/(?:github\.com|launchpad\.net|code\.google\.com/p|bitbucket\.org|labix\.org)/`)
@@ -56,28 +57,28 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 
 	start := time.Now()
 	var err error
-	if i := strings.Index(importPath, "/src/pkg/"); i > 0 && doc.IsGoRepoPath(importPath[i+len("/src/pkg/"):]) {
+	if i := strings.Index(importPath, "/src/pkg/"); i > 0 && gosrc.IsGoRepoPath(importPath[i+len("/src/pkg/"):]) {
 		// Go source tree mirror.
 		pdoc = nil
-		err = doc.NotFoundError{Message: "Go source tree mirror."}
-	} else if i := strings.Index(importPath, "/libgo/go/"); i > 0 && doc.IsGoRepoPath(importPath[i+len("/libgo/go/"):]) {
+		err = gosrc.NotFoundError{Message: "Go source tree mirror."}
+	} else if i := strings.Index(importPath, "/libgo/go/"); i > 0 && gosrc.IsGoRepoPath(importPath[i+len("/libgo/go/"):]) {
 		// Go Frontend source tree mirror.
 		pdoc = nil
-		err = doc.NotFoundError{Message: "Go Frontend source tree mirror."}
+		err = gosrc.NotFoundError{Message: "Go Frontend source tree mirror."}
 	} else if m := nestedProjectPat.FindStringIndex(importPath); m != nil && exists(importPath[m[0]+1:]) {
 		pdoc = nil
-		err = doc.NotFoundError{Message: "Copy of other project."}
+		err = gosrc.NotFoundError{Message: "Copy of other project."}
 	} else if blocked, e := db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
-		err = doc.NotFoundError{Message: "Blocked."}
+		err = gosrc.NotFoundError{Message: "Blocked."}
 	} else {
 		var pdocNew *doc.Package
 		pdocNew, err = doc.Get(httpClient, importPath, etag)
 		message = append(message, "fetch:", int64(time.Since(start)/time.Millisecond))
 		if err == nil && pdocNew.Name == "" && !hasSubdirs {
 			pdoc = nil
-			err = doc.NotFoundError{Message: "No Go files or subdirs"}
-		} else if err != doc.ErrNotModified {
+			err = gosrc.NotFoundError{Message: "No Go files or subdirs"}
+		} else if err != gosrc.ErrNotModified {
 			pdoc = pdocNew
 		}
 	}
@@ -97,12 +98,12 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		if err := db.Put(pdoc, nextCrawl); err != nil {
 			log.Printf("ERROR db.Put(%q): %v", importPath, err)
 		}
-	case err == doc.ErrNotModified:
+	case err == gosrc.ErrNotModified:
 		message = append(message, "touch")
 		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, nextCrawl); err != nil {
 			log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
 		}
-	case doc.IsNotFound(err):
+	case gosrc.IsNotFound(err):
 		message = append(message, "notfound:", err)
 		if err := db.Delete(importPath); err != nil {
 			log.Printf("ERROR db.Delete(%q): %v", importPath, err)

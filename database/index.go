@@ -21,6 +21,7 @@ import (
 	"unicode"
 
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 )
 
 func isStandardPackage(path string) bool {
@@ -56,7 +57,7 @@ func documentTerms(pdoc *doc.Package, score float64) []string {
 	// Imports
 
 	for _, path := range pdoc.Imports {
-		if doc.IsValidPath(path) {
+		if gosrc.IsValidPath(path) {
 			terms["import:"+path] = true
 		}
 	}

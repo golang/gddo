@@ -53,6 +53,7 @@ import (
 
 	"code.google.com/p/snappy-go/snappy"
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gosrc"
 	"github.com/garyburd/redigo/redis"
 )
 
@@ -252,17 +253,17 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
 
 	paths := make(map[string]bool)
 	for _, p := range pdoc.Imports {
-		if doc.IsValidRemotePath(p) {
+		if gosrc.IsValidRemotePath(p) {
 			paths[p] = true
 		}
 	}
 	for _, p := range pdoc.TestImports {
-		if doc.IsValidRemotePath(p) {
+		if gosrc.IsValidRemotePath(p) {
 			paths[p] = true
 		}
 	}
 	for _, p := range pdoc.XTestImports {
-		if doc.IsValidRemotePath(p) {
+		if gosrc.IsValidRemotePath(p) {
 			paths[p] = true
 		}
 	}
@@ -318,7 +319,7 @@ var bumpCrawlScript = redis.NewScript(0, `
         t = tonumber(redis.call('ZSCORE', 'nextCrawl', pkgs[i]) or 0)
         if t == 0 or nextCrawl < t then
             redis.call('ZADD', 'nextCrawl', nextCrawl, pkgs[i])
-            nextCrawl = nextCrawl + 30
+            nextCrawl = nextCrawl + 120
         end
     end
 `)

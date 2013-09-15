@@ -23,16 +23,14 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"io"
-	"io/ioutil"
-	"os"
-	"path"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/garyburd/gosrc"
 )
 
 func startsWithUppercase(s string) bool {
@@ -132,7 +130,7 @@ func addReferences(references map[string]bool, s []byte) {
 	for _, pat := range referencesPats {
 		for _, m := range pat.FindAllSubmatch(s, -1) {
 			p := string(m[1])
-			if IsValidRemotePath(p) {
+			if gosrc.IsValidRemotePath(p) {
 				references[p] = true
 			}
 		}
@@ -155,8 +153,6 @@ func removeAssociations(dpkg *doc.Package) {
 
 // builder holds the state used when building the documentation.
 type builder struct {
-	pdoc *Package
-
 	srcs     map[string]*source
 	fset     *token.FileSet
 	examples []*doc.Example
@@ -374,34 +370,8 @@ type Pos struct {
 type source struct {
 	name      string
 	browseURL string
-	rawURL    string
 	data      []byte
 	index     int
-}
-
-func (s *source) Name() string       { return s.name }
-func (s *source) Size() int64        { return int64(len(s.data)) }
-func (s *source) Mode() os.FileMode  { return 0 }
-func (s *source) ModTime() time.Time { return time.Time{} }
-func (s *source) IsDir() bool        { return false }
-func (s *source) Sys() interface{}   { return nil }
-
-func (b *builder) readDir(dir string) ([]os.FileInfo, error) {
-	if dir != "/" {
-		panic("unexpected")
-	}
-	fis := make([]os.FileInfo, 0, len(b.srcs))
-	for _, src := range b.srcs {
-		fis = append(fis, src)
-	}
-	return fis, nil
-}
-
-func (b *builder) openFile(path string) (io.ReadCloser, error) {
-	if src, ok := b.srcs[path[1:]]; ok {
-		return ioutil.NopCloser(bytes.NewReader(src.data)), nil
-	}
-	panic("unexpected")
 }
 
 // PackageVersion is modified when previously stored packages are invalid.
@@ -490,27 +460,39 @@ var goEnvs = []struct{ GOOS, GOARCH string }{
 	{"windows", "amd64"},
 }
 
-func (b *builder) build(srcs []*source) (*Package, error) {
+func newPackage(dir *gosrc.Directory) (*Package, error) {
 
-	b.pdoc.Updated = time.Now().UTC()
+	pkg := &Package{
+		Updated:        time.Now().UTC(),
+		LineFmt:        dir.LineFmt,
+		ImportPath:     dir.ImportPath,
+		ProjectRoot:    dir.ProjectRoot,
+		ProjectName:    dir.ProjectName,
+		ProjectURL:     dir.ProjectURL,
+		BrowseURL:      dir.BrowseURL,
+		Etag:           PackageVersion + "-" + dir.Etag,
+		VCS:            dir.VCS,
+		Subdirectories: dir.Subdirectories,
+	}
 
-	references := make(map[string]bool)
+	var b builder
 	b.srcs = make(map[string]*source)
-	for _, src := range srcs {
-		if strings.HasSuffix(src.name, ".go") {
-			b.srcs[src.name] = src
-			OverwriteLineComments(src.data)
+	references := make(map[string]bool)
+	for _, file := range dir.Files {
+		if strings.HasSuffix(file.Name, ".go") {
+			gosrc.OverwriteLineComments(file.Data)
+			b.srcs[file.Name] = &source{name: file.Name, browseURL: file.BrowseURL, data: file.Data}
 		} else {
-			addReferences(references, src.data)
+			addReferences(references, file.Data)
 		}
 	}
 
 	for r := range references {
-		b.pdoc.References = append(b.pdoc.References, r)
+		pkg.References = append(pkg.References, r)
 	}
 
 	if len(b.srcs) == 0 {
-		return b.pdoc, nil
+		return pkg, nil
 	}
 
 	b.fset = token.NewFileSet()
@@ -518,18 +500,12 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 	// Find the package and associated files.
 
 	ctxt := build.Context{
-		GOOS:          "linux",
-		GOARCH:        "amd64",
-		CgoEnabled:    true,
-		ReleaseTags:   build.Default.ReleaseTags,
-		JoinPath:      path.Join,
-		IsAbsPath:     path.IsAbs,
-		SplitPathList: func(list string) []string { return strings.Split(list, ":") },
-		IsDir:         func(path string) bool { panic("unexpected") },
-		HasSubdir:     func(root, dir string) (rel string, ok bool) { panic("unexpected") },
-		ReadDir:       func(dir string) (fi []os.FileInfo, err error) { return b.readDir(dir) },
-		OpenFile:      func(path string) (r io.ReadCloser, err error) { return b.openFile(path) },
-		Compiler:      "gc",
+		GOOS:        "linux",
+		GOARCH:      "amd64",
+		CgoEnabled:  true,
+		ReleaseTags: build.Default.ReleaseTags,
+		BuildTags:   build.Default.BuildTags,
+		Compiler:    "gc",
 	}
 
 	var err error
@@ -538,16 +514,16 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 	for _, env := range goEnvs {
 		ctxt.GOOS = env.GOOS
 		ctxt.GOARCH = env.GOARCH
-		bpkg, err = ctxt.ImportDir("/", 0)
+		bpkg, err = dir.Import(&ctxt, 0)
 		if _, ok := err.(*build.NoGoError); !ok {
 			break
 		}
 	}
 	if err != nil {
 		if _, ok := err.(*build.NoGoError); !ok {
-			b.pdoc.Errors = append(b.pdoc.Errors, err.Error())
+			pkg.Errors = append(pkg.Errors, err.Error())
 		}
-		return b.pdoc, nil
+		return pkg, nil
 	}
 
 	// Parse the Go files
@@ -555,18 +531,18 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 	files := make(map[string]*ast.File)
 	names := append(bpkg.GoFiles, bpkg.CgoFiles...)
 	sort.Strings(names)
-	b.pdoc.Files = make([]*File, len(names))
+	pkg.Files = make([]*File, len(names))
 	for i, name := range names {
 		file, err := parser.ParseFile(b.fset, name, b.srcs[name].data, parser.ParseComments)
 		if err != nil {
-			b.pdoc.Errors = append(b.pdoc.Errors, err.Error())
+			pkg.Errors = append(pkg.Errors, err.Error())
 		} else {
 			files[name] = file
 		}
 		src := b.srcs[name]
 		src.index = i
-		b.pdoc.Files[i] = &File{Name: name, URL: src.browseURL}
-		b.pdoc.SourceSize += len(src.data)
+		pkg.Files[i] = &File{Name: name, URL: src.browseURL}
+		pkg.SourceSize += len(src.data)
 	}
 
 	apkg, _ := ast.NewPackage(b.fset, files, simpleImporter, nil)
@@ -575,49 +551,49 @@ func (b *builder) build(srcs []*source) (*Package, error) {
 
 	names = append(bpkg.TestGoFiles, bpkg.XTestGoFiles...)
 	sort.Strings(names)
-	b.pdoc.TestFiles = make([]*File, len(names))
+	pkg.TestFiles = make([]*File, len(names))
 	for i, name := range names {
 		file, err := parser.ParseFile(b.fset, name, b.srcs[name].data, parser.ParseComments)
 		if err != nil {
-			b.pdoc.Errors = append(b.pdoc.Errors, err.Error())
+			pkg.Errors = append(pkg.Errors, err.Error())
 		} else {
 			b.examples = append(b.examples, doc.Examples(file)...)
 		}
-		b.pdoc.TestFiles[i] = &File{Name: name, URL: b.srcs[name].browseURL}
-		b.pdoc.TestSourceSize += len(b.srcs[name].data)
+		pkg.TestFiles[i] = &File{Name: name, URL: b.srcs[name].browseURL}
+		pkg.TestSourceSize += len(b.srcs[name].data)
 	}
 
-	b.vetPackage(apkg)
+	b.vetPackage(pkg, apkg)
 
 	mode := doc.Mode(0)
-	if b.pdoc.ImportPath == "builtin" {
+	if pkg.ImportPath == "builtin" {
 		mode |= doc.AllDecls
 	}
 
-	dpkg := doc.New(apkg, b.pdoc.ImportPath, mode)
+	dpkg := doc.New(apkg, pkg.ImportPath, mode)
 
-	if b.pdoc.ImportPath == "builtin" {
+	if pkg.ImportPath == "builtin" {
 		removeAssociations(dpkg)
 	}
 
-	b.pdoc.Name = dpkg.Name
-	b.pdoc.Doc = strings.TrimRight(dpkg.Doc, " \t\n\r")
-	b.pdoc.Synopsis = synopsis(b.pdoc.Doc)
+	pkg.Name = dpkg.Name
+	pkg.Doc = strings.TrimRight(dpkg.Doc, " \t\n\r")
+	pkg.Synopsis = synopsis(pkg.Doc)
 
-	b.pdoc.Examples = b.getExamples("")
-	b.pdoc.IsCmd = bpkg.IsCommand()
-	b.pdoc.GOOS = ctxt.GOOS
-	b.pdoc.GOARCH = ctxt.GOARCH
+	pkg.Examples = b.getExamples("")
+	pkg.IsCmd = bpkg.IsCommand()
+	pkg.GOOS = ctxt.GOOS
+	pkg.GOARCH = ctxt.GOARCH
 
-	b.pdoc.Consts = b.values(dpkg.Consts)
-	b.pdoc.Funcs = b.funcs(dpkg.Funcs)
-	b.pdoc.Types = b.types(dpkg.Types)
-	b.pdoc.Vars = b.values(dpkg.Vars)
-	b.pdoc.Notes = b.notes(dpkg.Notes)
+	pkg.Consts = b.values(dpkg.Consts)
+	pkg.Funcs = b.funcs(dpkg.Funcs)
+	pkg.Types = b.types(dpkg.Types)
+	pkg.Vars = b.values(dpkg.Vars)
+	pkg.Notes = b.notes(dpkg.Notes)
 
-	b.pdoc.Imports = bpkg.Imports
-	b.pdoc.TestImports = bpkg.TestImports
-	b.pdoc.XTestImports = bpkg.XTestImports
+	pkg.Imports = bpkg.Imports
+	pkg.TestImports = bpkg.TestImports
+	pkg.XTestImports = bpkg.XTestImports
 
-	return b.pdoc, nil
+	return pkg, nil
 }
