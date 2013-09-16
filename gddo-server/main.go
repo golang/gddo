@@ -30,7 +30,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -39,10 +38,8 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
-	"code.google.com/p/go.talks/pkg/present"
 	"github.com/garyburd/gddo/database"
 	"github.com/garyburd/gddo/doc"
 	"github.com/garyburd/gosrc"
@@ -562,95 +559,6 @@ func logError(req *web.Request, err error, r interface{}) {
 	}
 }
 
-func renderPresentation(resp web.Response, fname string, doc *present.Doc) error {
-	t := presentTemplates[path.Ext(fname)]
-	data := struct {
-		*present.Doc
-		Template    *template.Template
-		PlayEnabled bool
-	}{
-		doc,
-		t,
-		true,
-	}
-
-	return t.Execute(
-		resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"text/html; charset=utf8"}}),
-		&data)
-}
-
-func servePresentHome(resp web.Response, req *web.Request) error {
-	fname := filepath.Join(*assetsDir, "presentHome.article")
-	f, err := os.Open(fname)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	doc, err := present.Parse(f, fname, 0)
-	if err != nil {
-		return err
-	}
-	return renderPresentation(resp, fname, doc)
-}
-
-var (
-	presMu        sync.Mutex
-	presentations = map[string]*gosrc.Presentation{}
-)
-
-func servePresentation(resp web.Response, req *web.Request) error {
-	if p := path.Clean(req.URL.Path); p != req.URL.Path {
-		return web.Redirect(resp, req, p, 301, nil)
-	}
-
-	presMu.Lock()
-	for p, pres := range presentations {
-		if time.Since(pres.Updated) > 15*time.Minute {
-			delete(presentations, p)
-		}
-	}
-	p := req.RouteVars["path"]
-	pres := presentations[p]
-	presMu.Unlock()
-
-	if pres == nil {
-		var err error
-		log.Println("Fetch presentation ", p)
-		pres, err = gosrc.GetPresentation(httpClient, p)
-		if err != nil {
-			return err
-		}
-		presMu.Lock()
-		presentations[p] = pres
-		presMu.Unlock()
-	}
-	ctx := &present.Context{
-		ReadFile: func(name string) ([]byte, error) {
-			if p, ok := pres.Files[name]; ok {
-				return p, nil
-			}
-			return nil, fmt.Errorf("pres file not found %s", name)
-		},
-	}
-	doc, err := ctx.Parse(bytes.NewReader(pres.Files[pres.Filename]), pres.Filename, 0)
-	if err != nil {
-		return err
-	}
-	return renderPresentation(resp, p, doc)
-}
-
-func serveCompile(resp web.Response, req *web.Request) error {
-	r, err := http.PostForm("http://golang.org/compile", req.Form)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	_, err = io.Copy(
-		resp.Start(web.StatusOK, web.Header{web.HeaderContentType: r.Header[web.HeaderContentType]}),
-		r.Body)
-	return err
-}
-
 func serveAPISearch(resp web.Response, req *web.Request) error {
 	q := strings.TrimSpace(req.Form.Get("q"))
 	pkgs, err := db.Query(q)
@@ -711,26 +619,6 @@ func handleError(resp web.Response, req *web.Request, status int, err error, r i
 	}
 }
 
-func handlePresentError(resp web.Response, req *web.Request, status int, err error, r interface{}) {
-	logError(req, err, r)
-	switch status {
-	case 0:
-		// nothing to do
-	default:
-		s := web.StatusText(status)
-		if gosrc.IsNotFound(err) {
-			s = web.StatusText(web.StatusNotFound)
-			status = web.StatusNotFound
-		} else if err == errUpdateTimeout {
-			s = "Timeout getting package files from the version control system."
-		} else if e, ok := err.(*gosrc.RemoteError); ok {
-			s = "Error getting package files from " + e.Host + "."
-		}
-		w := resp.Start(status, web.Header{web.HeaderContentType: {"text/plan; charset=utf-8"}})
-		io.WriteString(w, s)
-	}
-}
-
 func handleAPIError(resp web.Response, req *web.Request, status int, err error, r interface{}) {
 	logError(req, err, r)
 	switch status {
@@ -761,7 +649,6 @@ var (
 	robot           = flag.Float64("robot", 100, "Request counter threshold for robots")
 	assetsDir       = flag.String("assets", filepath.Join(defaultBase("github.com/garyburd/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	gzAssetsDir     = flag.String("gzassets", "", "Base directory for compressed static files.")
-	presentDir      = flag.String("present", defaultBase("code.google.com/p/go.talks/present"), "Base directory for templates and static files.")
 	getTimeout      = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
 	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
@@ -839,15 +726,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := parsePresentTemplates([][]string{
-		{".article", "article.tmpl", "action.tmpl"},
-		{".slide", "slides.tmpl", "action.tmpl"},
-	}); err != nil {
-		log.Fatal(err)
-	}
-
-	present.PlayEnabled = true
-
 	var err error
 	db, err = database.New()
 	if err != nil {
@@ -861,36 +739,14 @@ func main() {
 		Directory:   *assetsDir,
 		GzDirectory: *gzAssetsDir,
 	}
-	presentStaticConfig := &web.StaticConfig{
-		Header:    web.Header{web.HeaderCacheControl: {"public, max-age=3600"}},
-		Directory: *presentDir,
-	}
 
 	h := web.NewHostRouter()
 
 	r := web.NewRouter()
-	r.Add("/").GetFunc(servePresentHome)
-	r.Add("/compile").PostFunc(serveCompile)
 	r.Add("/favicon.ico").Get(staticConfig.FileHandler("favicon.ico"))
 	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticConfig.FileHandler("google3d2f3cd4cc2bb44b.html"))
 	r.Add("/humans.txt").Get(staticConfig.FileHandler("humans.txt"))
-	r.Add("/play.js").Get(dataHandler("play.js", "text/javascript", *presentDir, "js/jquery.js", "js/playground.js", "js/play.js"))
-	r.Add("/robots.txt").Get(staticConfig.FileHandler("presentRobots.txt"))
-	r.Add("/static/<path:.*>").Get(presentStaticConfig.DirectoryHandler("static"))
-	if *redirGoTalks {
-		r.Add("/code.google.com/p/go.talks/<path:.+>").GetFunc(func(resp web.Response, req *web.Request) error {
-			return web.Redirect(resp, req, "http://talks.golang.org/"+req.RouteVars["path"], 301, nil)
-		})
-	}
-	r.Add("/<path:.+>").GetFunc(servePresentation)
-
-	h.Add("talks.<:.*>", web.ErrorHandler(handlePresentError, web.FormAndCookieHandler(6000, false, r)))
-
-	r = web.NewRouter()
-	r.Add("/favicon.ico").Get(staticConfig.FileHandler("favicon.ico"))
-	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticConfig.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	r.Add("/humans.txt").Get(staticConfig.FileHandler("humans.txt"))
-	r.Add("/robots.txt").Get(staticConfig.FileHandler("presentRobots.txt"))
+	r.Add("/robots.txt").Get(staticConfig.FileHandler("apiRobots.txt"))
 	r.Add("/search").GetFunc(serveAPISearch)
 	r.Add("/packages").GetFunc(serveAPIPackages)
 	r.Add("/importers/<path:.+>").GetFunc(serveAPIImporters)

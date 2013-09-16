@@ -35,8 +35,6 @@ import (
 	"sync"
 	ttemp "text/template"
 
-	"code.google.com/p/go.talks/pkg/present"
-
 	"github.com/garyburd/gddo/doc"
 	"github.com/garyburd/gosrc"
 	"github.com/garyburd/indigo/web"
@@ -492,23 +490,6 @@ func parseTextTemplates(sets [][]string) error {
 			return fmt.Errorf("ROOT template not found in %v", set)
 		}
 		templates[set[0]] = t
-	}
-	return nil
-}
-
-var presentTemplates = make(map[string]*htemp.Template)
-
-func parsePresentTemplates(sets [][]string) error {
-	for _, set := range sets {
-		t := present.Template()
-		if _, err := t.ParseFiles(joinTemplateDir(*presentDir, set[1:])...); err != nil {
-			return err
-		}
-		t = t.Lookup("root")
-		if t == nil {
-			return fmt.Errorf("root template not found in %v", set)
-		}
-		presentTemplates[set[0]] = t
 	}
 	return nil
 }
