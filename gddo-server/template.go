@@ -160,7 +160,7 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 			(templateName != "dir.html" && templateName != "cmd.html" && templateName != "pkg.html")
 		if link {
 			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(pdoc.ImportPath[:j], ""))
+			buf.WriteString(formatPathFrag("/"+pdoc.ImportPath[:j], ""))
 			buf.WriteString(`">`)
 		} else {
 			buf.WriteString(`<span class="text-muted">`)
@@ -354,7 +354,7 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 		switch a.Kind {
 		case doc.PackageLinkAnnotation:
 			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(c.Paths[a.PathIndex], ""))
+			buf.WriteString(formatPathFrag("/"+c.Paths[a.PathIndex], ""))
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
@@ -368,7 +368,7 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 			n := src[a.Pos:a.End]
 			n = n[bytes.LastIndex(n, period)+1:]
 			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(p, string(n)))
+			buf.WriteString(formatPathFrag("/"+p, string(n)))
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
