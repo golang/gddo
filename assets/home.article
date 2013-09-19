@@ -5,7 +5,7 @@ go-talks.appspot.org
 * Introduction
 
 This site plays slide presentations and articles stored on GitHub and Google Project Hosting in the 
-[[http://godoc.org/code.google.com/p/go.talks/pkg/present][present format]].
+[[http://godoc.org/code.google.com/p/go.tools/present][present format]].
 
 The syntax for URLs is:
 

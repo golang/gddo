@@ -20,7 +20,7 @@ import (
 	"appengine/memcache"
 	"appengine/urlfetch"
 	"bytes"
-	"code.google.com/p/go.talks/pkg/present"
+	"code.google.com/p/go.tools/present"
 	"errors"
 	"fmt"
 	"github.com/garyburd/gosrc"
