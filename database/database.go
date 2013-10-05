@@ -40,6 +40,7 @@ package database
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -193,6 +194,16 @@ var addCrawlScript = redis.NewScript(0, `
         end
     end
 `)
+
+func (db *Database) AddNewCrawl(importPath string) error {
+	if !gosrc.IsValidRemotePath(importPath) {
+		return errors.New("bad path")
+	}
+	c := db.Pool.Get()
+	defer c.Close()
+	_, err := addCrawlScript.Do(c, importPath)
+	return err
+}
 
 // Put adds the package documentation to the database.
 func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
