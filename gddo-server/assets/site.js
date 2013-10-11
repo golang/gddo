@@ -15,8 +15,8 @@ $(function() {
         }
 
         var t = e.target.tagName
-        if (t == 'INPUT' || 
-            t == 'SELECT' || 
+        if (t == 'INPUT' ||
+            t == 'SELECT' ||
             t == 'TEXTAREA' ) {
             return true;
         }
@@ -57,9 +57,9 @@ $(function() {
             return false;
         case  ".":
             if ($('#x-jump').length > 0) {
-                window.setTimeout(function() { 
+                window.setTimeout(function() {
                     $('#x-jump-text').typeahead({local: symbols()});
-                    $('#x-jump').modal(); 
+                    $('#x-jump').modal();
                 }, 0);
                 return false;
             }
@@ -91,8 +91,11 @@ $(function() {
             highlighted = null;
         }
     }
-
     window.onhashchange = highlightHash;
     highlightHash();
+
+    $(document).on("click", "input.click-select", function(e) {
+        $(e.target).select();
+    });
 
 });

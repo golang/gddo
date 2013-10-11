@@ -176,6 +176,10 @@ func servePackage(resp web.Response, req *web.Request) error {
 		requestType = robotRequest
 	}
 
+	if isView(req, "status.png") {
+		return statusHandler.ServeWeb(resp, req)
+	}
+
 	importPath := req.RouteVars["path"]
 	pdoc, pkgs, err := getDoc(importPath, requestType)
 	if err != nil {
@@ -249,6 +253,18 @@ func servePackage(resp web.Response, req *web.Request) error {
 		}
 		return executeTemplate(resp, "imports.html", web.StatusOK, nil, map[string]interface{}{
 			"pkgs": pkgs,
+			"pdoc": newTDoc(pdoc),
+		})
+	case isView(req, "status"):
+		if pdoc.Name == "" {
+			break
+		}
+		pkgs, err = db.Packages(pdoc.Imports)
+		if err != nil {
+			return err
+		}
+		return executeTemplate(resp, "status.html", web.StatusOK, nil, map[string]interface{}{
+			"Host": req.URL.Host,
 			"pdoc": newTDoc(pdoc),
 		})
 	case isView(req, "redir"):
@@ -656,6 +672,7 @@ var (
 	redirGoTalks    = flag.Bool("redirGoTalks", true, "Redirect paths with prefix 'code.google.com/p/go.talks/' to talks.golang.org")
 	srcZip          = flag.String("srcZip", "", "")
 	srcFiles        = make(map[string]*zip.File)
+	statusHandler   web.Handler
 )
 
 var cacheBusters = map[string]string{}
@@ -707,6 +724,7 @@ func main() {
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
 		{"results.html", "common.html", "layout.html"},
+		{"status.html", "common.html", "layout.html"},
 		{"std.html", "common.html", "layout.html"},
 		{"subrepo.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
@@ -740,6 +758,8 @@ func main() {
 		GzDirectory: *gzAssetsDir,
 	}
 
+	statusHandler = staticConfig.FileHandler("status.png")
+
 	h := web.NewHostRouter()
 
 	r := web.NewRouter()
@@ -762,6 +782,7 @@ func main() {
 	r.Add("/-/site.css").Get(dataHandler("site.css", "text/css", *assetsDir,
 		"third_party/bootstrap/css/bootstrap.min.css", "site.css"))
 	r.Add("/").GetFunc(serveHome)
+	r.Add("/status.png").Get(statusHandler)
 	r.Add("/-/about").GetFunc(serveAbout)
 	r.Add("/-/bot").GetFunc(serveBot)
 	r.Add("/-/opensearch.xml").GetFunc(serveOpenSearchDescription)

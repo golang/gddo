@@ -68,6 +68,9 @@
   <p>{{if or .Imports $.importerCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.importerCount}} and {{end}}{{if $.importerCount}}is imported by <a href="?importers">{{$.importerCount}} packages</a>{{end}}.{{end}}
   {{if not .Updated.IsZero}}Updated <span class="timeago" title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{.Updated.Format "2006-01-02"}}</span>{{if or (equal .GOOS "windows") (equal .GOOS "darwin")}} with GOOS={{.GOOS}}{{end}}.{{end}}
   <a href="javascript:document.getElementsByName('x-refresh')[0].submit();" title="Refresh this page from the source.">Refresh</a>.
+  {{if and .Name (equal templateName "pkg.html")}}
+    <a href="?status" class="pull-right"><img src="/status.png" width="56" height="18" alt="Status Badge"></a>
+  {{end}}
 {{end}}
 {{with $.pdoc.Errors}}
     <p>The <a href="http://golang.org/cmd/go/#Download_and_install_packages_and_dependencies">go get</a>

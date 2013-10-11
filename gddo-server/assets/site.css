@@ -28,10 +28,10 @@ h4 { margin-top: 20px; }
     margin-bottom: 15px;
 }
 
-code { 
-  background-color: inherit; 
-  border: none; 
-  color: inherit; 
+code {
+  background-color: inherit;
+  border: none;
+  color: inherit;
   padding: 0;
 }
 
@@ -88,4 +88,8 @@ a.permalink {
 
 h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permalink, h5:hover .permalink, h6:hover .permalink {
     display: inline;
+}
+
+input.full-width {
+  width: 100%;
 }

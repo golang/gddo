@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -54,6 +55,12 @@ type texample struct {
 
 func newTDoc(pdoc *doc.Package) *tdoc {
 	return &tdoc{Package: pdoc}
+}
+
+func (pdoc *tdoc) Token() string {
+	h := sha1.New()
+	io.WriteString(h, pdoc.ImportPath+" shared")
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (pdoc *tdoc) SourceLink(pos doc.Pos, text, anchor string) htemp.HTML {

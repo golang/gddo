@@ -1,0 +1,21 @@
+{{define "Head"}}<title>{{.pdoc.PageName}} status badge - GoDoc</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+
+{{define "Body"}}
+  {{template "ProjectNav" $}}
+  <h3>Status badge for {{$.pdoc.Name}}</h3>
+
+  <p>These snippets make it easy to add a link to GoDoc from your README:</p>
+
+  <h4>HTML</h4>
+
+  <input type="text" value='<a href="http://{{.Host}}/{{.pdoc.ImportPath}}"><img src="https://{{.Host}}/{{.pdoc.ImportPath}}?status.png&t={{.pdoc.Token}}" alt="GoDoc"></a>' class="click-select full-width">
+
+
+  <h4>Markdown</h4>
+
+  <input type="text" value="[![GoDoc](https://{{.Host}}/{{.pdoc.ImportPath}}?status.png&t={{.pdoc.Token}})](http://{{.Host}}/{{.pdoc.ImportPath}})" class="click-select full-width">
+
+  <div id="x-pkginfo">
+  </div>
+
+{{end}}
