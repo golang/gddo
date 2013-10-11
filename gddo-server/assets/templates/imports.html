@@ -2,6 +2,6 @@
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h3>Packages imported by {{.pdoc.Name|html}}</h3>
+  <h3>Packages imported by {{.pdoc.Name}}</h3>
   {{template "Pkgs" $.pkgs}}
 {{end}}
