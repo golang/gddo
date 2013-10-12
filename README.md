@@ -1,5 +1,5 @@
-talksapp
-========
+lintapp
+=======
 
 This project is the source for [go-lint.appspot.com](http://go-lint.appspot.com).
 

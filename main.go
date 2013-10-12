@@ -231,7 +231,7 @@ func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func serveRoot(w http.ResponseWriter, r *http.Request) error {
 	switch {
-	case r.Method != "GET":
+	case r.Method != "GET" && r.Method != "HEAD":
 		return writeErrorResponse(w, 405)
 	case r.URL.Path == "/":
 		return writeResponse(w, 200, homeTemplate, nil)
