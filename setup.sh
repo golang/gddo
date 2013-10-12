@@ -1,9 +1,10 @@
 #!/bin/sh
-go get code.google.com/p/go.talks/present
+go get code.google.com/p/go.tools/godoc
 present=`go list -f '{{.Dir}}' code.google.com/p/go.talks/present`
+godoc=`go list -f '{{.Dir}}' code.google.com/p/go.tools/godoc`
 mkdir -p present
 
-(cat $present/js/jquery.js $present/js/jquery-ui.js $present/js/playground.js $present/js/play.js && echo "initPlayground(new HTTPTransport());") > present/play.js
+(cat $godoc/static/jquery.js $godoc/static/playground.js $godoc/static/play.js && echo "initPlayground(new HTTPTransport());") > present/play.js
 
 cd present
 for i in templates static

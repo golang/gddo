@@ -114,6 +114,7 @@ var setupOnce sync.Once
 
 func setup(r *http.Request) {
 	c := appengine.NewContext(r)
+	c.Infof("Contact email: %s", contactEmail)
 	gosrc.SetUserAgent(fmt.Sprintf("%s (+http://%s/bot.html)", appengine.AppID(c), r.Host))
 }
 
