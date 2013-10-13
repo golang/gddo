@@ -110,8 +110,11 @@ func writeErrorResponse(w http.ResponseWriter, status int) error {
 	return writeResponse(w, status, errorTemplate, http.StatusText(status))
 }
 
+const version = 1
+
 type storePackage struct {
-	Data []byte
+	Data    []byte
+	Version int
 }
 
 type lintPackage struct {
@@ -129,9 +132,10 @@ type lintFile struct {
 }
 
 type lintProblem struct {
-	Line     int
-	Text     string
-	LineText string
+	Line       int
+	Text       string
+	LineText   string
+	Confidence float64
 }
 
 func putPackage(c appengine.Context, importPath string, pkg *lintPackage) error {
@@ -141,14 +145,20 @@ func putPackage(c appengine.Context, importPath string, pkg *lintPackage) error 
 	}
 	_, err := datastore.Put(c,
 		datastore.NewKey(c, "Pacakge", importPath, 0, nil),
-		&storePackage{Data: buf.Bytes()})
+		&storePackage{Data: buf.Bytes(), Version: version})
 	return err
 }
 
 func getPackage(c appengine.Context, importPath string) (*lintPackage, error) {
 	var spkg storePackage
 	if err := datastore.Get(c, datastore.NewKey(c, "Pacakge", importPath, 0, nil), &spkg); err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			err = nil
+		}
 		return nil, err
+	}
+	if spkg.Version != version {
+		return nil, nil
 	}
 	var pkg lintPackage
 	if err := gob.NewDecoder(bytes.NewReader(spkg.Data)).Decode(&pkg); err != nil {
@@ -184,9 +194,10 @@ func runLint(c appengine.Context, importPath string) (*lintPackage, error) {
 		} else {
 			for _, p := range problems {
 				file.Problems = append(file.Problems, &lintProblem{
-					Line:     p.Position.Line,
-					Text:     p.Text,
-					LineText: p.LineText,
+					Line:       p.Position.Line,
+					Text:       p.Text,
+					LineText:   p.LineText,
+					Confidence: p.Confidence,
 				})
 			}
 		}
@@ -200,6 +211,23 @@ func runLint(c appengine.Context, importPath string) (*lintPackage, error) {
 	}
 
 	return &pkg, nil
+}
+
+func filterByConfidence(r *http.Request, pkg *lintPackage) {
+	minConfidence, err := strconv.ParseFloat(r.FormValue("minConfidence"), 64)
+	if err != nil {
+		minConfidence = 0.8
+	}
+	for _, f := range pkg.Files {
+		j := 0
+		for i := range f.Problems {
+			if f.Problems[i].Confidence >= minConfidence {
+				f.Problems[j] = f.Problems[i]
+				j += 1
+			}
+		}
+		f.Problems = f.Problems[:j]
+	}
 }
 
 var setupOnce sync.Once
@@ -242,12 +270,13 @@ func serveRoot(w http.ResponseWriter, r *http.Request) error {
 		}
 		c := appengine.NewContext(r)
 		pkg, err := getPackage(c, importPath)
-		if err == datastore.ErrNoSuchEntity {
+		if pkg == nil && err == nil {
 			pkg, err = runLint(c, importPath)
 		}
 		if err != nil {
 			return err
 		}
+		filterByConfidence(r, pkg)
 		return writeResponse(w, 200, packageTemplate, pkg)
 	}
 }
