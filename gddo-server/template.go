@@ -59,8 +59,9 @@ func newTDoc(pdoc *doc.Package) *tdoc {
 
 func (pdoc *tdoc) Token() string {
 	h := sha1.New()
-	io.WriteString(h, pdoc.ImportPath+" shared")
-	return fmt.Sprintf("%x", h.Sum(nil))
+	io.WriteString(h, pdoc.ImportPath)
+	io.WriteString(h, " shared")
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (pdoc *tdoc) SourceLink(pos doc.Pos, text, anchor string) htemp.HTML {
@@ -194,7 +195,7 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 
 func formatPathFrag(path, fragment string) string {
 	if len(path) > 0 && path[0] != '/' {
-		path += "/"
+		path = "/" + path
 	}
 	u := url.URL{Path: path, Fragment: fragment}
 	return u.String()
@@ -438,6 +439,9 @@ func executeTemplate(resp web.Response, name string, status int, header web.Head
 	}
 	header.Set(web.HeaderContentType, contentType)
 	w := resp.Start(status, header)
+	if status == web.StatusNotModified {
+		return nil
+	}
 	return t.Execute(w, data)
 }
 

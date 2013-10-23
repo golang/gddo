@@ -171,13 +171,13 @@ func servePackage(resp web.Response, req *web.Request) error {
 		return web.Redirect(resp, req, p, 301, nil)
 	}
 
+	if isView(req, "status.png") {
+		return statusHandler.ServeWeb(resp, req)
+	}
+
 	requestType := humanRequest
 	if isRobot(req) {
 		requestType = robotRequest
-	}
-
-	if isView(req, "status.png") {
-		return statusHandler.ServeWeb(resp, req)
 	}
 
 	importPath := req.RouteVars["path"]
@@ -204,6 +204,12 @@ func servePackage(resp web.Response, req *web.Request) error {
 
 	switch {
 	case len(req.Form) == 0:
+		etag := "\"1-" + pdoc.Etag + "\""
+		status := web.StatusOK
+		if req.Header.Get(web.HeaderIfNoneMatch) == etag {
+			status = web.StatusNotModified
+		}
+
 		if requestType == humanRequest &&
 			pdoc.Name != "" && // not a directory
 			pdoc.ProjectRoot != "" && // not a standard package
@@ -238,7 +244,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 			}
 		}
 
-		return executeTemplate(resp, template, web.StatusOK, nil, map[string]interface{}{
+		return executeTemplate(resp, template, status, web.Header{web.HeaderEtag: {etag}}, map[string]interface{}{
 			"pkgs":          pkgs,
 			"pdoc":          newTDoc(pdoc),
 			"importerCount": importerCount,
@@ -258,10 +264,6 @@ func servePackage(resp web.Response, req *web.Request) error {
 	case isView(req, "status"):
 		if pdoc.Name == "" {
 			break
-		}
-		pkgs, err = db.Packages(pdoc.Imports)
-		if err != nil {
-			return err
 		}
 		return executeTemplate(resp, "status.html", web.StatusOK, nil, map[string]interface{}{
 			"Host": req.URL.Host,
@@ -520,7 +522,7 @@ func serveHome(resp web.Response, req *web.Request) error {
 		q = path
 	}
 
-	if gosrc.IsValidRemotePath(q) {
+	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
 		pdoc, pkgs, err := getDoc(q, queryRequest)
 		if err == nil && (pdoc != nil || len(pkgs) > 0) {
 			return web.Redirect(resp, req, "/"+q, 302, nil)
@@ -669,7 +671,6 @@ var (
 	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
-	redirGoTalks    = flag.Bool("redirGoTalks", true, "Redirect paths with prefix 'code.google.com/p/go.talks/' to talks.golang.org")
 	srcZip          = flag.String("srcZip", "", "")
 	srcFiles        = make(map[string]*zip.File)
 	statusHandler   web.Handler
@@ -782,7 +783,6 @@ func main() {
 	r.Add("/-/site.css").Get(dataHandler("site.css", "text/css", *assetsDir,
 		"third_party/bootstrap/css/bootstrap.min.css", "site.css"))
 	r.Add("/").GetFunc(serveHome)
-	r.Add("/status.png").Get(statusHandler)
 	r.Add("/-/about").GetFunc(serveAbout)
 	r.Add("/-/bot").GetFunc(serveBot)
 	r.Add("/-/opensearch.xml").GetFunc(serveOpenSearchDescription)
@@ -791,6 +791,7 @@ func main() {
 	r.Add("/-/subrepo").GetFunc(serveGoSubrepoIndex)
 	r.Add("/-/index").GetFunc(serveIndex)
 	r.Add("/-/refresh").PostFunc(serveRefresh)
+	r.Add("/-/status.png").Get(statusHandler)
 	r.Add("/-/static/<path:.*>").Get(staticConfig.DirectoryHandler("static"))
 	r.Add("/a/index").Get(web.RedirectHandler("/-/index", 301))
 	r.Add("/about").Get(web.RedirectHandler("/-/about", 301))
