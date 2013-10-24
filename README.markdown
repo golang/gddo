@@ -36,7 +36,7 @@ Development Environment Setup
 
 Optional:
 
-- Create the file gddo-server/config.go using the template in gddo-server/config.go.example.
+- Create the file gddo-server/config.go using the template in [gddo-server/config.go.template](gddo-server/config.go.template).
 
 License
 -------
