@@ -77,7 +77,7 @@ var predeclared = map[string]int{
 	"recover": predeclaredFunction,
 }
 
-type AnnotationKind int32
+type AnnotationKind int16
 
 const (
 	// Link to export in package specifed by Paths[PathIndex] with fragment
@@ -96,12 +96,16 @@ const (
 
 	// Link to builtin entity with name Text[Pos:End].
 	BuiltinAnnotation
+
+	// Link to Line in file Paths[PathIndex].
+	FileLinkAnnotation
 )
 
 type Annotation struct {
 	Pos, End  int32
+	Line      int32
 	Kind      AnnotationKind
-	PathIndex int32
+	PathIndex int16
 }
 
 type Code struct {
@@ -128,7 +132,7 @@ func (v *annotationVisitor) add(kind AnnotationKind, importPath string) {
 			v.pathIndex[importPath] = pathIndex
 		}
 	}
-	v.annotations = append(v.annotations, Annotation{Kind: kind, PathIndex: int32(pathIndex)})
+	v.annotations = append(v.annotations, Annotation{Kind: kind, PathIndex: int16(pathIndex)})
 }
 
 func (v *annotationVisitor) ignoreName() {
@@ -249,17 +253,6 @@ loop:
 			e := p + len(lit)
 			annotation.Pos = int32(p)
 			annotation.End = int32(e)
-			if len(annotations) > 0 && annotation.Kind == LinkAnnotation {
-				prev := annotations[len(annotations)-1]
-				if prev.Kind == PackageLinkAnnotation &&
-					prev.PathIndex == annotation.PathIndex &&
-					prev.End+1 == annotation.Pos {
-					// merge with previous
-					annotation.Pos = prev.Pos
-					annotations[len(annotations)-1] = annotation
-					continue loop
-				}
-			}
 			annotations = append(annotations, annotation)
 		}
 	}

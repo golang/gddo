@@ -37,6 +37,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -162,6 +163,29 @@ func isView(req *web.Request, key string) bool {
 		(len(rq) == len(key) || rq[len(key)] == '=' || rq[len(key)] == '&')
 }
 
+// httpEtag returns the package entity tag used in HTTP transactions.
+func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int) string {
+	b := make([]byte, 0, 128)
+	b = strconv.AppendInt(b, pdoc.Updated.Unix(), 16)
+	b = append(b, 0)
+	b = append(b, pdoc.Etag...)
+	if importerCount >= 8 {
+		importerCount = 8
+	}
+	b = append(b, 0)
+	b = strconv.AppendInt(b, int64(importerCount), 16)
+	for _, pkg := range pkgs {
+		b = append(b, 0)
+		b = append(b, pkg.Path...)
+		b = append(b, 0)
+		b = append(b, pkg.Synopsis...)
+	}
+	h := md5.New()
+	h.Write(b)
+	b = h.Sum(b[:0])
+	return fmt.Sprintf("\"%x\"", b)
+}
+
 func servePackage(resp web.Response, req *web.Request) error {
 	p := path.Clean(req.URL.Path)
 	if strings.HasPrefix(p, "/pkg/") {
@@ -204,7 +228,12 @@ func servePackage(resp web.Response, req *web.Request) error {
 
 	switch {
 	case len(req.Form) == 0:
-		etag := "\"1-" + pdoc.Etag + "\""
+		importerCount, err := db.ImporterCount(importPath)
+		if err != nil {
+			return err
+		}
+
+		etag := httpEtag(pdoc, pkgs, importerCount)
 		status := web.StatusOK
 		if req.Header.Get(web.HeaderIfNoneMatch) == etag {
 			status = web.StatusNotModified
@@ -219,11 +248,6 @@ func servePackage(resp web.Response, req *web.Request) error {
 			if err := db.IncrementPopularScore(pdoc.ImportPath); err != nil {
 				log.Print("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
-		}
-
-		importerCount, err := db.ImporterCount(importPath)
-		if err != nil {
-			return err
 		}
 
 		template := "dir"

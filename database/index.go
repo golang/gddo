@@ -126,6 +126,11 @@ func documentScore(pdoc *doc.Package) float64 {
 		r = 1000
 	case strings.HasPrefix(pdoc.ImportPath, "code.google.com/p/go."):
 		r = 500
+	case pdoc.Doc == "":
+		// Chekc Doc before Synopsis to handle case where the synopsis is
+		// derived from the repository description on the version control
+		// service.
+		r = 1
 	case strings.HasPrefix(pdoc.Synopsis, "Package "+pdoc.Name+" "):
 		r = 100
 	case len(pdoc.Synopsis) > 0:

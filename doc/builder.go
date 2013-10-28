@@ -413,7 +413,7 @@ type Package struct {
 	// fields are set even if a package is not found for the import path.
 	Name string
 
-	// Synopsis and full documentation for package.
+	// Synopsis and full documentation for the package.
 	Synopsis string
 	Doc      string
 

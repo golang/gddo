@@ -17,11 +17,12 @@ package doc
 
 import (
 	"github.com/garyburd/gosrc"
+	"go/doc"
 	"net/http"
 	"strings"
 )
 
-func Get(client *http.Client, importPath string, etag string) (pdoc *Package, err error) {
+func Get(client *http.Client, importPath string, etag string) (*Package, error) {
 
 	const versionPrefix = PackageVersion + "-"
 
@@ -35,5 +36,28 @@ func Get(client *http.Client, importPath string, etag string) (pdoc *Package, er
 	if err != nil {
 		return nil, err
 	}
-	return newPackage(dir)
+
+	pdoc, err := newPackage(dir)
+	if err != nil {
+		return pdoc, err
+	}
+
+	if pdoc.Synopsis == "" &&
+		pdoc.Doc == "" &&
+		!pdoc.IsCmd &&
+		pdoc.Name != "" &&
+		dir.ImportPath == dir.ProjectRoot &&
+		len(pdoc.Errors) == 0 {
+		project, err := gosrc.GetProject(client, dir.ResolvedPath)
+		switch {
+		case err == nil:
+			pdoc.Synopsis = doc.Synopsis(project.Description)
+		case gosrc.IsNotFound(err):
+			// ok
+		default:
+			return nil, err
+		}
+	}
+
+	return pdoc, nil
 }
