@@ -3,112 +3,148 @@
 {{define "Body"}}
   {{template "ProjectNav" $}}
   {{with .pdoc}}
-    <h2 id="pkg-intro">package {{.Name}}</h2>
+    <div class="row">
 
-    <p><code>import "{{.ImportPath}}"</code>
+      <!-- Sidebar -->
+      <div class="gddo-sidebar col-md-3 hidden-xs hidden-sm">
+        <ul id="sidebar-nav" class="nav" data-spy="affix" data-offset-top="150">
+          <li class="active"><a href="#pkg-intro">Introduction</a></li>
+          <li><a href="#pkg-index">Index</a></li>
+          {{if .Examples}}<li><a href="#pkg-examples">Examples</a></li>{{end}}
+          {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
+          {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
 
-    {{.Doc|comment}}
+          {{if .Funcs}}
+            <li>
+              <a href="#pkg-functions">Functions</a>
+              <ul class="nav">
+                {{range .Funcs}}<li><a href="#{{.Name}}">{{.Name}}</a></li>{{end}}
+              </ul>
+            </li>
+          {{end}}
 
-    {{template "Examples" .|$.pdoc.ObjExamples}}
+          {{if .Types}}
+            <li>
+              <a href="#pkg-types">Types</a>
+              <ul class="nav">
+                {{range .Types}}<li><a href="#{{.Name}}">{{.Name}}</a></li>{{end}}
+              </ul>
+            </li>
+          {{end}}
 
-    <!-- Index -->
-    <div class="section-header">
-      <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-    </div>
+          {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
+        </ul>
+      </div>
 
-    {{if .Truncated}}
-      <div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
-    {{end}}
+      <!-- Content -->
+      <div class="col-md-9">
+        <h2 id="pkg-intro">package {{.Name}}</h2>
 
-    <ul class="list-unstyled">
-      {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
-      {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
-      {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
-      {{range $t := .Types}}
-        <li><a href="#{{.Name}}">type {{.Name}}</a></li>
-        {{if or .Funcs .Methods}}<ul>{{end}}
-        {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
-        {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
-        {{if or .Funcs .Methods}}</ul>{{end}}
-      {{end}}
-    </ul>
+        <p><code>import "{{.ImportPath}}"</code>
 
-    <!-- Examples -->
-    {{with .AllExamples}}
-      <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
-      <ul class="list-unstyled">
-        {{range . }}
-          <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a></li>
+        {{.Doc|comment}}
+
+        {{template "Examples" .|$.pdoc.ObjExamples}}
+
+        <!-- Index -->
+        <div class="section-header">
+          <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
+        </div>
+
+        {{if .Truncated}}
+          <div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
         {{end}}
-      </ul>
-    {{else}}
-      <span id="pkg-examples"></span>
-    {{end}}
 
-    <!-- Files -->
-    <h4 id="pkg-files">
-      {{with .BrowseURL}}<a href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
-      <a class="permalink" href="#pkg-files">&para;</a>
-    </h4>
+        <ul class="list-unstyled">
+          {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
+          {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
+          {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
+          {{range $t := .Types}}
+            <li><a href="#{{.Name}}">type {{.Name}}</a></li>
+            {{if or .Funcs .Methods}}<ul>{{end}}
+            {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
+            {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
+            {{if or .Funcs .Methods}}</ul>{{end}}
+          {{end}}
+        </ul>
 
-    <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
+        <!-- Examples -->
+        {{with .AllExamples}}
+          <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
+          <ul class="list-unstyled">
+            {{range . }}
+              <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a></li>
+            {{end}}
+          </ul>
+        {{else}}
+          <span id="pkg-examples"></span>
+        {{end}}
 
-    <!-- Contants -->
-    {{if .Consts}}
-      <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
-      {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-    {{end}}
+        <!-- Files -->
+        <h4 id="pkg-files">
+          {{with .BrowseURL}}<a href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
+          <a class="permalink" href="#pkg-files">&para;</a>
+        </h4>
 
-    <!-- Variables -->
-    {{if .Vars}}
-      <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
-      {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-    {{end}}
+        <p>{{range .Files}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
 
-    <!-- Functions -->
-    {{if .Funcs}}
-      <div class="section-header">
-        <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
+        <!-- Contants -->
+        {{if .Consts}}
+          <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
+          {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+        {{end}}
+
+        <!-- Variables -->
+        {{if .Vars}}
+          <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
+          {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+        {{end}}
+
+        <!-- Functions -->
+        {{if .Funcs}}
+          <div class="section-header">
+            <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
+          </div>
+        {{end}}
+        {{range .Funcs}}
+          <h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
+          {{template "Examples" .|$.pdoc.ObjExamples}}
+        {{end}}
+
+        <!-- Types -->
+        {{if .Types}}
+          <div class="section-header">
+            <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
+          </div>
+        {{end}}
+
+        {{range $t := .Types}}
+          <h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <pre>{{code .Decl $t}}</pre>{{.Doc|comment}}
+          {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+          {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+          {{template "Examples" .|$.pdoc.ObjExamples}}
+
+          {{range .Funcs}}
+            <h4 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+            <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
+            {{template "Examples" .|$.pdoc.ObjExamples}}
+          {{end}}
+
+          {{range .Methods}}
+            <h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name (printf "%s.%s" $t.Name .Name)}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+            <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
+            {{template "Examples" .|$.pdoc.ObjExamples}}
+          {{end}}
+        {{end}}
+
+        <!-- Bugs -->
+        {{with .Notes}}{{with .BUG}}
+          <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}
+        {{end}}{{end}}
       </div>
-    {{end}}
-    {{range .Funcs}}
-      <h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
-      {{template "Examples" .|$.pdoc.ObjExamples}}
-    {{end}}
-
-    <!-- Types -->
-    {{if .Types}}
-      <div class="section-header">
-        <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
-      </div>
-    {{end}}
-
-    {{range $t := .Types}}
-      <h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <pre>{{code .Decl $t}}</pre>{{.Doc|comment}}
-      {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-      {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-      {{template "Examples" .|$.pdoc.ObjExamples}}
-
-      {{range .Funcs}}
-        <h4 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-        <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
-        {{template "Examples" .|$.pdoc.ObjExamples}}
-      {{end}}
-
-      {{range .Methods}}
-        <h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name (printf "%s.%s" $t.Name .Name)}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
-        <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
-        {{template "Examples" .|$.pdoc.ObjExamples}}
-      {{end}}
-
-    {{end}}
-
-    <!-- Bugs -->
-    {{with .Notes}}{{with .BUG}}
-      <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}
-    {{end}}{{end}}
+    </div>
   {{end}}
 
   {{template "PkgCmdFooter" $}}

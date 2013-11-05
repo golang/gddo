@@ -98,4 +98,8 @@ $(function() {
         $(e.target).select();
     });
 
+    $('body').scrollspy({
+        target: '.gddo-sidebar',
+        offset: 10
+    });
 });
