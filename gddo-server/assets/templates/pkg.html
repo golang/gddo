@@ -12,7 +12,9 @@
     {{template "Examples" .|$.pdoc.ObjExamples}}
 
     <!-- Index -->
-    <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
+    <div class="section-header">
+      <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
+    </div>
 
     {{if .Truncated}}
       <div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
@@ -64,6 +66,11 @@
     {{end}}
 
     <!-- Functions -->
+    {{if .Funcs}}
+      <div class="section-header">
+        <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
+      </div>
+    {{end}}
     {{range .Funcs}}
       <h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
       <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
@@ -71,6 +78,12 @@
     {{end}}
 
     <!-- Types -->
+    {{if .Types}}
+      <div class="section-header">
+        <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
+      </div>
+    {{end}}
+
     {{range $t := .Types}}
       <h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
       <pre>{{code .Decl $t}}</pre>{{.Doc|comment}}

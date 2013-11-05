@@ -89,3 +89,9 @@ a.permalink {
 h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permalink, h5:hover .permalink, h6:hover .permalink {
     display: inline;
 }
+
+.section-header {
+  padding-bottom: 4px;
+  margin: 20px 0 10px;
+  border-bottom: 1px solid #eeeeee;
+}
