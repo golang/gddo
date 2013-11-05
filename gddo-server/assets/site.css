@@ -123,7 +123,6 @@ h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permali
 .gddo-sidebar .nav > li > a:focus {
     text-decoration: none;
     background-color: #e5e3e9;
-    border-right: 1px solid #dbd8e0;
 }
 .gddo-sidebar .nav > .active > a,
 .gddo-sidebar .nav > .active:hover > a,
@@ -131,7 +130,6 @@ h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permali
     font-weight: bold;
     color: #563d7c;
     background-color: transparent;
-    border-right: 1px solid #563d7c;
 }
 
 /* Nav: second level (shown on .active) */
