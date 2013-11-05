@@ -1,13 +1,12 @@
 {{define "Head"}}{{template "PkgCmdHeader" $}}{{end}}
 
 {{define "Body"}}
-  {{template "ProjectNav" $}}
   {{with .pdoc}}
     <div class="row">
 
       <!-- Sidebar -->
       <div class="gddo-sidebar col-md-3 hidden-xs hidden-sm">
-        <ul id="sidebar-nav" class="nav" data-spy="affix" data-offset-top="150">
+        <ul id="sidebar-nav" class="nav" data-spy="affix" data-offset-top="70">
           <li class="active"><a href="#pkg-intro">Introduction</a></li>
           <li><a href="#pkg-index">Index</a></li>
           {{if .Examples}}<li><a href="#pkg-examples">Examples</a></li>{{end}}
@@ -38,6 +37,8 @@
 
       <!-- Content -->
       <div class="col-md-9">
+        {{template "ProjectNav" $}}
+
         <h2 id="pkg-intro">package {{.Name}}</h2>
 
         <p><code>import "{{.ImportPath}}"</code>
@@ -143,11 +144,13 @@
         {{with .Notes}}{{with .BUG}}
           <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}
         {{end}}{{end}}
+        {{template "PkgCmdFooter" $}}
+
       </div>
     </div>
+
   {{end}}
 
-  {{template "PkgCmdFooter" $}}
 {{end}}
 
 {{define "Examples"}}

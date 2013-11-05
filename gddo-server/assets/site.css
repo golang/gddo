@@ -100,9 +100,8 @@ h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permali
 /* Sidebar navigation (stolen from bootstrap docs.css) */
 /* First level of nav */
 .gddo-sidebar {
-    margin-top: 20px;
+    margin-top: 5px;
     margin-bottom: 30px;
-    padding-top:    10px;
     padding-bottom: 10px;
     text-shadow: 0 1px 0 #fff;
     border-radius: 5px;
