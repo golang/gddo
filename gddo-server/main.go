@@ -621,10 +621,11 @@ func serveAPIPackages(resp web.Response, req *web.Request) error {
 	if err != nil {
 		return err
 	}
-	var data struct {
+	data := struct {
 		Results []database.Package `json:"results"`
+	}{
+		pkgs,
 	}
-	data.Results = pkgs
 	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 	return json.NewEncoder(w).Encode(&data)
 }
@@ -634,10 +635,38 @@ func serveAPIImporters(resp web.Response, req *web.Request) error {
 	if err != nil {
 		return err
 	}
-	var data struct {
+	data := struct {
 		Results []database.Package `json:"results"`
+	}{
+		pkgs,
 	}
-	data.Results = pkgs
+	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
+	return json.NewEncoder(w).Encode(&data)
+}
+
+func serveAPIImports(resp web.Response, req *web.Request) error {
+	pdoc, _, err := getDoc(req.RouteVars["path"], robotRequest)
+	if err != nil {
+		return err
+	}
+	if pdoc == nil || pdoc.Name == "" {
+		return &web.Error{Status: web.StatusNotFound}
+	}
+	imports, err := db.Packages(pdoc.Imports)
+	if err != nil {
+		return err
+	}
+	testImports, err := db.Packages(pdoc.TestImports)
+	if err != nil {
+		return err
+	}
+	data := struct {
+		Imports     []database.Package `json:"imports"`
+		TestImports []database.Package `json:"testImports"`
+	}{
+		imports,
+		testImports,
+	}
 	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
 	return json.NewEncoder(w).Encode(&data)
 }
@@ -795,6 +824,7 @@ func main() {
 	r.Add("/search").GetFunc(serveAPISearch)
 	r.Add("/packages").GetFunc(serveAPIPackages)
 	r.Add("/importers/<path:.+>").GetFunc(serveAPIImporters)
+	r.Add("/imports/<path:.+>").GetFunc(serveAPIImports)
 
 	h.Add("api.<:.*>", web.ErrorHandler(handleAPIError, web.FormAndCookieHandler(6000, false, r)))
 
