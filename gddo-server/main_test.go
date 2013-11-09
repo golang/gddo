@@ -15,7 +15,7 @@
 package main
 
 import (
-	"github.com/garyburd/indigo/web"
+	"net/http"
 	"testing"
 )
 
@@ -33,7 +33,7 @@ var robotTests = []string{
 
 func TestRobots(t *testing.T) {
 	for _, tt := range robotTests {
-		req := web.Request{Header: web.Header{web.HeaderUserAgent: {tt}}}
+		req := http.Request{Header: http.Header{"User-Agent": {tt}}}
 		if !isRobot(&req) {
 			t.Errorf("%s not a robot", tt)
 		}

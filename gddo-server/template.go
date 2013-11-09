@@ -16,7 +16,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -24,8 +23,7 @@ import (
 	godoc "go/doc"
 	htemp "html/template"
 	"io"
-	"io/ioutil"
-	"log"
+	"net/http"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -33,13 +31,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	ttemp "text/template"
 
 	"github.com/garyburd/gddo/doc"
 	"github.com/garyburd/gosrc"
-	"github.com/garyburd/indigo/web"
+	"github.com/garyburd/tango"
 )
+
+var cacheBusters tango.CacheBusters
 
 type tdoc struct {
 	*doc.Package
@@ -209,44 +208,12 @@ func hostFn(urlStr string) string {
 	return u.Host
 }
 
-var (
-	staticMutex sync.RWMutex
-	staticHash  = make(map[string]string)
-)
-
-func fileHashFn(p string) (string, error) {
-	staticMutex.RLock()
-	h, ok := staticHash[p]
-	staticMutex.RUnlock()
-
-	if !ok {
-		b, err := ioutil.ReadFile(filepath.Join(*assetsDir, filepath.FromSlash(p)))
-		if err != nil {
-			return "", err
-		}
-
-		m := md5.New()
-		m.Write(b)
-		h = hex.EncodeToString(m.Sum(nil))
-
-		staticMutex.Lock()
-		staticHash[p] = h
-		staticMutex.Unlock()
+func staticPathFn(p string) string {
+	token := cacheBusters.Get(p)
+	if token == "" {
+		return p
 	}
-	return h, nil
-}
-
-func staticFileFn(p string) htemp.URL {
-	h, err := fileHashFn("static/" + p)
-	if err != nil {
-		log.Printf("WARNING could not read static file %s, %v", p, err)
-		return htemp.URL("/-/static/" + p)
-	}
-	return htemp.URL("/-/static/" + p + "?v=" + h)
-}
-
-func cacheBuster(key string) string {
-	return cacheBusters[key]
+	return p + "?v=" + token
 }
 
 func mapFn(kvs ...interface{}) (map[string]interface{}, error) {
@@ -420,29 +387,29 @@ func htmlCommentFn(s string) htemp.HTML {
 	return htemp.HTML("<!-- " + s + " -->")
 }
 
-var contentTypes = map[string]string{
+var mimeTypes = map[string]string{
 	".html": "text/html; charset=utf-8",
 	".txt":  "text/plain; charset=utf-8",
 }
 
-func executeTemplate(resp web.Response, name string, status int, header web.Header, data interface{}) error {
-	contentType, ok := contentTypes[path.Ext(name)]
-	if !ok {
-		contentType = "text/plain; charset=utf-8"
+func executeTemplate(resp http.ResponseWriter, name string, status int, header http.Header, data interface{}) error {
+	for k, v := range header {
+		resp.Header()[k] = v
 	}
+	mimeType, ok := mimeTypes[path.Ext(name)]
+	if !ok {
+		mimeType = "text/plain; charset=utf-8"
+	}
+	resp.Header().Set("Content-Type", mimeType)
 	t := templates[name]
 	if t == nil {
 		return fmt.Errorf("Template %s not found", name)
 	}
-	if header == nil {
-		header = make(web.Header)
-	}
-	header.Set(web.HeaderContentType, contentType)
-	w := resp.Start(status, header)
-	if status == web.StatusNotModified {
+	resp.WriteHeader(status)
+	if status == http.StatusNotModified {
 		return nil
 	}
-	return t.Execute(w, data)
+	return t.Execute(resp, data)
 }
 
 var templates = map[string]interface {
@@ -462,11 +429,9 @@ func parseHTMLTemplates(sets [][]string) error {
 		templateName := set[0]
 		t := htemp.New("")
 		t.Funcs(htemp.FuncMap{
-			"cacheBuster":       cacheBuster,
 			"code":              codeFn,
 			"comment":           commentFn,
 			"equal":             reflect.DeepEqual,
-			"fileHash":          fileHashFn,
 			"gaAccount":         gaAccountFn,
 			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
@@ -475,7 +440,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
 			"relativePath":      relativePathFn,
-			"staticFile":        staticFileFn,
+			"staticPath":        staticPathFn,
 			"templateName":      func() string { return templateName },
 		})
 		if _, err := t.ParseFiles(joinTemplateDir(*assetsDir, set)...); err != nil {

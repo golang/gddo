@@ -27,10 +27,8 @@ import (
 	"go/build"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
-	"net"
-	"net/url"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -44,11 +42,22 @@ import (
 	"github.com/garyburd/gddo/database"
 	"github.com/garyburd/gddo/doc"
 	"github.com/garyburd/gosrc"
-	"github.com/garyburd/indigo/server"
-	"github.com/garyburd/indigo/web"
+	"github.com/garyburd/tango"
 )
 
 var errUpdateTimeout = errors.New("refresh timeout")
+
+type httpError struct {
+	status int   // HTTP status code.
+	err    error // Optional reason for the HTTP error.
+}
+
+func (err *httpError) Error() string {
+	if err.err != nil {
+		return fmt.Sprintf("status %d, reason %s", err.status, err.err.Error())
+	}
+	return fmt.Sprintf("Status %d", err.status)
+}
 
 const (
 	humanRequest = iota
@@ -114,15 +123,15 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 			} else if err == errUpdateTimeout {
 				// Handle timeout on packages never seeen before as not found.
 				log.Printf("Serving %q as not found after timeout", path)
-				err = &web.Error{Status: web.StatusNotFound}
+				err = &httpError{status: http.StatusNotFound}
 			}
 		}
 	}
 	return pdoc, pkgs, err
 }
 
-func templateExt(req *web.Request) string {
-	if web.NegotiateContentType(req, []string{"text/html", "text/plain"}, "text/html") == "text/plain" {
+func templateExt(req *http.Request) string {
+	if tango.NegotiateContentType(req, []string{"text/html", "text/plain"}, "text/html") == "text/plain" {
 		return ".txt"
 	}
 	return ".html"
@@ -132,32 +141,28 @@ var (
 	robotPat = regexp.MustCompile(`(:?\+https?://)|(?:\Wbot\W)|(?:^Python-urllib)|(?:^Go )|(?:^Java/)`)
 )
 
-func isRobot(req *web.Request) bool {
-	if robotPat.MatchString(req.Header.Get(web.HeaderUserAgent)) {
+func isRobot(req *http.Request) bool {
+	if robotPat.MatchString(req.Header.Get("User-Agent")) {
 		return true
 	}
-	host := req.RemoteAddr
-	if h, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		host = h
-	}
+	host := tango.StripPort(req.RemoteAddr)
 	n, err := db.IncrementCounter(host, 1)
 	if err != nil {
 		log.Printf("error incrementing counter for %s,  %v\n", host, err)
 		return false
 	}
 	if n > *robot {
-		log.Printf("robot %.2f %s %s", n, host, req.Header.Get(web.HeaderUserAgent))
+		log.Printf("robot %.2f %s %s", n, host, req.Header.Get("User-Agent"))
 		return true
 	}
 	return false
 }
 
-func popularLinkReferral(req *web.Request) bool {
-	u := url.URL{Scheme: req.URL.Scheme, Host: req.URL.Host, Path: "/"}
-	return req.Header.Get("Referer") == u.String()
+func popularLinkReferral(req *http.Request) bool {
+	return strings.HasSuffix(req.Header.Get("Referer"), "//"+req.Host+"/")
 }
 
-func isView(req *web.Request, key string) bool {
+func isView(req *http.Request, key string) bool {
 	rq := req.URL.RawQuery
 	return strings.HasPrefix(rq, key) &&
 		(len(rq) == len(key) || rq[len(key)] == '=' || rq[len(key)] == '&')
@@ -186,17 +191,19 @@ func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int) str
 	return fmt.Sprintf("\"%x\"", b)
 }
 
-func servePackage(resp web.Response, req *web.Request) error {
+func servePackage(resp http.ResponseWriter, req *http.Request) error {
 	p := path.Clean(req.URL.Path)
 	if strings.HasPrefix(p, "/pkg/") {
 		p = p[len("/pkg"):]
 	}
 	if p != req.URL.Path {
-		return web.Redirect(resp, req, p, 301, nil)
+		http.Redirect(resp, req, p, 301)
+		return nil
 	}
 
 	if isView(req, "status.png") {
-		return statusHandler.ServeWeb(resp, req)
+		statusHandler.ServeHTTP(resp, req)
+		return nil
 	}
 
 	requestType := humanRequest
@@ -204,7 +211,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 		requestType = robotRequest
 	}
 
-	importPath := req.RouteVars["path"]
+	importPath := tango.RouteVars(req)["path"]
 	pdoc, pkgs, err := getDoc(importPath, requestType)
 	if err != nil {
 		return err
@@ -212,7 +219,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 
 	if pdoc == nil {
 		if len(pkgs) == 0 {
-			return &web.Error{Status: web.StatusNotFound}
+			return &httpError{status: http.StatusNotFound}
 		}
 		pdocChild, _, _, err := db.Get(pkgs[0].Path)
 		if err != nil {
@@ -234,9 +241,9 @@ func servePackage(resp web.Response, req *web.Request) error {
 		}
 
 		etag := httpEtag(pdoc, pkgs, importerCount)
-		status := web.StatusOK
-		if req.Header.Get(web.HeaderIfNoneMatch) == etag {
-			status = web.StatusNotModified
+		status := http.StatusOK
+		if req.Header.Get("If-None-Match") == etag {
+			status = http.StatusNotModified
 		}
 
 		if requestType == humanRequest &&
@@ -268,7 +275,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 			}
 		}
 
-		return executeTemplate(resp, template, status, web.Header{web.HeaderEtag: {etag}}, map[string]interface{}{
+		return executeTemplate(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
 			"pkgs":          pkgs,
 			"pdoc":          newTDoc(pdoc),
 			"importerCount": importerCount,
@@ -281,7 +288,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if err != nil {
 			return err
 		}
-		return executeTemplate(resp, "imports.html", web.StatusOK, nil, map[string]interface{}{
+		return executeTemplate(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
 			"pkgs": pkgs,
 			"pdoc": newTDoc(pdoc),
 		})
@@ -289,8 +296,8 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if pdoc.Name == "" {
 			break
 		}
-		return executeTemplate(resp, "status.html", web.StatusOK, nil, map[string]interface{}{
-			"Host": req.URL.Host,
+		return executeTemplate(resp, "status.html", http.StatusOK, nil, map[string]interface{}{
+			"Host": req.Host,
 			"pdoc": newTDoc(pdoc),
 		})
 	case isView(req, "redir"):
@@ -301,13 +308,13 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if f == nil {
 			break
 		}
-		r, err := f.Open()
+		rc, err := f.Open()
 		if err != nil {
 			return err
 		}
-		defer r.Close()
+		defer rc.Close()
 		var sourceMap map[string]string
-		if err := gob.NewDecoder(r).Decode(&sourceMap); err != nil {
+		if err := gob.NewDecoder(rc).Decode(&sourceMap); err != nil {
 			return err
 		}
 		id := req.Form.Get("redir")
@@ -315,7 +322,8 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if fname == "" {
 			break
 		}
-		return web.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), 301, nil)
+		http.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), 301)
+		return nil
 	case isView(req, "file"):
 		if srcFiles == nil {
 			break
@@ -342,7 +350,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 				url = f.URL
 			}
 		}
-		return executeTemplate(resp, "file.html", web.StatusOK, nil, map[string]interface{}{
+		return executeTemplate(resp, "file.html", http.StatusOK, nil, map[string]interface{}{
 			"fname": fname,
 			"url":   url,
 			"src":   template.HTML(src),
@@ -361,7 +369,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 			// Hide back links from robots.
 			template = "importers_robot.html"
 		}
-		return executeTemplate(resp, template, web.StatusOK, nil, map[string]interface{}{
+		return executeTemplate(resp, template, http.StatusOK, nil, map[string]interface{}{
 			"pkgs": pkgs,
 			"pdoc": newTDoc(pdoc),
 		})
@@ -378,7 +386,7 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if err != nil {
 			return err
 		}
-		return executeTemplate(resp, "graph.html", web.StatusOK, nil, map[string]interface{}{
+		return executeTemplate(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
 			"svg":  template.HTML(b),
 			"pdoc": newTDoc(pdoc),
 			"hide": hide,
@@ -388,7 +396,8 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if err != nil {
 			return err
 		}
-		return web.Redirect(resp, req, u, 301, nil)
+		http.Redirect(resp, req, u, 301)
+		return nil
 	case req.Form.Get("view") != "":
 		// Redirect deprecated view= queries.
 		var q string
@@ -405,13 +414,14 @@ func servePackage(resp web.Response, req *web.Request) error {
 		if q != "" {
 			u := *req.URL
 			u.RawQuery = q
-			return web.Redirect(resp, req, u.String(), 301, nil)
+			http.Redirect(resp, req, u.String(), 301)
+			return nil
 		}
 	}
-	return &web.Error{Status: web.StatusNotFound}
+	return &httpError{status: http.StatusNotFound}
 }
 
-func serveRefresh(resp web.Response, req *web.Request) error {
+func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	path := req.Form.Get("path")
 	_, pkgs, _, err := db.Get(path)
 	if err != nil {
@@ -430,35 +440,36 @@ func serveRefresh(resp web.Response, req *web.Request) error {
 	if err != nil {
 		return err
 	}
-	return web.Redirect(resp, req, "/"+path, 302, nil)
+	http.Redirect(resp, req, "/"+path, 302)
+	return nil
 }
 
-func serveGoIndex(resp web.Response, req *web.Request) error {
+func serveGoIndex(resp http.ResponseWriter, req *http.Request) error {
 	pkgs, err := db.GoIndex()
 	if err != nil {
 		return err
 	}
-	return executeTemplate(resp, "std.html", web.StatusOK, nil, map[string]interface{}{
+	return executeTemplate(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
 
-func serveGoSubrepoIndex(resp web.Response, req *web.Request) error {
+func serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request) error {
 	pkgs, err := db.GoSubrepoIndex()
 	if err != nil {
 		return err
 	}
-	return executeTemplate(resp, "subrepo.html", web.StatusOK, nil, map[string]interface{}{
+	return executeTemplate(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
 
-func serveIndex(resp web.Response, req *web.Request) error {
+func serveIndex(resp http.ResponseWriter, req *http.Request) error {
 	pkgs, err := db.Index()
 	if err != nil {
 		return err
 	}
-	return executeTemplate(resp, "index.html", web.StatusOK, nil, map[string]interface{}{
+	return executeTemplate(resp, "index.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
@@ -529,8 +540,7 @@ func popular() ([]database.Package, error) {
 	return pkgs, nil
 }
 
-func serveHome(resp web.Response, req *web.Request) error {
-
+func serveHome(resp http.ResponseWriter, req *http.Request) error {
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
 		pkgs, err := popular()
@@ -538,7 +548,7 @@ func serveHome(resp web.Response, req *web.Request) error {
 			return err
 		}
 
-		return executeTemplate(resp, "home"+templateExt(req), web.StatusOK, nil,
+		return executeTemplate(resp, "home"+templateExt(req), http.StatusOK, nil,
 			map[string]interface{}{"Popular": pkgs})
 	}
 
@@ -549,7 +559,8 @@ func serveHome(resp web.Response, req *web.Request) error {
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
 		pdoc, pkgs, err := getDoc(q, queryRequest)
 		if err == nil && (pdoc != nil || len(pkgs) > 0) {
-			return web.Redirect(resp, req, "/"+q, 302, nil)
+			http.Redirect(resp, req, "/"+q, 302)
+			return nil
 		}
 	}
 
@@ -558,50 +569,32 @@ func serveHome(resp web.Response, req *web.Request) error {
 		return err
 	}
 
-	return executeTemplate(resp, "results"+templateExt(req), web.StatusOK, nil,
+	return executeTemplate(resp, "results"+templateExt(req), http.StatusOK, nil,
 		map[string]interface{}{"q": q, "pkgs": pkgs})
 }
 
-func serveAbout(resp web.Response, req *web.Request) error {
-	return executeTemplate(resp, "about.html", web.StatusOK, nil,
+func serveAbout(resp http.ResponseWriter, req *http.Request) error {
+	return executeTemplate(resp, "about.html", http.StatusOK, nil,
 		map[string]interface{}{"Host": req.URL.Host})
 }
 
-func serveBot(resp web.Response, req *web.Request) error {
-	return executeTemplate(resp, "bot.html", web.StatusOK, nil, nil)
+func serveBot(resp http.ResponseWriter, req *http.Request) error {
+	return executeTemplate(resp, "bot.html", http.StatusOK, nil, nil)
 }
 
-func serveOpenSearchDescription(resp web.Response, req *web.Request) error {
-	return executeTemplate(resp, "opensearch.xml", web.StatusOK, nil, req.URL.Host)
-}
-
-func serveTypeahead(resp web.Response, req *web.Request) error {
-	pkgs, err := db.Popular(1000)
-	if err != nil {
-		return err
-	}
-	items := make([]string, len(pkgs))
-	for i, pkg := range pkgs {
-		items[i] = pkg.Path
-	}
-	data := map[string]interface{}{"items": items}
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
-	return json.NewEncoder(w).Encode(data)
-}
-
-func logError(req *web.Request, err error, r interface{}) {
+func logError(req *http.Request, err error, rv interface{}) {
 	if err != nil {
 		var buf bytes.Buffer
 		fmt.Fprintf(&buf, "Error serving %s: %v\n", req.URL, err)
-		if r != nil {
-			fmt.Fprintln(&buf, r)
+		if rv != nil {
+			fmt.Fprintln(&buf, rv)
 			buf.Write(debug.Stack())
 		}
 		log.Print(buf.String())
 	}
 }
 
-func serveAPISearch(resp web.Response, req *web.Request) error {
+func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	q := strings.TrimSpace(req.Form.Get("q"))
 	pkgs, err := db.Query(q)
 	if err != nil {
@@ -612,11 +605,11 @@ func serveAPISearch(resp web.Response, req *web.Request) error {
 		Results []database.Package `json:"results"`
 	}
 	data.Results = pkgs
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
-	return json.NewEncoder(w).Encode(&data)
+	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return json.NewEncoder(resp).Encode(&data)
 }
 
-func serveAPIPackages(resp web.Response, req *web.Request) error {
+func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
 	pkgs, err := db.AllPackages()
 	if err != nil {
 		return err
@@ -626,12 +619,12 @@ func serveAPIPackages(resp web.Response, req *web.Request) error {
 	}{
 		pkgs,
 	}
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
-	return json.NewEncoder(w).Encode(&data)
+	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return json.NewEncoder(resp).Encode(&data)
 }
 
-func serveAPIImporters(resp web.Response, req *web.Request) error {
-	pkgs, err := db.Importers(req.RouteVars["path"])
+func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
+	pkgs, err := db.Importers(tango.RouteVars(req)["path"])
 	if err != nil {
 		return err
 	}
@@ -640,17 +633,17 @@ func serveAPIImporters(resp web.Response, req *web.Request) error {
 	}{
 		pkgs,
 	}
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
-	return json.NewEncoder(w).Encode(&data)
+	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return json.NewEncoder(resp).Encode(&data)
 }
 
-func serveAPIImports(resp web.Response, req *web.Request) error {
-	pdoc, _, err := getDoc(req.RouteVars["path"], robotRequest)
+func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
+	pdoc, _, err := getDoc(tango.RouteVars(req)["path"], robotRequest)
 	if err != nil {
 		return err
 	}
 	if pdoc == nil || pdoc.Name == "" {
-		return &web.Error{Status: web.StatusNotFound}
+		return &httpError{status: http.StatusNotFound}
 	}
 	imports, err := db.Packages(pdoc.Imports)
 	if err != nil {
@@ -667,44 +660,80 @@ func serveAPIImports(resp web.Response, req *web.Request) error {
 		imports,
 		testImports,
 	}
-	w := resp.Start(web.StatusOK, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
-	return json.NewEncoder(w).Encode(&data)
+	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return json.NewEncoder(resp).Encode(&data)
 }
 
-func handleError(resp web.Response, req *web.Request, status int, err error, r interface{}) {
-	logError(req, err, r)
+func runHandler(resp http.ResponseWriter, req *http.Request,
+	fn func(resp http.ResponseWriter, req *http.Request) error, errfn tango.Error) {
+	defer func() {
+		if rv := recover(); rv != nil {
+			err := errors.New("handler panic")
+			logError(req, err, rv)
+			errfn(resp, req, http.StatusInternalServerError, err)
+		}
+	}()
+
+	if s := req.Header.Get("X-Real-Ip"); s != "" && tango.StripPort(req.RemoteAddr) == "127.0.0.1" {
+		req.RemoteAddr = s
+	}
+
+	req.Body = http.MaxBytesReader(resp, req.Body, 2048)
+	req.ParseForm()
+	var rb tango.ResponseBuffer
+	err := fn(&rb, req)
+	if err == nil {
+		rb.WriteTo(resp)
+	} else if e, ok := err.(*httpError); ok {
+		if e.status >= 500 {
+			logError(req, err, nil)
+		}
+		errfn(resp, req, e.status, e.err)
+	} else {
+		logError(req, err, nil)
+		errfn(resp, req, http.StatusInternalServerError, err)
+	}
+}
+
+type handler func(resp http.ResponseWriter, req *http.Request) error
+
+func (h handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	runHandler(resp, req, h, handleError)
+}
+
+type apiHandler func(resp http.ResponseWriter, req *http.Request) error
+
+func (h apiHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	runHandler(resp, req, h, handleAPIError)
+}
+
+func handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch status {
-	case 0:
-		// nothing to do
-	case web.StatusNotFound:
+	case http.StatusNotFound:
 		executeTemplate(resp, "notfound"+templateExt(req), status, nil, nil)
 	default:
-		s := web.StatusText(status)
+		s := http.StatusText(status)
 		if err == errUpdateTimeout {
 			s = "Timeout getting package files from the version control system."
 		} else if e, ok := err.(*gosrc.RemoteError); ok {
 			s = "Error getting package files from " + e.Host + "."
 		}
-		w := resp.Start(web.StatusInternalServerError, web.Header{web.HeaderContentType: {"text/plan; charset=utf-8"}})
-		io.WriteString(w, s)
+		resp.Header().Set("Content-Type", "text/plan; charset=utf-8")
+		resp.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(resp, s)
 	}
 }
 
-func handleAPIError(resp web.Response, req *web.Request, status int, err error, r interface{}) {
-	logError(req, err, r)
-	switch status {
-	case 0:
-		// nothing to do
-	default:
-		var data struct {
-			Error struct {
-				Message string `json:"message"`
-			} `json:"error"`
-		}
-		data.Error.Message = web.StatusText(status)
-		w := resp.Start(status, web.Header{web.HeaderContentType: {"application/json; charset=utf-8"}})
-		json.NewEncoder(w).Encode(&data)
+func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err error) {
+	var data struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
 	}
+	data.Error.Message = http.StatusText(status)
+	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.WriteHeader(status)
+	json.NewEncoder(resp).Encode(&data)
 }
 
 func defaultBase(path string) string {
@@ -719,34 +748,14 @@ var (
 	db              *database.Database
 	robot           = flag.Float64("robot", 100, "Request counter threshold for robots")
 	assetsDir       = flag.String("assets", filepath.Join(defaultBase("github.com/garyburd/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
-	gzAssetsDir     = flag.String("gzassets", "", "Base directory for compressed static files.")
 	getTimeout      = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
 	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
 	srcZip          = flag.String("srcZip", "", "")
 	srcFiles        = make(map[string]*zip.File)
-	statusHandler   web.Handler
+	statusHandler   http.Handler
 )
-
-var cacheBusters = map[string]string{}
-
-func dataHandler(cacheBusterKey, contentType, dir string, names ...string) web.Handler {
-	var data []byte
-	for _, name := range names {
-		p, err := ioutil.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
-		if err != nil {
-			log.Fatal(err)
-		}
-		data = append(data, p...)
-	}
-
-	h := md5.New()
-	h.Write(data)
-	cacheBusters[cacheBusterKey] = fmt.Sprintf("%x", h.Sum(nil))
-
-	return web.DataHandler(data, web.Header{web.HeaderContentType: {contentType}})
-}
 
 func main() {
 	flag.Parse()
@@ -793,7 +802,6 @@ func main() {
 		{"notfound.txt", "common.txt"},
 		{"pkg.txt", "common.txt"},
 		{"results.txt", "common.txt"},
-		{"opensearch.xml"},
 	}); err != nil {
 		log.Fatal(err)
 	}
@@ -801,76 +809,69 @@ func main() {
 	var err error
 	db, err = database.New()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error opening database: %v", err)
 	}
 
 	go runBackgroundTasks()
 
-	staticConfig := &web.StaticConfig{
-		Header:      web.Header{web.HeaderCacheControl: {"public, max-age=3600"}},
-		Directory:   *assetsDir,
-		GzDirectory: *gzAssetsDir,
+	staticServer := tango.StaticServer{
+		Dir:    *assetsDir,
+		MaxAge: time.Hour,
+		MIMETypes: map[string]string{
+			".css": "text/css; charset=utf-8",
+			".js":  "text/javascript; charset=utf-8",
+		},
+	}
+	apiStaticServer := tango.StaticServer{
+		Dir:    *assetsDir,
+		MaxAge: time.Hour,
 	}
 
-	statusHandler = staticConfig.FileHandler("status.png")
+	statusHandler = staticServer.FileHandler("status.png")
 
-	h := web.NewHostRouter()
+	hr := tango.NewHostRouter()
+	r := tango.NewRouter()
+	r.Error(handleAPIError)
+	r.Add("/favicon.ico").Get(apiStaticServer.FileHandler("favicon.ico"))
+	r.Add("/google3d2f3cd4cc2bb44b.html").Get(apiStaticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
+	r.Add("/humans.txt").Get(apiStaticServer.FileHandler("humans.txt"))
+	r.Add("/robots.txt").Get(apiStaticServer.FileHandler("apiRobots.txt"))
+	r.Add("/search").Get(apiHandler(serveAPISearch))
+	r.Add("/packages").Get(apiHandler(serveAPIPackages))
+	r.Add("/importers/<path:.+>").Get(apiHandler(serveAPIImporters))
+	r.Add("/imports/<path:.+>").Get(apiHandler(serveAPIImports))
+	hr.Add("api.<:.*>", r)
 
-	r := web.NewRouter()
-	r.Add("/favicon.ico").Get(staticConfig.FileHandler("favicon.ico"))
-	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticConfig.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	r.Add("/humans.txt").Get(staticConfig.FileHandler("humans.txt"))
-	r.Add("/robots.txt").Get(staticConfig.FileHandler("apiRobots.txt"))
-	r.Add("/search").GetFunc(serveAPISearch)
-	r.Add("/packages").GetFunc(serveAPIPackages)
-	r.Add("/importers/<path:.+>").GetFunc(serveAPIImporters)
-	r.Add("/imports/<path:.+>").GetFunc(serveAPIImports)
-
-	h.Add("api.<:.*>", web.ErrorHandler(handleAPIError, web.FormAndCookieHandler(6000, false, r)))
-
-	r = web.NewRouter()
-	r.Add("/-/site.js").Get(dataHandler("site.js", "text/javascript", *assetsDir,
+	r = tango.NewRouter()
+	cacheBusters.Handler = r
+	r.Add("/-/site.js").Get(staticServer.FilesHandler(
 		"third_party/jquery.timeago.js",
 		"third_party/typeahead.min.js",
 		"third_party/bootstrap/js/bootstrap.min.js",
 		"site.js"))
-	r.Add("/-/site.css").Get(dataHandler("site.css", "text/css", *assetsDir,
-		"third_party/bootstrap/css/bootstrap.min.css", "site.css"))
-	r.Add("/").GetFunc(serveHome)
-	r.Add("/-/about").GetFunc(serveAbout)
-	r.Add("/-/bot").GetFunc(serveBot)
-	r.Add("/-/opensearch.xml").GetFunc(serveOpenSearchDescription)
-	r.Add("/-/typeahead").GetFunc(serveTypeahead)
-	r.Add("/-/go").GetFunc(serveGoIndex)
-	r.Add("/-/subrepo").GetFunc(serveGoSubrepoIndex)
-	r.Add("/-/index").GetFunc(serveIndex)
-	r.Add("/-/refresh").PostFunc(serveRefresh)
+	r.Add("/-/site.css").Get(staticServer.FilesHandler(
+		"third_party/bootstrap/css/bootstrap.min.css",
+		"site.css"))
+	r.Add("/").Get(handler(serveHome))
+	r.Add("/-/about").Get(handler(serveAbout))
+	r.Add("/-/bot").Get(handler(serveBot))
+	r.Add("/-/go").Get(handler(serveGoIndex))
+	r.Add("/-/subrepo").Get(handler(serveGoSubrepoIndex))
+	r.Add("/-/index").Get(handler(serveIndex))
+	r.Add("/-/refresh").Post(handler(serveRefresh))
 	r.Add("/-/status.png").Get(statusHandler)
-	r.Add("/-/static/<path:.*>").Get(staticConfig.DirectoryHandler("static"))
-	r.Add("/a/index").Get(web.RedirectHandler("/-/index", 301))
-	r.Add("/about").Get(web.RedirectHandler("/-/about", 301))
-	r.Add("/favicon.ico").Get(staticConfig.FileHandler("favicon.ico"))
-	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticConfig.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	r.Add("/humans.txt").Get(staticConfig.FileHandler("humans.txt"))
-	r.Add("/robots.txt").Get(staticConfig.FileHandler("robots.txt"))
-	r.Add("/BingSiteAuth.xml").Get(staticConfig.FileHandler("BingSiteAuth.xml"))
-	r.Add("/C").Get(web.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
-	r.Add("/<path:.+>").GetFunc(servePackage)
+	r.Add("/a/index").Get(http.RedirectHandler("/-/index", 301))
+	r.Add("/about").Get(http.RedirectHandler("/-/about", 301))
+	r.Add("/favicon.ico").Get(staticServer.FileHandler("favicon.ico"))
+	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
+	r.Add("/humans.txt").Get(staticServer.FileHandler("humans.txt"))
+	r.Add("/robots.txt").Get(staticServer.FileHandler("robots.txt"))
+	r.Add("/BingSiteAuth.xml").Get(staticServer.FileHandler("BingSiteAuth.xml"))
+	r.Add("/C").Get(http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
+	r.Add("/<path:.+>").Get(handler(servePackage))
+	hr.Add("<:.*>", r)
 
-	h.Add("<:.*>", web.ErrorHandler(handleError, web.FormAndCookieHandler(1000, false, r)))
-
-	listener, err := net.Listen("tcp", *httpAddr)
-	if err != nil {
-		log.Fatal("Listen", err)
-		return
-	}
-	defer listener.Close()
-	s := &server.Server{
-		Listener: listener,
-		Handler:  web.ProxyHeaderHandler("X-Real-Ip", "X-Scheme", h),
-	}
-	err = s.Serve()
-	if err != nil {
-		log.Fatal("Server", err)
+	if err := http.ListenAndServe(*httpAddr, hr); err != nil {
+		log.Fatal(err)
 	}
 }

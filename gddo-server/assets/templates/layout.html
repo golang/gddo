@@ -2,7 +2,7 @@
 <head profile="http://a9.com/-/spec/opensearch/1.1/">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="/-/site.css?v={{cacheBuster "site.css"}}" rel="stylesheet">
+  <link href="{{staticPath "/-/site.css"}}" rel="stylesheet">
   {{template "Head" $}}
 </head>
 <body>
@@ -63,7 +63,7 @@
     </div>
   </div>
 </div>
-{{template "jQuery"}}<script src="/-/site.js?v={{cacheBuster "site.js"}}"></script>{{template "Analytics"}}
+{{template "jQuery"}}<script src="{{staticPath "/-/site.js"}}"></script>{{template "Analytics"}}
 </body>
 </html>
 {{end}}

@@ -17,11 +17,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/garyburd/gddo/doc"
-	"github.com/garyburd/indigo/web"
 )
 
 func findExamples(pdoc *doc.Package, export, method string) []*doc.Example {
@@ -80,5 +80,5 @@ func playURL(pdoc *doc.Package, id string) (string, error) {
 			return fmt.Sprintf("http://play.golang.org/p/%s", p), nil
 		}
 	}
-	return "", &web.Error{Status: web.StatusNotFound}
+	return "", &httpError{status: http.StatusNotFound}
 }
