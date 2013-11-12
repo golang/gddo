@@ -202,7 +202,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	if isView(req, "status.png") {
-		statusHandler.ServeHTTP(resp, req)
+		statusImageHandler.ServeHTTP(resp, req)
 		return nil
 	}
 
@@ -292,13 +292,20 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			"pkgs": pkgs,
 			"pdoc": newTDoc(pdoc),
 		})
-	case isView(req, "status"):
+	case isView(req, "tools"):
 		if pdoc.Name == "" {
 			break
 		}
-		return executeTemplate(resp, "status.html", http.StatusOK, nil, map[string]interface{}{
-			"Host": req.Host,
+		proto := "http"
+		if req.Host == "godoc.org" {
+			// In case show different badges in the future, use https to
+			// bust through the caching proxy on Github and other services.
+			proto = "https"
+		}
+		return executeTemplate(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
+			"uri":  fmt.Sprintf("%s://%s/%s?status.png", proto, req.Host, importPath),
 			"pdoc": newTDoc(pdoc),
+			"host": req.Host,
 		})
 	case isView(req, "redir"):
 		if srcFiles == nil {
@@ -745,7 +752,12 @@ func defaultBase(path string) string {
 }
 
 var (
-	db              *database.Database
+	db                 *database.Database
+	statusImageHandler http.Handler
+	srcFiles           = make(map[string]*zip.File)
+)
+
+var (
 	robot           = flag.Float64("robot", 100, "Request counter threshold for robots")
 	assetsDir       = flag.String("assets", filepath.Join(defaultBase("github.com/garyburd/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	getTimeout      = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
@@ -753,8 +765,6 @@ var (
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
 	srcZip          = flag.String("srcZip", "", "")
-	srcFiles        = make(map[string]*zip.File)
-	statusHandler   http.Handler
 )
 
 func main() {
@@ -787,7 +797,7 @@ func main() {
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
 		{"results.html", "common.html", "layout.html"},
-		{"status.html", "common.html", "layout.html"},
+		{"tools.html", "common.html", "layout.html"},
 		{"std.html", "common.html", "layout.html"},
 		{"subrepo.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
@@ -822,20 +832,15 @@ func main() {
 			".js":  "text/javascript; charset=utf-8",
 		},
 	}
-	apiStaticServer := tango.StaticServer{
-		Dir:    *assetsDir,
-		MaxAge: time.Hour,
-	}
-
-	statusHandler = staticServer.FileHandler("status.png")
+	statusImageHandler = staticServer.FileHandler("status.png")
 
 	hr := tango.NewHostRouter()
 	r := tango.NewRouter()
 	r.Error(handleAPIError)
-	r.Add("/favicon.ico").Get(apiStaticServer.FileHandler("favicon.ico"))
-	r.Add("/google3d2f3cd4cc2bb44b.html").Get(apiStaticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	r.Add("/humans.txt").Get(apiStaticServer.FileHandler("humans.txt"))
-	r.Add("/robots.txt").Get(apiStaticServer.FileHandler("apiRobots.txt"))
+	r.Add("/favicon.ico").Get(staticServer.FileHandler("favicon.ico"))
+	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
+	r.Add("/humans.txt").Get(staticServer.FileHandler("humans.txt"))
+	r.Add("/robots.txt").Get(staticServer.FileHandler("apiRobots.txt"))
 	r.Add("/search").Get(apiHandler(serveAPISearch))
 	r.Add("/packages").Get(apiHandler(serveAPIPackages))
 	r.Add("/importers/<path:.+>").Get(apiHandler(serveAPIImporters))
@@ -843,7 +848,6 @@ func main() {
 	hr.Add("api.<:.*>", r)
 
 	r = tango.NewRouter()
-	cacheBusters.Handler = r
 	r.Add("/-/site.js").Get(staticServer.FilesHandler(
 		"third_party/jquery.timeago.js",
 		"third_party/typeahead.min.js",
@@ -859,7 +863,6 @@ func main() {
 	r.Add("/-/subrepo").Get(handler(serveGoSubrepoIndex))
 	r.Add("/-/index").Get(handler(serveIndex))
 	r.Add("/-/refresh").Post(handler(serveRefresh))
-	r.Add("/-/status.png").Get(statusHandler)
 	r.Add("/a/index").Get(http.RedirectHandler("/-/index", 301))
 	r.Add("/about").Get(http.RedirectHandler("/-/about", 301))
 	r.Add("/favicon.ico").Get(staticServer.FileHandler("favicon.ico"))
@@ -870,6 +873,8 @@ func main() {
 	r.Add("/C").Get(http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
 	r.Add("/<path:.+>").Get(handler(servePackage))
 	hr.Add("<:.*>", r)
+
+	cacheBusters.Handler = r
 
 	if err := http.ListenAndServe(*httpAddr, hr); err != nil {
 		log.Fatal(err)

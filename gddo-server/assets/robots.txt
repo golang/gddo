@@ -4,7 +4,7 @@ Disallow: /*?importers
 Disallow: /*?import-graph*
 Disallow: /*?gosrc*
 Disallow: /*?file*
-Disallow: /*?status
+Disallow: /*?tools
 
 user-agent: AhrefsBot
 disallow: /

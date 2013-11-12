@@ -1,0 +1,26 @@
+{{define "Head"}}<title>{{.pdoc.PageName}} tools - GoDoc</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+
+{{define "Body"}}
+  {{template "ProjectNav" $}}
+  <h2>Tools for {{$.pdoc.Name}}</h2>
+
+  <h3>Badge</h3>
+
+  <p><a href="http://{{.host}}/{{.pdoc.ImportPath}}"><img src="{{.uri}}" alt="GoDoc"></a>
+
+  <p>Use one of the snippets below to add a link to GoDoc from your project
+  website or README file:</a>
+
+  <h5>HTML</h5>
+  <input type="text" value='<a href="http://{{.host}}/{{.pdoc.ImportPath}}"><img src="{{.uri}}" alt="GoDoc"></a>' class="click-select form-control">
+
+  <h5>Markdown</h5>
+  <input type="text" value="[![GoDoc]({{.uri}})](http://{{.host}}/{{.pdoc.ImportPath}})" class="click-select form-control">
+
+  <h3>Lint</h3>
+
+  <form name="x-lint" method="POST" action="http://go-lint.appspot.com/-/refresh"><input name="importPath" type="hidden" value="{{.pdoc.ImportPath}}"></form>
+  Run lint on <a href="javascript:document.getElementsByName('x-lint')[0].submit();">{{.pdoc.Name}}</a>.
+
+  <p>&nbsp;
+{{end}}

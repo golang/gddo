@@ -16,8 +16,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	godoc "go/doc"
@@ -54,13 +52,6 @@ type texample struct {
 
 func newTDoc(pdoc *doc.Package) *tdoc {
 	return &tdoc{Package: pdoc}
-}
-
-func (pdoc *tdoc) Token() string {
-	h := sha1.New()
-	io.WriteString(h, pdoc.ImportPath)
-	io.WriteString(h, " shared")
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (pdoc *tdoc) SourceLink(pos doc.Pos, text, anchor string) htemp.HTML {
@@ -206,14 +197,6 @@ func hostFn(urlStr string) string {
 		return ""
 	}
 	return u.Host
-}
-
-func staticPathFn(p string) string {
-	token := cacheBusters.Get(p)
-	if token == "" {
-		return p
-	}
-	return p + "?v=" + token
 }
 
 func mapFn(kvs ...interface{}) (map[string]interface{}, error) {
@@ -440,7 +423,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
 			"relativePath":      relativePathFn,
-			"staticPath":        staticPathFn,
+			"staticPath":        func(p string) string { return cacheBusters.AppendQueryParam(p, "v") },
 			"templateName":      func() string { return templateName },
 		})
 		if _, err := t.ParseFiles(joinTemplateDir(*assetsDir, set)...); err != nil {
