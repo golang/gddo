@@ -168,7 +168,8 @@ func getPackage(c appengine.Context, importPath string) (*lintPackage, error) {
 }
 
 func runLint(c appengine.Context, importPath string) (*lintPackage, error) {
-	dir, err := gosrc.Get(urlfetch.Client(c), importPath, "")
+	client := &http.Client{Transport: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second}}
+	dir, err := gosrc.Get(client, importPath, "")
 	if err != nil {
 		return nil, err
 	}
