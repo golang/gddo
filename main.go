@@ -171,7 +171,8 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	c.Infof("Fetching presentation %s.", importPath)
-	pres, err := gosrc.GetPresentation(urlfetch.Client(c), importPath)
+	client := &http.Client{Transport: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second}}
+	pres, err := gosrc.GetPresentation(client, importPath)
 	if err != nil {
 		return err
 	}
