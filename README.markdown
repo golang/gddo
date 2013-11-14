@@ -1,5 +1,7 @@
 This project is the source for http://godoc.org/
 
+[![GoDoc](https://godoc.org/github.com/garyburd/gddo?status.png)](http://godoc.org/github.com/garyburd/gddo)
+
 The code in this project is designed to be used by godoc.org. Send mail to
 info@godoc.org if you want to discuss other uses of the code.
 
