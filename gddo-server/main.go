@@ -582,7 +582,7 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 func serveAbout(resp http.ResponseWriter, req *http.Request) error {
 	return executeTemplate(resp, "about.html", http.StatusOK, nil,
-		map[string]interface{}{"Host": req.URL.Host})
+		map[string]interface{}{"Host": req.Host})
 }
 
 func serveBot(resp http.ResponseWriter, req *http.Request) error {
