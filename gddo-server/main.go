@@ -293,12 +293,9 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			"pdoc": newTDoc(pdoc),
 		})
 	case isView(req, "tools"):
-		if pdoc.Name == "" {
-			break
-		}
 		proto := "http"
 		if req.Host == "godoc.org" {
-			// In case show different badges in the future, use https to
+			// Te enable future use of different package badges, use https to
 			// bust through the caching proxy on Github and other services.
 			proto = "https"
 		}

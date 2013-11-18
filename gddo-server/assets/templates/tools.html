@@ -2,7 +2,7 @@
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h2>Tools for {{$.pdoc.Name}}</h2>
+  <h2>Tools for {{$.pdoc.PageName}}</h2>
 
   <h3>Badge</h3>
 
@@ -17,10 +17,20 @@
   <h5>Markdown</h5>
   <input type="text" value="[![GoDoc]({{.uri}})](http://{{.host}}/{{.pdoc.ImportPath}})" class="click-select form-control">
 
-  <h3>Lint</h3>
+  {{if .pdoc.Name}}
+    <h3>Lint</h3>
+    <form name="x-lint" method="POST" action="http://go-lint.appspot.com/-/refresh"><input name="importPath" type="hidden" value="{{.pdoc.ImportPath}}"></form>
+    <p><a href="javascript:document.getElementsByName('x-lint')[0].submit();">Run lint</a> on {{.pdoc.PageName}}.
 
-  <form name="x-lint" method="POST" action="http://go-lint.appspot.com/-/refresh"><input name="importPath" type="hidden" value="{{.pdoc.ImportPath}}"></form>
-  Run lint on <a href="javascript:document.getElementsByName('x-lint')[0].submit();">{{.pdoc.Name}}</a>.
-
+    {{if and (not .pdoc.IsCmd) (not .pdoc.Doc)}}
+      <p>The {{.pdoc.Name}} package does not have a package declaration
+      comment.  See the <a
+        href="http://blog.golang.org/godoc-documenting-go-code">Go
+        documentation guidelines</a> for information on how to write a package
+      comment. It's important to write a good summary of the package in the
+      first sentence of the package comment. GoDoc indexes the first sentence
+      and displays the first sentence in package lists.
+    {{end}}
+  {{end}}
   <p>&nbsp;
 {{end}}
