@@ -144,14 +144,14 @@ func putPackage(c appengine.Context, importPath string, pkg *lintPackage) error 
 		return err
 	}
 	_, err := datastore.Put(c,
-		datastore.NewKey(c, "Pacakge", importPath, 0, nil),
+		datastore.NewKey(c, "Package", importPath, 0, nil),
 		&storePackage{Data: buf.Bytes(), Version: version})
 	return err
 }
 
 func getPackage(c appengine.Context, importPath string) (*lintPackage, error) {
 	var spkg storePackage
-	if err := datastore.Get(c, datastore.NewKey(c, "Pacakge", importPath, 0, nil), &spkg); err != nil {
+	if err := datastore.Get(c, datastore.NewKey(c, "Package", importPath, 0, nil), &spkg); err != nil {
 		if err == datastore.ErrNoSuchEntity {
 			err = nil
 		}
