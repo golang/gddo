@@ -293,14 +293,8 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			"pdoc": newTDoc(pdoc),
 		})
 	case isView(req, "tools"):
-		proto := "http"
-		if req.Host == "godoc.org" {
-			// Te enable future use of different package badges, use https to
-			// bust through the caching proxy on Github and other services.
-			proto = "https"
-		}
 		return executeTemplate(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
-			"uri":  fmt.Sprintf("%s://%s/%s?status.png", proto, req.Host, importPath),
+			"uri":  fmt.Sprintf("http://%s/%s?status.png", req.Host, importPath),
 			"pdoc": newTDoc(pdoc),
 			"host": req.Host,
 		})
