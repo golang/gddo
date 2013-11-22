@@ -32,11 +32,11 @@ import (
 	ttemp "text/template"
 
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gddo/httputil"
 	"github.com/garyburd/gosrc"
-	"github.com/garyburd/tango"
 )
 
-var cacheBusters tango.CacheBusters
+var cacheBusters httputil.CacheBusters
 
 type tdoc struct {
 	*doc.Package

@@ -41,8 +41,8 @@ import (
 
 	"github.com/garyburd/gddo/database"
 	"github.com/garyburd/gddo/doc"
+	"github.com/garyburd/gddo/httputil"
 	"github.com/garyburd/gosrc"
-	"github.com/garyburd/tango"
 )
 
 var errUpdateTimeout = errors.New("refresh timeout")
@@ -131,7 +131,7 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 }
 
 func templateExt(req *http.Request) string {
-	if tango.NegotiateContentType(req, []string{"text/html", "text/plain"}, "text/html") == "text/plain" {
+	if httputil.NegotiateContentType(req, []string{"text/html", "text/plain"}, "text/html") == "text/plain" {
 		return ".txt"
 	}
 	return ".html"
@@ -145,7 +145,7 @@ func isRobot(req *http.Request) bool {
 	if robotPat.MatchString(req.Header.Get("User-Agent")) {
 		return true
 	}
-	host := tango.StripPort(req.RemoteAddr)
+	host := httputil.StripPort(req.RemoteAddr)
 	n, err := db.IncrementCounter(host, 1)
 	if err != nil {
 		log.Printf("error incrementing counter for %s,  %v\n", host, err)
@@ -211,7 +211,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		requestType = robotRequest
 	}
 
-	importPath := tango.RouteVars(req)["path"]
+	importPath := httputil.RouteVars(req)["path"]
 	pdoc, pkgs, err := getDoc(importPath, requestType)
 	if err != nil {
 		return err
@@ -628,7 +628,7 @@ func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := db.Importers(tango.RouteVars(req)["path"])
+	pkgs, err := db.Importers(httputil.RouteVars(req)["path"])
 	if err != nil {
 		return err
 	}
@@ -642,7 +642,7 @@ func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
-	pdoc, _, err := getDoc(tango.RouteVars(req)["path"], robotRequest)
+	pdoc, _, err := getDoc(httputil.RouteVars(req)["path"], robotRequest)
 	if err != nil {
 		return err
 	}
@@ -669,7 +669,7 @@ func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func runHandler(resp http.ResponseWriter, req *http.Request,
-	fn func(resp http.ResponseWriter, req *http.Request) error, errfn tango.Error) {
+	fn func(resp http.ResponseWriter, req *http.Request) error, errfn httputil.Error) {
 	defer func() {
 		if rv := recover(); rv != nil {
 			err := errors.New("handler panic")
@@ -678,13 +678,13 @@ func runHandler(resp http.ResponseWriter, req *http.Request,
 		}
 	}()
 
-	if s := req.Header.Get("X-Real-Ip"); s != "" && tango.StripPort(req.RemoteAddr) == "127.0.0.1" {
+	if s := req.Header.Get("X-Real-Ip"); s != "" && httputil.StripPort(req.RemoteAddr) == "127.0.0.1" {
 		req.RemoteAddr = s
 	}
 
 	req.Body = http.MaxBytesReader(resp, req.Body, 2048)
 	req.ParseForm()
-	var rb tango.ResponseBuffer
+	var rb httputil.ResponseBuffer
 	err := fn(&rb, req)
 	if err == nil {
 		rb.WriteTo(resp)
@@ -821,7 +821,7 @@ func main() {
 
 	go runBackgroundTasks()
 
-	staticServer := tango.StaticServer{
+	staticServer := httputil.StaticServer{
 		Dir:    *assetsDir,
 		MaxAge: time.Hour,
 		MIMETypes: map[string]string{
@@ -831,8 +831,8 @@ func main() {
 	}
 	statusImageHandler = staticServer.FileHandler("status.png")
 
-	hr := tango.NewHostRouter()
-	r := tango.NewRouter()
+	hr := httputil.NewHostRouter()
+	r := httputil.NewRouter()
 	r.Error(handleAPIError)
 	r.Add("/favicon.ico").Get(staticServer.FileHandler("favicon.ico"))
 	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
@@ -844,7 +844,7 @@ func main() {
 	r.Add("/imports/<path:.+>").Get(apiHandler(serveAPIImports))
 	hr.Add("api.<:.*>", r)
 
-	r = tango.NewRouter()
+	r = httputil.NewRouter()
 	r.Add("/-/site.js").Get(staticServer.FilesHandler(
 		"third_party/jquery.timeago.js",
 		"third_party/typeahead.min.js",
