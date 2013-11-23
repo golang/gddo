@@ -15,15 +15,7 @@ import (
 var standardPath = map[string]bool{
 	"builtin": true,
 
-	// go list -f '"{{.ImportPath}}": true,'  std | grep -v 'cmd/|exp/'
-	"cmd/api":             true,
-	"cmd/cgo":             true,
-	"cmd/fix":             true,
-	"cmd/go":              true,
-	"cmd/godoc":           true,
-	"cmd/gofmt":           true,
-	"cmd/vet":             true,
-	"cmd/yacc":            true,
+	// go list -f '"{{.ImportPath}}": true,'  std
 	"archive/tar":         true,
 	"archive/zip":         true,
 	"bufio":               true,
@@ -62,6 +54,7 @@ var standardPath = map[string]bool{
 	"debug/gosym":         true,
 	"debug/macho":         true,
 	"debug/pe":            true,
+	"encoding":            true,
 	"encoding/ascii85":    true,
 	"encoding/asn1":       true,
 	"encoding/base32":     true,
@@ -94,6 +87,7 @@ var standardPath = map[string]bool{
 	"html/template":       true,
 	"image":               true,
 	"image/color":         true,
+	"image/color/palette": true,
 	"image/draw":          true,
 	"image/gif":           true,
 	"image/jpeg":          true,
@@ -136,6 +130,7 @@ var standardPath = map[string]bool{
 	"runtime/cgo":         true,
 	"runtime/debug":       true,
 	"runtime/pprof":       true,
+	"runtime/race":        true,
 	"sort":                true,
 	"strconv":             true,
 	"strings":             true,
