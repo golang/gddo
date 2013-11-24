@@ -274,7 +274,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		}
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
+	if err := c.getJSON(expand("https://api.github.com/gists/{gist}", match)+"?"+gitHubCred, &gist); err != nil {
 		return nil, err
 	}
 
@@ -303,7 +303,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		BrowseURL:      gist.HtmlUrl,
 		Etag:           commit,
 		Files:          files,
-		LineFmt:        "%s-#L%d",
+		LineFmt:        "%s-L%d",
 		ProjectName:    match["gist"],
 		ProjectRoot:    expand("gist.github.com/{gist}.git", match),
 		ProjectURL:     gist.HtmlUrl,
