@@ -266,7 +266,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 
 	var gist struct {
 		Files map[string]struct {
-			RawUrl string `json:"raw_url"`
+			Content string
 		}
 		HtmlUrl string `json:"html_url"`
 		History []struct {
@@ -288,20 +288,15 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 	}
 
 	var files []*File
-	var dataURLs []string
 
 	for name, file := range gist.Files {
 		if isDocFile(name) {
 			files = append(files, &File{
 				Name:      name,
+				Data:      []byte(file.Content),
 				BrowseURL: gist.HtmlUrl + "#file-" + strings.Replace(name, ".", "-", -1),
 			})
-			dataURLs = append(dataURLs, file.RawUrl+"?"+gitHubCred)
 		}
-	}
-
-	if err := c.getFiles(dataURLs, files); err != nil {
-		return nil, err
 	}
 
 	return &Directory{
