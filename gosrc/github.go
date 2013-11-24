@@ -24,6 +24,12 @@ func init() {
 		getPresentation: getGitHubPresentation,
 		getProject:      getGitHubProject,
 	})
+
+	addService(&service{
+		pattern: regexp.MustCompile(`^gist\.github\.com/(?P<gist>[a-z0-9A-Z_.\-]+)\.git$`),
+		prefix:  "gist.github.com/",
+		get:     getGistDir,
+	})
 }
 
 var (
@@ -250,5 +256,63 @@ func getGitHubProject(client *http.Client, match map[string]string) (*Project, e
 
 	return &Project{
 		Description: repo.Description,
+	}, nil
+}
+
+func getGistDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+	c := &httpClient{client: client, errFn: gitHubError}
+
+	match["cred"] = gitHubCred
+
+	var gist struct {
+		Files map[string]struct {
+			RawUrl string `json:"raw_url"`
+		}
+		HtmlUrl string `json:"html_url"`
+		History []struct {
+			Version string
+		}
+	}
+
+	if err := c.getJSON(expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
+		return nil, err
+	}
+
+	if len(gist.History) == 0 {
+		return nil, NotFoundError{"History not found."}
+	}
+	commit := gist.History[0].Version
+
+	if commit == savedEtag {
+		return nil, ErrNotModified
+	}
+
+	var files []*File
+	var dataURLs []string
+
+	for name, file := range gist.Files {
+		if isDocFile(name) {
+			files = append(files, &File{
+				Name:      name,
+				BrowseURL: gist.HtmlUrl + "#file-" + strings.Replace(name, ".", "-", -1),
+			})
+			dataURLs = append(dataURLs, file.RawUrl+"?"+gitHubCred)
+		}
+	}
+
+	if err := c.getFiles(dataURLs, files); err != nil {
+		return nil, err
+	}
+
+	return &Directory{
+		BrowseURL:      gist.HtmlUrl,
+		Etag:           commit,
+		Files:          files,
+		LineFmt:        "%s-#L%d",
+		ProjectName:    match["gist"],
+		ProjectRoot:    expand("gist.github.com/{gist}.git", match),
+		ProjectURL:     gist.HtmlUrl,
+		Subdirectories: nil,
+		VCS:            "git",
 	}, nil
 }
