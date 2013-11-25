@@ -274,7 +274,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		}
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/gists/{gist}", match)+"?"+gitHubCred, &gist); err != nil {
+	if err := c.getJSON(expand("https://api.github.com/gists/{gist}?{cred}", match), &gist); err != nil {
 		return nil, err
 	}
 
