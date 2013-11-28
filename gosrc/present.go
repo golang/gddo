@@ -24,7 +24,7 @@ type presBuilder struct {
 	fetch      func(fnames []string) ([]*File, error)
 }
 
-var assetPat = regexp.MustCompile(`(?m)^\.(play|code|image|iframe|html)\s+(\S+)`)
+var assetPat = regexp.MustCompile(`(?m)^\.(play|code|image|iframe|html)\s+(?:-\S+\s+)*(\S+)`)
 
 func (b *presBuilder) build() (*Presentation, error) {
 	var data []byte
