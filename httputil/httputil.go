@@ -6,3 +6,18 @@
 
 // Package htputil is a toolkit for the Go net/http package.
 package httputil
+
+import (
+	"net"
+	"net/http"
+)
+
+// StripPort removes the port specification from an address.
+func StripPort(s string) string {
+	if h, _, err := net.SplitHostPort(s); err == nil {
+		s = h
+	}
+	return s
+}
+
+type Error func(w http.ResponseWriter, r *http.Request, status int, err error)

@@ -203,7 +203,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		requestType = robotRequest
 	}
 
-	importPath := httputil.RouteVars(req)["path"]
+	importPath := strings.TrimPrefix(req.URL.Path, "/")
 	pdoc, pkgs, err := getDoc(importPath, requestType)
 	if err != nil {
 		return err
@@ -531,6 +531,10 @@ func popular() ([]database.Package, error) {
 }
 
 func serveHome(resp http.ResponseWriter, req *http.Request) error {
+	if req.URL.Path != "/" {
+		return servePackage(resp, req)
+	}
+
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
 		pkgs, err := popular()
@@ -614,7 +618,8 @@ func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := db.Importers(httputil.RouteVars(req)["path"])
+	importPath := strings.TrimPrefix(req.URL.Path, "/importers/")
+	pkgs, err := db.Importers(importPath)
 	if err != nil {
 		return err
 	}
@@ -628,7 +633,8 @@ func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
-	pdoc, _, err := getDoc(httputil.RouteVars(req)["path"], robotRequest)
+	importPath := strings.TrimPrefix(req.URL.Path, "/imports/")
+	pdoc, _, err := getDoc(importPath, robotRequest)
 	if err != nil {
 		return err
 	}
@@ -652,6 +658,10 @@ func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
 	}
 	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
 	return json.NewEncoder(resp).Encode(&data)
+}
+
+func serveAPIHome(resp http.ResponseWriter, req *http.Request) error {
+	return &httpError{status: http.StatusNotFound}
 }
 
 func runHandler(resp http.ResponseWriter, req *http.Request,
@@ -724,6 +734,22 @@ func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err
 	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
 	resp.WriteHeader(status)
 	json.NewEncoder(resp).Encode(&data)
+}
+
+type hostMux []struct {
+	prefix string
+	h      http.Handler
+}
+
+func (m hostMux) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	var h http.Handler
+	for _, ph := range m {
+		if strings.HasPrefix(req.Host, ph.prefix) {
+			h = ph.h
+			break
+		}
+	}
+	h.ServeHTTP(resp, req)
 }
 
 func defaultBase(path string) string {
@@ -817,49 +843,45 @@ func main() {
 	}
 	statusImageHandler = staticServer.FileHandler("status.png")
 
-	hr := httputil.NewHostRouter()
-	r := httputil.NewRouter()
-	r.Error(handleAPIError)
-	r.Add("/favicon.ico").Get(staticServer.FileHandler("favicon.ico"))
-	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	r.Add("/humans.txt").Get(staticServer.FileHandler("humans.txt"))
-	r.Add("/robots.txt").Get(staticServer.FileHandler("apiRobots.txt"))
-	r.Add("/search").Get(apiHandler(serveAPISearch))
-	r.Add("/packages").Get(apiHandler(serveAPIPackages))
-	r.Add("/importers/<path:.+>").Get(apiHandler(serveAPIImporters))
-	r.Add("/imports/<path:.+>").Get(apiHandler(serveAPIImports))
-	hr.Add("api.<:.*>", r)
+	apiMux := http.NewServeMux()
+	apiMux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
+	apiMux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
+	apiMux.Handle("/humans.txt", staticServer.FileHandler("humans.txt"))
+	apiMux.Handle("/robots.txt", staticServer.FileHandler("apiRobots.txt"))
+	apiMux.Handle("/search", apiHandler(serveAPISearch))
+	apiMux.Handle("/packages", apiHandler(serveAPIPackages))
+	apiMux.Handle("/importers/", apiHandler(serveAPIImporters))
+	apiMux.Handle("/imports/", apiHandler(serveAPIImports))
+	apiMux.Handle("/", apiHandler(serveAPIHome))
 
-	r = httputil.NewRouter()
-	r.Add("/-/site.js").Get(staticServer.FilesHandler(
+	mux := http.NewServeMux()
+	mux.Handle("/-/site.js", staticServer.FilesHandler(
 		"third_party/jquery.timeago.js",
 		"third_party/typeahead.min.js",
 		"third_party/bootstrap/js/bootstrap.min.js",
 		"site.js"))
-	r.Add("/-/site.css").Get(staticServer.FilesHandler(
+	mux.Handle("/-/site.css", staticServer.FilesHandler(
 		"third_party/bootstrap/css/bootstrap.min.css",
 		"site.css"))
-	r.Add("/").Get(handler(serveHome))
-	r.Add("/-/about").Get(handler(serveAbout))
-	r.Add("/-/bot").Get(handler(serveBot))
-	r.Add("/-/go").Get(handler(serveGoIndex))
-	r.Add("/-/subrepo").Get(handler(serveGoSubrepoIndex))
-	r.Add("/-/index").Get(handler(serveIndex))
-	r.Add("/-/refresh").Post(handler(serveRefresh))
-	r.Add("/a/index").Get(http.RedirectHandler("/-/index", 301))
-	r.Add("/about").Get(http.RedirectHandler("/-/about", 301))
-	r.Add("/favicon.ico").Get(staticServer.FileHandler("favicon.ico"))
-	r.Add("/google3d2f3cd4cc2bb44b.html").Get(staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	r.Add("/humans.txt").Get(staticServer.FileHandler("humans.txt"))
-	r.Add("/robots.txt").Get(staticServer.FileHandler("robots.txt"))
-	r.Add("/BingSiteAuth.xml").Get(staticServer.FileHandler("BingSiteAuth.xml"))
-	r.Add("/C").Get(http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
-	r.Add("/<path:.+>").Get(handler(servePackage))
-	hr.Add("<:.*>", r)
+	mux.Handle("/-/about", handler(serveAbout))
+	mux.Handle("/-/bot", handler(serveBot))
+	mux.Handle("/-/go", handler(serveGoIndex))
+	mux.Handle("/-/subrepo", handler(serveGoSubrepoIndex))
+	mux.Handle("/-/index", handler(serveIndex))
+	mux.Handle("/-/refresh", handler(serveRefresh))
+	mux.Handle("/a/index", http.RedirectHandler("/-/index", 301))
+	mux.Handle("/about", http.RedirectHandler("/-/about", 301))
+	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
+	mux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
+	mux.Handle("/humans.txt", staticServer.FileHandler("humans.txt"))
+	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
+	mux.Handle("/BingSiteAuth.xml", staticServer.FileHandler("BingSiteAuth.xml"))
+	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
+	mux.Handle("/", handler(serveHome))
 
-	cacheBusters.Handler = r
+	cacheBusters.Handler = mux
 
-	if err := http.ListenAndServe(*httpAddr, hr); err != nil {
+	if err := http.ListenAndServe(*httpAddr, hostMux{{"api.", apiMux}, {"", mux}}); err != nil {
 		log.Fatal(err)
 	}
 }
