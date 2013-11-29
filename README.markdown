@@ -37,7 +37,3 @@ Optional:
 
 - Create the file gddo-server/config.go using the template in [gddo-server/config.go.template](gddo-server/config.go.template).
 
-License
--------
-
-[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html).
