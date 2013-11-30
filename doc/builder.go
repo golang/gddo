@@ -428,7 +428,6 @@ type Package struct {
 	Examples []*Example
 
 	Notes map[string][]*Note
-	Bugs  []string
 
 	// Source.
 	LineFmt   string

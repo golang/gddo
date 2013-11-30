@@ -7,7 +7,7 @@
 // Redis keys and types:
 //
 // maxPackageId string: next id to assign
-// ids hset maps import path to package id
+// ids hash maps import path to package id
 // pkg:<id> hash
 //      terms: space separated search terms
 //      path: import path

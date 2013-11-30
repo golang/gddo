@@ -88,14 +88,10 @@ const (
 
 	// Link to builtin entity with name Text[Pos:End].
 	BuiltinAnnotation
-
-	// Link to Line in file Paths[PathIndex].
-	FileLinkAnnotation
 )
 
 type Annotation struct {
 	Pos, End  int32
-	Line      int32
 	Kind      AnnotationKind
 	PathIndex int16
 }
