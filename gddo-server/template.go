@@ -363,8 +363,8 @@ func htmlCommentFn(s string) htemp.HTML {
 }
 
 var mimeTypes = map[string]string{
-	".html": "text/html; charset=utf-8",
-	".txt":  "text/plain; charset=utf-8",
+	".html": htmlMIMEType,
+	".txt":  textMIMEType,
 }
 
 func executeTemplate(resp http.ResponseWriter, name string, status int, header http.Header, data interface{}) error {
@@ -373,7 +373,7 @@ func executeTemplate(resp http.ResponseWriter, name string, status int, header h
 	}
 	mimeType, ok := mimeTypes[path.Ext(name)]
 	if !ok {
-		mimeType = "text/plain; charset=utf-8"
+		mimeType = textMIMEType
 	}
 	resp.Header().Set("Content-Type", mimeType)
 	t := templates[name]

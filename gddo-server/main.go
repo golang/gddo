@@ -37,6 +37,12 @@ import (
 	"github.com/garyburd/gosrc"
 )
 
+const (
+	jsonMIMEType = "application/json; charset=utf-8"
+	textMIMEType = "text/plain; charset=utf-8"
+	htmlMIMEType = "text/html; charset=utf-8"
+)
+
 var errUpdateTimeout = errors.New("refresh timeout")
 
 type httpError struct {
@@ -599,7 +605,7 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 		Results []database.Package `json:"results"`
 	}
 	data.Results = pkgs
-	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
+	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -613,7 +619,7 @@ func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
 	}{
 		pkgs,
 	}
-	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
+	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -628,7 +634,7 @@ func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	}{
 		pkgs,
 	}
-	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
+	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -656,7 +662,7 @@ func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
 		imports,
 		testImports,
 	}
-	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
+	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -718,7 +724,7 @@ func handleError(resp http.ResponseWriter, req *http.Request, status int, err er
 		} else if e, ok := err.(*gosrc.RemoteError); ok {
 			s = "Error getting package files from " + e.Host + "."
 		}
-		resp.Header().Set("Content-Type", "text/plan; charset=utf-8")
+		resp.Header().Set("Content-Type", textMIMEType)
 		resp.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(resp, s)
 	}
@@ -731,7 +737,7 @@ func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err
 		} `json:"error"`
 	}
 	data.Error.Message = http.StatusText(status)
-	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
+	resp.Header().Set("Content-Type", jsonMIMEType)
 	resp.WriteHeader(status)
 	json.NewEncoder(resp).Encode(&data)
 }
