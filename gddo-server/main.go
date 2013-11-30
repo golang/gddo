@@ -599,7 +599,7 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 		Results []database.Package `json:"results"`
 	}
 	data.Results = pkgs
-	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -613,7 +613,7 @@ func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
 	}{
 		pkgs,
 	}
-	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -628,7 +628,7 @@ func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	}{
 		pkgs,
 	}
-	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -656,7 +656,7 @@ func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
 		imports,
 		testImports,
 	}
-	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
 	return json.NewEncoder(resp).Encode(&data)
 }
 
@@ -731,7 +731,7 @@ func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err
 		} `json:"error"`
 	}
 	data.Error.Message = http.StatusText(status)
-	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.Header().Set("Content-Type", "application/json; charset=uft-8")
 	resp.WriteHeader(status)
 	json.NewEncoder(resp).Encode(&data)
 }
