@@ -183,6 +183,9 @@ func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int) str
 		b = append(b, 0)
 		b = append(b, pkg.Synopsis...)
 	}
+	if *sidebarEnabled {
+		b = append(b, "\000xsb"...)
+	}
 	h := md5.New()
 	h.Write(b)
 	b = h.Sum(b[:0])
@@ -780,6 +783,7 @@ var (
 	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address")
 	srcZip          = flag.String("srcZip", "", "")
+	sidebarEnabled  = flag.Bool("sidebar", false, "Enable package page sidebar.")
 )
 
 func main() {
@@ -839,6 +843,11 @@ func main() {
 
 	go runBackgroundTasks()
 
+	cssFiles := []string{"third_party/bootstrap/css/bootstrap.min.css", "site.css"}
+	if *sidebarEnabled {
+		cssFiles = append(cssFiles, "sidebar.css")
+	}
+
 	staticServer := httputil.StaticServer{
 		Dir:    *assetsDir,
 		MaxAge: time.Hour,
@@ -866,9 +875,7 @@ func main() {
 		"third_party/typeahead.min.js",
 		"third_party/bootstrap/js/bootstrap.min.js",
 		"site.js"))
-	mux.Handle("/-/site.css", staticServer.FilesHandler(
-		"third_party/bootstrap/css/bootstrap.min.css",
-		"site.css"))
+	mux.Handle("/-/site.css", staticServer.FilesHandler(cssFiles...))
 	mux.Handle("/-/about", handler(serveAbout))
 	mux.Handle("/-/bot", handler(serveBot))
 	mux.Handle("/-/go", handler(serveGoIndex))

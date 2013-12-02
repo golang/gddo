@@ -415,6 +415,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
 			"relativePath":      relativePathFn,
+			"sidebarEnabled":    func() bool { return *sidebarEnabled },
 			"staticPath":        func(p string) string { return cacheBusters.AppendQueryParam(p, "v") },
 			"templateName":      func() string { return templateName },
 		})

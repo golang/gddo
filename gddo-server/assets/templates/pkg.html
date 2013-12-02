@@ -2,12 +2,14 @@
 
 {{define "Body"}}
   {{with .pdoc}}
+
+{{if sidebarEnabled}}
     <div class="row">
 
       <!-- Sidebar -->
       <div class="gddo-sidebar col-md-3 hidden-xs hidden-sm">
         <ul id="sidebar-nav" class="nav" data-spy="affix" data-offset-top="70">
-          <li class="active"><a href="#pkg-intro">Introduction</a></li>
+          <li class="active"><a href="#pkg-overview">Overview</a></li>
           <li><a href="#pkg-index">Index</a></li>
           {{if .Examples}}<li><a href="#pkg-examples">Examples</a></li>{{end}}
           {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
@@ -32,14 +34,18 @@
           {{end}}
 
           {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
+          {{if $.pkgs}}<li><a href="#pkg-subdirectories">Directories</a></li>{{end}}
         </ul>
       </div>
 
       <!-- Content -->
       <div class="col-md-9">
+
+{{end}}<!-- end sidebarEnabled -->
+
         {{template "ProjectNav" $}}
 
-        <h2 id="pkg-intro">package {{.Name}}</h2>
+        <h2 id="pkg-overview">package {{.Name}}</h2>
 
         <p><code>import "{{.ImportPath}}"</code>
 
@@ -48,9 +54,7 @@
         {{template "Examples" .|$.pdoc.ObjExamples}}
 
         <!-- Index -->
-        <div class="section-header">
-          <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-        </div>
+        <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
 
         {{if .Truncated}}
           <div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
@@ -73,9 +77,7 @@
         {{with .AllExamples}}
           <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
           <ul class="list-unstyled">
-            {{range . }}
-              <li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a></li>
-            {{end}}
+            {{range . }}<li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a></li>{{end}}
           </ul>
         {{else}}
           <span id="pkg-examples"></span>
@@ -102,11 +104,9 @@
         {{end}}
 
         <!-- Functions -->
-        {{if .Funcs}}
-          <div class="section-header">
-            <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
-          </div>
-        {{end}}
+        {{if sidebarEnabled}}{{if .Funcs}}
+            <h3 id="pkg-functions" class="section-header">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
+        {{end}}{{end}}
         {{range .Funcs}}
           <h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
           <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
@@ -114,11 +114,9 @@
         {{end}}
 
         <!-- Types -->
-        {{if .Types}}
-          <div class="section-header">
-            <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
-          </div>
-        {{end}}
+        {{if sidebarEnabled}}{{if .Types}}
+            <h3 id="pkg-types" class="section-header">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
+        {{end}}{{end}}
 
         {{range $t := .Types}}
           <h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
@@ -146,11 +144,12 @@
         {{end}}{{end}}
         {{template "PkgCmdFooter" $}}
 
+{{if sidebarEnabled}}
       </div>
     </div>
+{{end}}
 
   {{end}}
-
 {{end}}
 
 {{define "Examples"}}
