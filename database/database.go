@@ -198,11 +198,14 @@ func (db *Database) AddNewCrawl(importPath string) error {
 }
 
 // Put adds the package documentation to the database.
-func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time) error {
+func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error {
 	c := db.Pool.Get()
 	defer c.Close()
 
-	score := documentScore(pdoc)
+	score := 0.0
+	if !hide {
+		score = documentScore(pdoc)
+	}
 	terms := documentTerms(pdoc, score)
 
 	var gobBuf bytes.Buffer

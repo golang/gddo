@@ -60,10 +60,10 @@ func TestPutGet(t *testing.T) {
 		Updated:     time.Now().Add(-time.Hour),
 		Imports:     []string{"C", "errors", "github.com/user/repo/foo/bar"}, // self import for testing convenience.
 	}
-	if err := db.Put(pdoc, nextCrawl); err != nil {
+	if err := db.Put(pdoc, nextCrawl, false); err != nil {
 		t.Errorf("db.Put() returned error %v", err)
 	}
-	if err := db.Put(pdoc, time.Time{}); err != nil {
+	if err := db.Put(pdoc, time.Time{}, false); err != nil {
 		t.Errorf("second db.Put() returned error %v", err)
 	}
 
@@ -150,7 +150,7 @@ func TestPutGet(t *testing.T) {
 
 	db.Query("bar")
 
-	if err := db.Put(pdoc, time.Time{}); err != nil {
+	if err := db.Put(pdoc, time.Time{}, false); err != nil {
 		t.Errorf("db.Put() returned error %v", err)
 	}
 

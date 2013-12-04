@@ -87,7 +87,7 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 	switch {
 	case err == nil:
 		message = append(message, "put:", pdoc.Etag)
-		if err := db.Put(pdoc, nextCrawl); err != nil {
+		if err := db.Put(pdoc, nextCrawl, false); err != nil {
 			log.Printf("ERROR db.Put(%q): %v", importPath, err)
 		}
 	case err == gosrc.ErrNotModified:
