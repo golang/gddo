@@ -23,8 +23,8 @@ https://developers.google.com/open-source/cla/individual
 Development Environment Setup
 -----------------------------
 
-- Install and run [Redis 2.6.x](http://redis.io/download). The redis.conf file included in the Redis distribution is suitable for development.
-- Install Go from source and update to tip.
+- Install and run [Redis 2.8.x](http://redis.io/download). The redis.conf file included in the Redis distribution is suitable for development.
+- Install Go 1.2.
 - Install and run the server:
 
         $ go get github.com/garyburd/gddo/gddo-server
