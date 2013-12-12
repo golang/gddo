@@ -42,7 +42,24 @@ API
 
 The GoDoc API is comprised of these endpoints:
 
-**api.godoc.org/importers/`ImportPath`**&mdash;Returns packages that import ImportPath, in JSON format.
+**api.godoc.org/search?q=`Query`**&mdash;Returns search results for Query, in JSON format.
+
+```json
+{
+	"results": [
+		{
+			"path": "import/path/one",
+			"synopsis": "Package synopsis is here, if present."
+		},
+		{
+			"path": "import/path/two",
+			"synopsis": "Package synopsis is here, if present."
+		}
+	]
+}
+```
+
+**api.godoc.org/packages**&mdash;Returns all indexed packages, in JSON format.
 
 ```json
 {
@@ -52,24 +69,52 @@ The GoDoc API is comprised of these endpoints:
 		},
 		{
 			"path": "import/path/two"
+		},
+		{
+			"path": "import/path/three"
 		}
 	]
 }
 ```
 
-**api.godoc.org/search?q=`Query`**&mdash;Returns search results for Query, in JSON format.
+**api.godoc.org/importers/`ImportPath`**&mdash;Returns packages that import ImportPath, in JSON format. Not recursive, direct imports only.
 
 ```json
 {
 	"results": [
 		{
 			"path": "import/path/one",
-			"synopsis": "Package synopsis is here."
+			"synopsis": "Package synopsis is here, if present."
 		},
 		{
 			"path": "import/path/two",
-			"synopsis": "Package synopsis is here."
+			"synopsis": "Package synopsis is here, if present."
 		}
 	]
 }
 ```
+
+**api.godoc.org/imports/`ImportPath`**&mdash;Returns packages that ImportPath imports, in JSON format. Not recursive, direct imports only.
+
+```json
+{
+	"imports": [
+		{
+			"path": "import/path/one",
+			"synopsis": "Package synopsis is here, if present."
+		},
+		{
+			"path": "import/path/two",
+			"synopsis": "Package synopsis is here, if present."
+		}
+	],
+	"testImports": [
+		{
+			"path": "import/path/three",
+			"synopsis": "Package synopsis is here, if present."
+		}
+	]
+}
+```
+
+A plain text interface is documented at <http://godoc.org/-/about>.
