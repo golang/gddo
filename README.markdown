@@ -37,3 +37,39 @@ Optional:
 
 - Create the file gddo-server/config.go using the template in [gddo-server/config.go.template](gddo-server/config.go.template).
 
+API
+---
+
+The GoDoc API is comprised of these endpoints:
+
+**api.godoc.org/importers/`ImportPath`**&mdash;Returns packages that import ImportPath, in JSON format.
+
+```json
+{
+	"results": [
+		{
+			"path": "import/path/one"
+		},
+		{
+			"path": "import/path/two"
+		}
+	]
+}
+```
+
+**api.godoc.org/search?q=`Query`**&mdash;Returns search results for Query, in JSON format.
+
+```json
+{
+	"results": [
+		{
+			"path": "import/path/one",
+			"synopsis": "Package synopsis is here."
+		},
+		{
+			"path": "import/path/two",
+			"synopsis": "Package synopsis is here."
+		}
+	]
+}
+```
