@@ -1,9 +1,9 @@
 .container { max-width: 970px; }
 
 .section-header {
-  padding-bottom: 4px;
-  margin: 20px 0 10px;
-  border-bottom: 1px solid #eeeeee;
+    padding-bottom: 4px;
+    margin: 20px 0 10px;
+    border-bottom: 1px solid #eeeeee;
 }
 
 /* Sidebar navigation (copied from bootstrap docs.css) */
