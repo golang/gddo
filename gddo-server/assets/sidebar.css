@@ -25,7 +25,7 @@
 .gddo-sidebar .nav > li > a {
     display: block;
     color: #716b7a;
-    padding: 5px 20px;
+    padding: 5px 0px;
 }
 .gddo-sidebar .nav > li > a:hover,
 .gddo-sidebar .nav > li > a:focus {
@@ -48,7 +48,7 @@
 .gddo-sidebar .nav .nav > li > a {
     padding-top:    3px;
     padding-bottom: 3px;
-    padding-left: 30px;
+    padding-left: 15px;
     font-size: 90%;
 }
 
