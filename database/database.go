@@ -39,6 +39,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -673,6 +674,18 @@ func (db *Database) IsBlocked(path string) (bool, error) {
 	return redis.Bool(isBlockedScript.Do(c, path))
 }
 
+type queryResult struct {
+	Path     string
+	Synopsis string
+	Score    float64
+}
+
+type byScore []*queryResult
+
+func (p byScore) Len() int           { return len(p) }
+func (p byScore) Less(i, j int) bool { return p[j].Score < p[i].Score }
+func (p byScore) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
 func (db *Database) Query(q string) ([]Package, error) {
 	terms := parseQuery(q)
 	if len(terms) == 0 {
@@ -691,25 +704,57 @@ func (db *Database) Query(q string) ([]Package, error) {
 		args = append(args, "index:"+term)
 	}
 	c.Send("SINTERSTORE", args...)
-	c.Send("SORT", id, "DESC", "BY", "pkg:*->score", "GET", "pkg:*->path", "GET", "pkg:*->synopsis", "GET", "pkg:*->kind")
+	c.Send("SORT", id, "DESC", "BY", "nosort", "GET", "pkg:*->path", "GET", "pkg:*->synopsis", "GET", "pkg:*->score")
 	c.Send("DEL", id)
-	values, err := redis.Values(c.Do(""))
+	c.Flush()
+	c.Receive()                              // SINTERSTORE
+	values, err := redis.Values(c.Receive()) // SORT
 	if err != nil {
 		return nil, err
 	}
-	pkgs, err := packages(values[1], false)
+	c.Receive() // DEL
 
-	// Move exact match on standard package to the top of the list.
-	for i, pkg := range pkgs {
-		if !isStandardPackage(pkg.Path) {
-			break
+	var queryResults []*queryResult
+	if err := redis.ScanSlice(values, &queryResults, "Path", "Synopsis", "Score"); err != nil {
+		return nil, err
+	}
+
+	for _, qr := range queryResults {
+		c.Send("SCARD", "index:import:"+qr.Path)
+	}
+	c.Flush()
+
+	for _, qr := range queryResults {
+		importCount, err := redis.Int(c.Receive())
+		if err != nil {
+			return nil, err
 		}
-		if strings.HasSuffix(pkg.Path, q) {
-			pkgs[0], pkgs[i] = pkgs[i], pkgs[0]
-			break
+
+		qr.Score *= math.Log(float64(10 + importCount))
+
+		if isStandardPackage(qr.Path) {
+			if strings.HasSuffix(qr.Path, q) {
+				// Big bump for exact match on standard package name.
+				qr.Score *= 10000
+			} else {
+				qr.Score *= 1.2
+			}
+		}
+
+		if q == path.Base(qr.Path) {
+			qr.Score *= 1.1
 		}
 	}
-	return pkgs, err
+
+	sort.Sort(byScore(queryResults))
+
+	pkgs := make([]Package, len(queryResults))
+	for i, qr := range queryResults {
+		pkgs[i].Path = qr.Path
+		pkgs[i].Synopsis = qr.Synopsis
+	}
+
+	return pkgs, nil
 }
 
 type PackageInfo struct {

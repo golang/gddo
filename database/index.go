@@ -31,6 +31,20 @@ func normalizeProjectRoot(projectRoot string) string {
 	return projectRoot
 }
 
+var synonyms = map[string]string{
+	"redis":    "redisdb",
+	"postgres": "postgresql",
+	"mongo":    "mongodb",
+}
+
+func term(s string) string {
+	s = strings.ToLower(s)
+	if x, ok := synonyms[s]; ok {
+		s = x
+	}
+	return stem(s)
+}
+
 var httpPat = regexp.MustCompile(`https?://\S+`)
 
 func documentTerms(pdoc *doc.Package, score float64) []string {
@@ -76,7 +90,7 @@ func documentTerms(pdoc *doc.Package, score float64) []string {
 		for i, s := range strings.FieldsFunc(synopsis, isTermSep) {
 			s = strings.ToLower(s)
 			if !stopWord[s] && (i > 3 || s != "package") {
-				terms[stem(s)] = true
+				terms[term(s)] = true
 			}
 		}
 	}
@@ -112,37 +126,19 @@ func documentScore(pdoc *doc.Package) float64 {
 		return 0
 	}
 
-	var r float64
-	switch {
-	case isStandardPackage(pdoc.ImportPath):
-		r = 1000
-	case strings.HasPrefix(pdoc.ImportPath, "code.google.com/p/go."):
-		r = 500
-	case pdoc.Doc == "":
-		// Chekc Doc before Synopsis to handle case where the synopsis is
-		// derived from the repository description on the version control
-		// service.
-		r = 1
-	case strings.HasPrefix(pdoc.Synopsis, "Package "+pdoc.Name+" "):
-		r = 100
-	case len(pdoc.Synopsis) > 0:
-		r = 10
-	default:
-		r = 1
+	r := 1.0
+	if pdoc.Doc == "" || pdoc.Synopsis == "" {
+		r *= 0.95
 	}
-
-	for i := 0; i < strings.Count(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/"); i++ {
-		r *= 0.99
-	}
-
-	if strings.Index(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/src/") > 0 {
-		r *= 0.85
-	}
-
 	if path.Base(pdoc.ImportPath) != pdoc.Name {
 		r *= 0.9
 	}
-
+	for i := 0; i < strings.Count(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/"); i++ {
+		r *= 0.99
+	}
+	if strings.Index(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/src/") > 0 {
+		r *= 0.95
+	}
 	return r
 }
 
@@ -151,7 +147,7 @@ func parseQuery(q string) []string {
 	q = strings.ToLower(q)
 	for _, s := range strings.FieldsFunc(q, isTermSep) {
 		if !stopWord[s] {
-			terms = append(terms, stem(s))
+			terms = append(terms, term(s))
 		}
 	}
 	return terms
