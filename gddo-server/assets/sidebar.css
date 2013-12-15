@@ -21,6 +21,11 @@
     position: static;
 }
 
+.gddo-sidebar .nav {
+    overflow: auto;
+    height: 95%;
+}
+
 /* All levels of nav */
 .gddo-sidebar .nav > li > a {
     display: block;
