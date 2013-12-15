@@ -1,4 +1,9 @@
-{{define "Head"}}{{template "PkgCmdHeader" $}}{{end}}
+{{define "Head"}}
+  {{template "PkgCmdHeader" $}}
+  {{if sidebarEnabled}}
+    <link href="{{staticPath "/-/sidebar.css"}}" rel="stylesheet">
+  {{end}}
+{{end}}
 
 {{define "Body"}}
   {{with .pdoc}}
