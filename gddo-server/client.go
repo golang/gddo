@@ -22,8 +22,29 @@ var (
 	requestTimeout = flag.Duration("request_timeout", 20*time.Second, "Time out for roundtripping an HTTP request.")
 )
 
+type timeoutConn struct {
+	net.Conn
+}
+
+func (c timeoutConn) Read(p []byte) (int, error) {
+	n, err := c.Conn.Read(p)
+	c.Conn.SetReadDeadline(time.Time{})
+	return n, err
+}
+
 func timeoutDial(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, *dialTimeout)
+	c, err := net.DialTimeout(network, addr, *dialTimeout)
+	if err != nil {
+		return c, err
+	}
+	// The net/http transport CancelRequest feature does not work until after
+	// the TLS handshake is complete. To help catch hangs during the TLS
+	// handshake, we set a deadline on the connection here and clear the
+	// deadline when the first read on the connection completes. This is not
+	// perfect, but it does catch the case where the server accepts and ignores
+	// a connection.
+	c.SetDeadline(time.Now().Add(*requestTimeout))
+	return timeoutConn{c}, nil
 }
 
 type transport struct {
