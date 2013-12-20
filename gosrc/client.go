@@ -42,10 +42,10 @@ func (c *httpClient) get(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", userAgent)
 	for k, vs := range c.header {
 		req.Header[k] = vs
 	}
+	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, &RemoteError{req.URL.Host, err}

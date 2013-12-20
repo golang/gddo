@@ -29,6 +29,7 @@ var (
 
 func main() {
 	flag.Parse()
+	gosrc.SetUserAgent("print")
 	if len(flag.Args()) != 1 {
 		log.Fatal("Usage: go run print.go importPath")
 	}

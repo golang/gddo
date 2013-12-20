@@ -157,16 +157,17 @@ func fetchMeta(client *http.Client, importPath string) (map[string]string, error
 	}
 	uri = uri + "?go-get=1"
 
+	c := httpClient{client: client}
 	scheme := "https"
-	resp, err := client.Get(scheme + "://" + uri)
+	resp, err := c.get(scheme + "://" + uri)
 	if err != nil || resp.StatusCode != 200 {
 		if err == nil {
 			resp.Body.Close()
 		}
 		scheme = "http"
-		resp, err = client.Get(scheme + "://" + uri)
+		resp, err = c.get(scheme + "://" + uri)
 		if err != nil {
-			return nil, &RemoteError{strings.SplitN(importPath, "/", 2)[0], err}
+			return nil, err
 		}
 	}
 	defer resp.Body.Close()
