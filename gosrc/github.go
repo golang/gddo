@@ -217,7 +217,7 @@ func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt stri
 	if pushedAfter == "" {
 		pushedAfter = time.Now().Add(-24 * time.Hour).UTC().Format("2006-01-02T15:04:05Z")
 	}
-	u := "https://api.github.com/search/repositories?order=asc&sort=updated&q=language:Go+pushed:>" + pushedAfter
+	u := "https://api.github.com/search/repositories?order=asc&sort=updated&q=fork:true+language:Go+pushed:>" + pushedAfter
 	if gitHubCred != "" {
 		u += "&" + gitHubCred
 	}
