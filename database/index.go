@@ -32,7 +32,8 @@ func normalizeProjectRoot(projectRoot string) string {
 }
 
 var synonyms = map[string]string{
-	"redis":    "redisdb",
+	"redis":    "redisdb", // append db to avoid stemming to 'red'
+	"rand":     "random",
 	"postgres": "postgresql",
 	"mongo":    "mongodb",
 }

@@ -6,16 +6,16 @@
 
   <h3>Badge</h3>
 
-  <p><a href="http://{{.host}}/{{.pdoc.ImportPath}}"><img src="{{.uri}}" alt="GoDoc"></a>
+  <p><a href="{{.uri}}"><img src="{{.uri}}?status.png" alt="GoDoc"></a>
 
   <p>Use one of the snippets below to add a link to GoDoc from your project
   website or README file:</a>
 
   <h5>HTML</h5>
-  <input type="text" value='<a href="http://{{.host}}/{{.pdoc.ImportPath}}"><img src="{{.uri}}" alt="GoDoc"></a>' class="click-select form-control">
+  <input type="text" value='<a href="{{.uri}}"><img src="{{.uri}}?status.png" alt="GoDoc"></a>' class="click-select form-control">
 
   <h5>Markdown</h5>
-  <input type="text" value="[![GoDoc]({{.uri}})](http://{{.host}}/{{.pdoc.ImportPath}})" class="click-select form-control">
+  <input type="text" value="[![GoDoc]({{.uri}}?status.png)]({{.uri}})" class="click-select form-control">
 
   {{if .pdoc.Name}}
     <h3>Lint</h3>

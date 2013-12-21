@@ -294,10 +294,13 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			"pdoc": newTDoc(pdoc),
 		})
 	case isView(req, "tools"):
+		proto := "http"
+		if req.Host == "godoc.org" {
+			proto = "https"
+		}
 		return executeTemplate(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
-			"uri":  fmt.Sprintf("http://%s/%s?status.png", req.Host, importPath),
+			"uri":  fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
 			"pdoc": newTDoc(pdoc),
-			"host": req.Host,
 		})
 	case isView(req, "redir"):
 		if srcFiles == nil {
@@ -890,6 +893,7 @@ func main() {
 	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
 	mux.Handle("/BingSiteAuth.xml", staticServer.FileHandler("BingSiteAuth.xml"))
 	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
+	mux.Handle("/ajax.googleapis.com/", http.NotFoundHandler())
 	mux.Handle("/", handler(serveHome))
 
 	cacheBusters.Handler = mux
