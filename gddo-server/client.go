@@ -70,5 +70,8 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.t.RoundTrip(req)
 }
 
-var httpTransport = &transport{t: http.Transport{Dial: timeoutDial, ResponseHeaderTimeout: *requestTimeout / 2}}
-var httpClient = &http.Client{Transport: httpTransport}
+var httpClient = &http.Client{Transport: &transport{
+	t: http.Transport{
+		Dial: timeoutDial,
+		ResponseHeaderTimeout: *requestTimeout / 2,
+	}}}
