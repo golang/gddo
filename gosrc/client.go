@@ -14,13 +14,6 @@ import (
 	"net/http"
 )
 
-var userAgent = "Go net/http"
-
-// SetUserAgent sets the user agent used in HTTP request from the package.
-func SetUserAgent(ua string) {
-	userAgent = ua
-}
-
 type httpClient struct {
 	errFn  func(*http.Response) error
 	header http.Header
@@ -45,7 +38,6 @@ func (c *httpClient) get(url string) (*http.Response, error) {
 	for k, vs := range c.header {
 		req.Header[k] = vs
 	}
-	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, &RemoteError{req.URL.Host, err}

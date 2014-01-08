@@ -35,14 +35,7 @@ func init() {
 var (
 	gitHubRawHeader     = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
 	gitHubPreviewHeader = http.Header{"Accept": {"application/vnd.github.preview"}}
-	gitHubCred          string
 )
-
-// SetGitHubCredentials specifies the application credentials used when making
-// API requests to GitHub.
-func SetGitHubCredentials(id, secret string) {
-	gitHubCred = "client_id=" + id + "&client_secret=" + secret
-}
 
 func gitHubError(resp *http.Response) error {
 	var e struct {
@@ -58,8 +51,6 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	c := &httpClient{client: client, errFn: gitHubError}
 
-	match["cred"] = gitHubCred
-
 	var refs []*struct {
 		Object struct {
 			Type string
@@ -70,7 +61,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		URL string
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs?{cred}", match), &refs); err != nil {
+	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs", match), &refs); err != nil {
 		return nil, err
 	}
 
@@ -102,7 +93,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		HTMLURL string `json:"html_url"`
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}&{cred}", match), &contents); err != nil {
+	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}", match), &contents); err != nil {
 		return nil, err
 	}
 
@@ -128,7 +119,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 			}
 		case isDocFile(item.Name):
 			files = append(files, &File{Name: item.Name, BrowseURL: item.HTMLURL})
-			dataURLs = append(dataURLs, item.GitURL+"?"+gitHubCred)
+			dataURLs = append(dataURLs, item.GitURL)
 		}
 	}
 
@@ -158,14 +149,12 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 func getGitHubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {
 	c := &httpClient{client: client, header: gitHubRawHeader}
 
-	match["cred"] = gitHubCred
-
-	p, err := c.getBytes(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}?{cred}", match))
+	p, err := c.getBytes(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}", match))
 	if err != nil {
 		return nil, err
 	}
 
-	apiBase, err := url.Parse(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/?{cred}", match))
+	apiBase, err := url.Parse(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/", match))
 	if err != nil {
 		return nil, err
 	}
@@ -218,9 +207,6 @@ func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt stri
 		pushedAfter = time.Now().Add(-24 * time.Hour).UTC().Format("2006-01-02T15:04:05Z")
 	}
 	u := "https://api.github.com/search/repositories?order=asc&sort=updated&q=fork:true+language:Go+pushed:>" + pushedAfter
-	if gitHubCred != "" {
-		u += "&" + gitHubCred
-	}
 	var updates struct {
 		Items []struct {
 			FullName string `json:"full_name"`
@@ -244,13 +230,12 @@ func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt stri
 
 func getGitHubProject(client *http.Client, match map[string]string) (*Project, error) {
 	c := &httpClient{client: client, errFn: gitHubError}
-	match["cred"] = gitHubCred
 
 	var repo struct {
 		Description string
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}?{cred}", match), &repo); err != nil {
+	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 
@@ -262,8 +247,6 @@ func getGitHubProject(client *http.Client, match map[string]string) (*Project, e
 func getGistDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	c := &httpClient{client: client, errFn: gitHubError}
 
-	match["cred"] = gitHubCred
-
 	var gist struct {
 		Files map[string]struct {
 			Content string
@@ -274,7 +257,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		}
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/gists/{gist}?{cred}", match), &gist); err != nil {
+	if err := c.getJSON(expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
 		return nil, err
 	}
 
