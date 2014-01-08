@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"appengine"
@@ -50,6 +49,7 @@ var (
 		"timeago":      timeagoFn,
 		"contactEmail": contactEmailFn,
 	}
+	gitHubCredentials = ""
 )
 
 func parseTemplate(fnames ...string) *template.Template {
@@ -110,6 +110,33 @@ func writeErrorResponse(w http.ResponseWriter, status int) error {
 	return writeResponse(w, status, errorTemplate, http.StatusText(status))
 }
 
+type transport struct {
+	rt http.RoundTripper
+	ua string
+}
+
+func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Set("User-Agent", t.ua)
+	if r.URL.Host == "api.github.com" && gitHubCredentials != "" {
+		if r.URL.RawQuery == "" {
+			r.URL.RawQuery = gitHubCredentials
+		} else {
+			r.URL.RawQuery += "&" + gitHubCredentials
+		}
+	}
+	return t.rt.RoundTrip(r)
+}
+
+func httpClient(r *http.Request) *http.Client {
+	c := appengine.NewContext(r)
+	return &http.Client{
+		Transport: &transport{
+			rt: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
+			ua: fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
+		},
+	}
+}
+
 const version = 1
 
 type storePackage struct {
@@ -167,9 +194,8 @@ func getPackage(c appengine.Context, importPath string) (*lintPackage, error) {
 	return &pkg, nil
 }
 
-func runLint(c appengine.Context, importPath string) (*lintPackage, error) {
-	client := &http.Client{Transport: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second}}
-	dir, err := gosrc.Get(client, importPath, "")
+func runLint(r *http.Request, importPath string) (*lintPackage, error) {
+	dir, err := gosrc.Get(httpClient(r), importPath, "")
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +233,7 @@ func runLint(c appengine.Context, importPath string) (*lintPackage, error) {
 		}
 	}
 
-	if err := putPackage(c, importPath, &pkg); err != nil {
+	if err := putPackage(appengine.NewContext(r), importPath, &pkg); err != nil {
 		return nil, err
 	}
 
@@ -231,18 +257,9 @@ func filterByConfidence(r *http.Request, pkg *lintPackage) {
 	}
 }
 
-var setupOnce sync.Once
-
-func setup(r *http.Request) {
-	c := appengine.NewContext(r)
-	c.Infof("Contact email: %s", contactEmail)
-	gosrc.SetUserAgent(fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host))
-}
-
 type handlerFunc func(http.ResponseWriter, *http.Request) error
 
 func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	setupOnce.Do(func() { setup(r) })
 	c := appengine.NewContext(r)
 	err := f(w, r)
 	if err == nil {
@@ -272,7 +289,7 @@ func serveRoot(w http.ResponseWriter, r *http.Request) error {
 		c := appengine.NewContext(r)
 		pkg, err := getPackage(c, importPath)
 		if pkg == nil && err == nil {
-			pkg, err = runLint(c, importPath)
+			pkg, err = runLint(r, importPath)
 		}
 		if err != nil {
 			return err
@@ -287,7 +304,7 @@ func serveRefresh(w http.ResponseWriter, r *http.Request) error {
 		return writeErrorResponse(w, 405)
 	}
 	importPath := r.FormValue("importPath")
-	pkg, err := runLint(appengine.NewContext(r), importPath)
+	pkg, err := runLint(r, importPath)
 	if err != nil {
 		return err
 	}
