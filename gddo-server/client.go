@@ -57,8 +57,17 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		log.Printf("Canceled request for %s", req.URL)
 	})
 	defer timer.Stop()
-	resp, err := t.t.RoundTrip(req)
-	return resp, err
+	if req.URL.Host == "api.github.com" && gitHubCredentials != "" {
+		if req.URL.RawQuery == "" {
+			req.URL.RawQuery = gitHubCredentials
+		} else {
+			req.URL.RawQuery += "&" + gitHubCredentials
+		}
+	}
+	if userAgent != "" {
+		req.Header.Set("User-Agent", userAgent)
+	}
+	return t.t.RoundTrip(req)
 }
 
 var httpTransport = &transport{t: http.Transport{Dial: timeoutDial, ResponseHeaderTimeout: *requestTimeout / 2}}

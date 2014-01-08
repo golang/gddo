@@ -15,7 +15,7 @@ and more.
 <div class="row">
   <div class="col-sm-6">
     {{with .Popular}}
-      <h4>Popular Projects</h4>
+      <h4>Popular Packages</h4>
       <ul class="list-unstyled">
         {{range .}}<li><a href="/{{.Path}}">{{.Path}}</a>{{end}}
       </ul>
@@ -28,7 +28,9 @@ and more.
       <li><a href="/-/go">Go Standard Packages</a>
       <li><a href="/-/subrepo">Go Sub-repository Packages</a>
       <li><a href="https://code.google.com/p/go-wiki/wiki/Projects">Projects @ go-wiki</a>
-      <li><a href="http://go-search.org/">Go Search</a>
+      <li><a href="https://github.com/search?o=desc&q=language%3Ago&s=stars&type=Repositories">Most stars</a>, 
+        <a href="https://github.com/search?o=desc&q=language%3Ago&s=forks&type=Repositories">most forks</a>, 
+        <a href="https://github.com/search?o=desc&q=language%3Ago&s=updated&type=Repositories">recently updated</a> on GitHub
     </ul>
   </div>
 </div>

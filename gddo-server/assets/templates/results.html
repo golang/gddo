@@ -4,7 +4,7 @@
   <div class="well">
     {{template "SearchBox" .q}}
   </div>
-  <p>Search on <a href="http://go-search.org/search?q={{.q}}">Go-Search</a> 
+  <p>Try this search on <a href="http://go-search.org/search?q={{.q}}">Go-Search</a> 
   or <a href="https://github.com/search?q={{.q}}+language:go">GitHub</a>.
   {{if .pkgs}}
     {{template "Pkgs" .pkgs}}
