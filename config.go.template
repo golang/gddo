@@ -5,10 +5,10 @@ import (
 )
 
 func init() {
-	// Register an application at https://github.com/settings/applications/new
-	// and enter the client ID and client secret here.
-	gosrc.SetGitHubCredentials("id", "secret")
+    // Register an application at https://github.com/settings/applications/new
+    // and enter the client ID and client secret here.
+    gitHubCredentials = "client_id=<id>&client_secret=<secret>"
 
     // Set contact email for /bot.html
-	contactEmail = "example@example.com"
+    contactEmail = "example@example.com"
 }

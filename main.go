@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"sync"
 	"time"
 )
 
@@ -30,8 +29,9 @@ var (
 		".article": parsePresentTemplate("article.tmpl"),
 		".slide":   parsePresentTemplate("slides.tmpl"),
 	}
-	homeArticle  = loadHomeArticle()
-	contactEmail = "unknown@example.com"
+	homeArticle       = loadHomeArticle()
+	contactEmail      = "unknown@example.com"
+	gitHubCredentials = ""
 )
 
 func init() {
@@ -102,18 +102,36 @@ func writeTextHeader(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 }
 
-var setupOnce sync.Once
+type transport struct {
+	rt http.RoundTripper
+	ua string
+}
 
-func setup(r *http.Request) {
+func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Set("User-Agent", t.ua)
+	if r.URL.Host == "api.github.com" && gitHubCredentials != "" {
+		if r.URL.RawQuery == "" {
+			r.URL.RawQuery = gitHubCredentials
+		} else {
+			r.URL.RawQuery += "&" + gitHubCredentials
+		}
+	}
+	return t.rt.RoundTrip(r)
+}
+
+func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
-	c.Infof("Contact email: %s", contactEmail)
-	gosrc.SetUserAgent(fmt.Sprintf("%s (+http://%s/bot.html)", appengine.AppID(c), r.Host))
+	return &http.Client{
+		Transport: &transport{
+			rt: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
+			ua: fmt.Sprintf("%s (+http://%s/bot.html)", appengine.AppID(c), r.Host),
+		},
+	}
 }
 
 type handlerFunc func(http.ResponseWriter, *http.Request) error
 
 func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	setupOnce.Do(func() { setup(r) })
 	c := appengine.NewContext(r)
 	err := f(w, r)
 	if err == nil {
@@ -164,8 +182,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	c.Infof("Fetching presentation %s.", importPath)
-	client := &http.Client{Transport: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second}}
-	pres, err := gosrc.GetPresentation(client, importPath)
+	pres, err := gosrc.GetPresentation(httpClient(r), importPath)
 	if err != nil {
 		return err
 	}
