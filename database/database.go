@@ -312,21 +312,27 @@ func (db *Database) SetNextCrawlEtag(projectRoot string, etag string, t time.Tim
 	return err
 }
 
+// bumpCrawlScript sets the crawl time to now. To avoid continuously crawling
+// frequently updated repositories, the crawl is scheduled in the future.
 var bumpCrawlScript = redis.NewScript(0, `
     local root = ARGV[1]
     local now = tonumber(ARGV[2])
-    local nextCrawl = now + 3600
+    local nextCrawl = now + 7200
     local pkgs = redis.call('SORT', 'index:project:' .. root, 'GET', '#')
 
     for i=1,#pkgs do
-        local t = tonumber(redis.call('HGET', 'pkg:' .. pkgs[i], 'crawl') or 0)
+        local v = redis.call('HMGET', 'pkg:' .. pkgs[i], 'crawl', 'kind')
+        local t = tonumber(v[1] or 0)
         if t == 0 or now < t then
             redis.call('HSET', 'pkg:' .. pkgs[i], 'crawl', now)
+        end
+        local nextCrawl = now + 86400
+        if v[2] == 'p' then
+            nextCrawl = now + 7200
         end
         t = tonumber(redis.call('ZSCORE', 'nextCrawl', pkgs[i]) or 0)
         if t == 0 or nextCrawl < t then
             redis.call('ZADD', 'nextCrawl', nextCrawl, pkgs[i])
-            nextCrawl = nextCrawl + 120
         end
     end
 `)
