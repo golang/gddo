@@ -41,8 +41,13 @@ func init() {
 	present.PlayEnabled = true
 }
 
+func playable(c present.Code) bool {
+	return present.PlayEnabled && c.Play && c.Ext == ".go"
+}
+
 func parsePresentTemplate(name string) *template.Template {
 	t := present.Template()
+	t = t.Funcs(template.FuncMap{"playable": playable})
 	if _, err := t.ParseFiles("present/templates/"+name, "present/templates/action.tmpl"); err != nil {
 		panic(err)
 	}
