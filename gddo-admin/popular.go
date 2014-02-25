@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/garyburd/gddo/database"
+	"github.com/golang/gddo/database"
 )
 
 var (

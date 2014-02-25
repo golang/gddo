@@ -1,6 +1,6 @@
 This project is the source for http://godoc.org/
 
-[![GoDoc](https://godoc.org/github.com/garyburd/gddo?status.png)](http://godoc.org/github.com/garyburd/gddo)
+[![GoDoc](https://godoc.org/github.com/golang/gddo?status.png)](http://godoc.org/github.com/golang/gddo)
 
 The code in this project is designed to be used by godoc.org. Send mail to
 info@godoc.org if you want to discuss other uses of the code.
@@ -10,7 +10,7 @@ Feedback
 
 Send ideas and questions to info@godoc.org. Request features and report bugs
 using the [GitHub Issue
-Tracker](https://github.com/garyburd/gopkgdoc/issues/new). 
+Tracker](https://github.com/golang/gddo/issues/new). 
 
 
 Contributions
@@ -27,7 +27,7 @@ Development Environment Setup
 - Install Go 1.2.
 - Install and run the server:
 
-        $ go get github.com/garyburd/gddo/gddo-server
+        $ go get github.com/golang/gddo/gddo-server
         $ gddo-server
 
 - Go to http://localhost:8080/ in your browser

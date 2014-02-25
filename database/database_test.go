@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/garyburd/gddo/doc"
 	"github.com/garyburd/redigo/redis"
+	"github.com/golang/gddo/doc"
 )
 
 func newDB(t *testing.T) *Database {

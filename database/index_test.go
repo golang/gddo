@@ -7,7 +7,7 @@
 package database
 
 import (
-	"github.com/garyburd/gddo/doc"
+	"github.com/golang/gddo/doc"
 	"reflect"
 	"sort"
 	"testing"

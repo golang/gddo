@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/garyburd/gddo/doc"
-	"github.com/garyburd/gosrc"
+	"github.com/golang/gddo/doc"
+	"github.com/golang/gddo/gosrc"
 )
 
 var nestedProjectPat = regexp.MustCompile(`/(?:github\.com|launchpad\.net|code\.google\.com/p|bitbucket\.org|labix\.org)/`)

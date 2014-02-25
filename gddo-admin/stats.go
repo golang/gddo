@@ -12,7 +12,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/garyburd/gddo/database"
+	"github.com/golang/gddo/database"
 )
 
 var statsCommand = &command{

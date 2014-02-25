@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/garyburd/gosrc"
+	"github.com/golang/gddo//gosrc"
 )
 
 var (

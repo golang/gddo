@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/garyburd/gddo/doc"
+	"github.com/golang/gddo/doc"
 )
 
 func findExamples(pdoc *doc.Package, export, method string) []*doc.Example {

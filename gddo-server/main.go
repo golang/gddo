@@ -31,10 +31,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/garyburd/gddo/database"
-	"github.com/garyburd/gddo/doc"
-	"github.com/garyburd/gddo/httputil"
-	"github.com/garyburd/gosrc"
+	"github.com/golang/gddo/database"
+	"github.com/golang/gddo/doc"
+	"github.com/golang/gddo/gosrc"
+	"github.com/golang/gddo/httputil"
 )
 
 const (
@@ -780,7 +780,7 @@ var (
 
 var (
 	robot             = flag.Float64("robot", 100, "Request counter threshold for robots")
-	assetsDir         = flag.String("assets", filepath.Join(defaultBase("github.com/garyburd/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
+	assetsDir         = flag.String("assets", filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	getTimeout        = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
 	firstGetTimeout   = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge            = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")

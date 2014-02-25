@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/garyburd/gddo/database"
 	"github.com/garyburd/redigo/redis"
+	"github.com/golang/gddo/database"
 )
 
 var crawlCommand = &command{
