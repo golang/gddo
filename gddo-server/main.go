@@ -602,15 +602,29 @@ func logError(req *http.Request, err error, rv interface{}) {
 
 func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	q := strings.TrimSpace(req.Form.Get("q"))
-	pkgs, err := db.Query(q)
-	if err != nil {
-		return err
+
+	var pkgs []database.Package
+
+	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
+		pdoc, _, err := getDoc(q, robotRequest)
+		if err == nil && pdoc != nil {
+			pkgs = []database.Package{{Path: pdoc.ImportPath, Synopsis: pdoc.Synopsis}}
+		}
 	}
 
-	var data struct {
-		Results []database.Package `json:"results"`
+	if pkgs == nil {
+		var err error
+		pkgs, err = db.Query(q)
+		if err != nil {
+			return err
+		}
 	}
-	data.Results = pkgs
+
+	var data = struct {
+		Results []database.Package `json:"results"`
+	}{
+		pkgs,
+	}
 	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
