@@ -30,7 +30,7 @@ import (
 	"appengine/datastore"
 	"appengine/urlfetch"
 
-	"github.com/garyburd/gosrc"
+	"github.com/golang/gddo/gosrc"
 	"github.com/golang/lint"
 )
 
@@ -163,6 +163,7 @@ type lintProblem struct {
 	Text       string
 	LineText   string
 	Confidence float64
+	Link       string
 }
 
 func putPackage(c appengine.Context, importPath string, pkg *lintPackage) error {
@@ -225,6 +226,7 @@ func runLint(r *http.Request, importPath string) (*lintPackage, error) {
 					Text:       p.Text,
 					LineText:   p.LineText,
 					Confidence: p.Confidence,
+					Link:       p.Link,
 				})
 			}
 		}

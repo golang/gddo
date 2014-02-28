@@ -12,7 +12,9 @@
     This report was generated {{.Updated|timeago}}. <input type="submit" value="Refresh">
   </form>
   {{range $f := .Files}}{{range .Problems}}
-    <p>{{if .Line}}<a href="{{printf $.LineFmt $f.URL .Line}}" title="{{.LineText}}">{{$f.Name}}:{{.Line}}</a>{{else}}{{$f.Name}}{{end}}: {{.Text}}
+    <p>{{if .Line}}<a href="{{printf $.LineFmt $f.URL .Line}}" title="{{.LineText}}">{{$f.Name}}:{{.Line}}</a>{{else}}{{$f.Name}}{{end}}: 
+      {{.Text}}
+      {{if .Link}} <a href="{{.Link}}">☞</a>{{end}}
   {{end}}{{end}}
   {{template "commonFooter"}}
 </body></html>
