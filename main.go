@@ -12,16 +12,17 @@ import (
 	"appengine/memcache"
 	"appengine/urlfetch"
 	"bytes"
-	"code.google.com/p/go.tools/present"
 	"errors"
 	"fmt"
-	"github.com/garyburd/gosrc"
 	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"time"
+
+	"code.google.com/p/go.tools/present"
+	"github.com/golang/gddo/gosrc"
 )
 
 var (
