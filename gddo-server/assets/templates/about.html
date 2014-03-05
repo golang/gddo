@@ -31,13 +31,11 @@ path. If GoDoc does not already have the documentation for the package, then
 GoDoc will fetch the source from the version control system on the fly and add
 the documentation.
 
-<p>GoDoc scrapes the <a href="https://github.com/languages/Go/updated">GitHub
-  recent updates page</a> to find recently updated packages on GitHub. For
-other services, GoDoc checks for updates once per day. You can force GoDoc to
-refresh the documentation immediately by clicking the refresh link at the
-bottom of the package documentation page.
+<p>GoDoc checks for package updates once per day. You can force GoDoc to update
+the documentation immediately by clicking the refresh link at the bottom of the
+package documentation page. 
 
-<p>GoDoc crawls package imports to automatically find new packages.
+<p>GoDoc crawls package imports and child directories to find new packages.
 
 <h4 id="remove">Remove a package from GoDoc</h4>
 
