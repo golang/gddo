@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/gddo//gosrc"
+	"github.com/golang/gddo/gosrc"
 )
 
 var (
@@ -29,7 +29,6 @@ var (
 
 func main() {
 	flag.Parse()
-	gosrc.SetUserAgent("print")
 	if len(flag.Args()) != 1 {
 		log.Fatal("Usage: go run print.go importPath")
 	}
