@@ -3,14 +3,13 @@ This project is the source for http://godoc.org/
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.png)](http://godoc.org/github.com/golang/gddo)
 
 The code in this project is designed to be used by godoc.org. Send mail to
-info@godoc.org if you want to discuss other uses of the code.
+golang-dev@googlegroups.com if you want to discuss other uses of the code.
 
 Feedback
 --------
 
-Send ideas and questions to info@godoc.org. Request features and report bugs
-using the [GitHub Issue
-Tracker](https://github.com/golang/gddo/issues/new). 
+Send ideas and questions to golang-dev@googlegroups.com. Request features and report bugs
+using the [GitHub Issue Tracker](https://github.com/golang/gddo/issues/new). 
 
 
 Contributions
