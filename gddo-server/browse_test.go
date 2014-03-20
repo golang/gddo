@@ -17,6 +17,7 @@ var isBrowseURLTests = []struct {
 }{
 	{"https://github.com/garyburd/gddo/blob/master/doc/code.go", "github.com/garyburd/gddo/doc", true},
 	{"https://github.com/garyburd/go-oauth/blob/master/.gitignore", "github.com/garyburd/go-oauth", true},
+	{"https://github.com/garyburd/gddo/issues/154", "github.com/garyburd/gddo", true},
 	{"https://bitbucket.org/user/repo/src/bd0b661a263e/p1/p2?at=default", "bitbucket.org/user/repo/p1/p2", true},
 	{"https://bitbucket.org/user/repo/src", "bitbucket.org/user/repo", true},
 	{"https://bitbucket.org/user/repo", "bitbucket.org/user/repo", true},
