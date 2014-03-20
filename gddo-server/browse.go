@@ -60,6 +60,11 @@ var browsePatterns = []struct {
 		},
 	},
 	{
+		// GitHub issues, pulls, etc.
+		regexp.MustCompile(`^https?://(github\.com/[^/]+/[^/]+)(.*)$`),
+		func(m []string) string { return m[1] },
+	},
+	{
 		// Bitbucket source borwser.
 		regexp.MustCompile(`^https?://(bitbucket\.org/[^/]+/[^/]+)(?:/src/[^/]+(/[^?]+)?)?`),
 		func(m []string) string { return m[1] + m[2] },
