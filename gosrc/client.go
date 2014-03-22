@@ -55,7 +55,6 @@ func (c *httpClient) getBytes(url string) ([]byte, error) {
 		return nil, c.err(resp)
 	}
 	p, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
 	return p, err
 }
 
