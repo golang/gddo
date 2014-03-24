@@ -63,9 +63,10 @@ func (c *httpClient) getReader(url string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, c.err(resp)
+		err = c.err(resp)
+		resp.Body.Close()
+		return nil, err
 	}
 	return resp.Body, nil
 }
