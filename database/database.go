@@ -846,7 +846,16 @@ var importGraphScript = redis.NewScript(0, `
     return redis.call('HMGET', 'pkg:' .. id, 'synopsis', 'terms')
 `)
 
-func (db *Database) ImportGraph(pdoc *doc.Package, hideStdDeps bool) ([]Package, [][2]int, error) {
+// DepLevel specifies the level of depdenencies to show in an import graph.
+type DepLevel int
+
+const (
+	ShowAllDeps      DepLevel = iota // show all dependencies
+	HideStandardDeps                 // don't show dependencies of standard libraries
+	HideStandardAll                  // don't show standard libraries at all
+)
+
+func (db *Database) ImportGraph(pdoc *doc.Package, level DepLevel) ([]Package, [][2]int, error) {
 
 	// This breadth-first traversal of the package's dependencies uses the
 	// Redis pipeline as queue. Links to packages with invalid import paths are
@@ -863,6 +872,9 @@ func (db *Database) ImportGraph(pdoc *doc.Package, hideStdDeps bool) ([]Package,
 	index := map[string]int{pdoc.ImportPath: 0}
 
 	for _, path := range pdoc.Imports {
+		if level >= HideStandardAll && isStandardPackage(path) {
+			continue
+		}
 		j := len(nodes)
 		index[path] = j
 		edges = append(edges, [2]int{0, j})
@@ -883,12 +895,12 @@ func (db *Database) ImportGraph(pdoc *doc.Package, hideStdDeps bool) ([]Package,
 			return nil, nil, err
 		}
 		nodes[i].Synopsis = synopsis
-		if hideStdDeps && isStandardPackage(nodes[i].Path) {
-			continue
-		}
 		for _, term := range strings.Fields(terms) {
 			if strings.HasPrefix(term, "import:") {
 				path := term[len("import:"):]
+				if level >= HideStandardDeps && isStandardPackage(path) {
+					continue
+				}
 				j, ok := index[path]
 				if !ok {
 					j = len(nodes)

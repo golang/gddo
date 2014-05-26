@@ -8,7 +8,11 @@
       <div class="well-small">
         Package <a href="/{{.pdoc.ImportPath}}">{{.pdoc.Name}}</a>
         {{if .pdoc.ProjectRoot}}<span class="text-muted">|</span> 
-            {{if .hide}}<a href="?view=import-graph">Show</a>{{else}}<a href="?view=import-graph&hide=1">Hide</a>{{end}} 
+            {{if .hide}}
+                <a href="?import-graph">Show</a>
+            {{else}}
+                <a href="?import-graph&hide=1">Hide</a> (<a href="?import-graph&hide=2">all</a>)
+            {{end}} 
             standard package dependencies.
         {{end}}
       </div>

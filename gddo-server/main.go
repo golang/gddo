@@ -379,7 +379,13 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if pdoc.Name == "" {
 			break
 		}
-		hide := req.Form.Get("hide") == "1"
+		hide := database.ShowAllDeps
+		switch req.Form.Get("hide") {
+		case "1":
+			hide = database.HideStandardDeps
+		case "2":
+			hide = database.HideStandardAll
+		}
 		pkgs, edges, err := db.ImportGraph(pdoc, hide)
 		if err != nil {
 			return err
