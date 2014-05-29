@@ -202,8 +202,13 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
+	if isView(req, "status.svg") {
+		statusImageHandlerSVG.ServeHTTP(resp, req)
+		return nil
+	}
+
 	if isView(req, "status.png") {
-		statusImageHandler.ServeHTTP(resp, req)
+		statusImageHandlerPNG.ServeHTTP(resp, req)
 		return nil
 	}
 
@@ -793,9 +798,10 @@ func defaultBase(path string) string {
 }
 
 var (
-	db                 *database.Database
-	statusImageHandler http.Handler
-	srcFiles           = make(map[string]*zip.File)
+	db                    *database.Database
+	statusImageHandlerPNG http.Handler
+	statusImageHandlerSVG http.Handler
+	srcFiles              = make(map[string]*zip.File)
 )
 
 var (
@@ -878,7 +884,8 @@ func main() {
 			".js":  "text/javascript; charset=utf-8",
 		},
 	}
-	statusImageHandler = staticServer.FileHandler("status.png")
+	statusImageHandlerPNG = staticServer.FileHandler("status.png")
+	statusImageHandlerSVG = staticServer.FileHandler("status.svg")
 
 	apiMux := http.NewServeMux()
 	apiMux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
