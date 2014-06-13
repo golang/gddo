@@ -1,6 +1,6 @@
 go-talks.appspot.org
 
-@GoDocDotOrg
+@gburd
 
 * Introduction
 
@@ -29,5 +29,4 @@ This page is [[/github.com/garyburd/talksapp/assets/home.article][an article]].
 
 * Feedback
 
-Send your ideas, feature requests and questions to info@godoc.org. Report bugs using the 
-[[https://github.com/garyburd/talksapp/issues/new][GitHub Issue Tracker]]. 
+Report bugs and request features using the [[https://github.com/garyburd/talksapp/issues/new][GitHub Issue Tracker]]. 
