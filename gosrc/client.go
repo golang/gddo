@@ -71,20 +71,20 @@ func (c *httpClient) getReader(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func (c *httpClient) getJSON(url string, v interface{}) error {
+func (c *httpClient) getJSON(url string, v interface{}) (*http.Response, error) {
 	resp, err := c.get(url)
 	if err != nil {
-		return err
+		return resp, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return c.err(resp)
+		return resp, c.err(resp)
 	}
 	err = json.NewDecoder(resp.Body).Decode(v)
 	if _, ok := err.(*json.SyntaxError); ok {
 		err = NotFoundError{"JSON syntax error at " + url}
 	}
-	return err
+	return resp, err
 }
 
 func (c *httpClient) getFiles(urls []string, files []*File) error {

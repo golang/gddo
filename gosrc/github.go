@@ -51,7 +51,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	c := &httpClient{client: client, errFn: gitHubError}
 
-	var refs []*struct {
+	type refJSON struct {
 		Object struct {
 			Type string
 			Sha  string
@@ -60,9 +60,24 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		Ref string
 		URL string
 	}
+	var refs []*refJSON
 
-	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs", match), &refs); err != nil {
+	resp, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs", match), &refs)
+	if err != nil {
 		return nil, err
+	}
+
+	// If the response contains a Link header, then fallback to requesting "master" and "go1" by name.
+	if resp.Header.Get("Link") != "" {
+		var masterRef refJSON
+		if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs/heads/master", match), &masterRef); err == nil {
+			refs = append(refs, &masterRef)
+		}
+
+		var go1Ref refJSON
+		if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs/tags/go1", match), &go1Ref); err == nil {
+			refs = append(refs, &go1Ref)
+		}
 	}
 
 	tags := make(map[string]string)
@@ -76,7 +91,6 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	}
 
 	var commit string
-	var err error
 	match["tag"], commit, err = bestTag(tags, "master")
 	if err != nil {
 		return nil, err
@@ -93,7 +107,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		HTMLURL string `json:"html_url"`
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}", match), &contents); err != nil {
+	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}", match), &contents); err != nil {
 		return nil, err
 	}
 
@@ -213,7 +227,7 @@ func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt stri
 			PushedAt string `json:"pushed_at"`
 		}
 	}
-	err = c.getJSON(u, &updates)
+	_, err = c.getJSON(u, &updates)
 	if err != nil {
 		return pushedAfter, nil, err
 	}
@@ -235,7 +249,7 @@ func getGitHubProject(client *http.Client, match map[string]string) (*Project, e
 		Description string
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
+	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 
@@ -257,7 +271,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		}
 	}
 
-	if err := c.getJSON(expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
+	if _, err := c.getJSON(expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
 		return nil, err
 	}
 
