@@ -146,7 +146,7 @@ func isRobot(req *http.Request) bool {
 	host := httputil.StripPort(req.RemoteAddr)
 	n, err := db.IncrementCounter(host, 1)
 	if err != nil {
-		log.Printf("error incrementing counter for %s,  %v\n", host, err)
+		log.Printf("error incrementing counter for %s, %v", host, err)
 		return false
 	}
 	if n > *robot {
@@ -259,7 +259,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			len(pdoc.Errors) == 0 &&
 			!popularLinkReferral(req) {
 			if err := db.IncrementPopularScore(pdoc.ImportPath); err != nil {
-				log.Print("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
+				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
 		}
 
