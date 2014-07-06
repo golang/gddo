@@ -241,9 +241,12 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 
 	switch {
 	case len(req.Form) == 0:
-		importerCount, err := db.ImporterCount(importPath)
-		if err != nil {
-			return err
+		importerCount := 0
+		if pdoc.Name != "" {
+			importerCount, err = db.ImporterCount(importPath)
+			if err != nil {
+				return err
+			}
 		}
 
 		etag := httpEtag(pdoc, pkgs, importerCount)
