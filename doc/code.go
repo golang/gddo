@@ -8,6 +8,7 @@ package doc
 
 import (
 	"bytes"
+	"fmt"
 	"go/ast"
 	"go/doc"
 	"go/printer"
@@ -102,14 +103,15 @@ type Code struct {
 	Paths       []string
 }
 
-// annotationVisitor collects annotations.
-type annotationVisitor struct {
+// declVisitor modifies a declaration AST for printing and collects annotations.
+type declVisitor struct {
 	annotations []Annotation
 	paths       []string
 	pathIndex   map[string]int
+	comments    []*ast.CommentGroup
 }
 
-func (v *annotationVisitor) add(kind AnnotationKind, importPath string) {
+func (v *declVisitor) add(kind AnnotationKind, importPath string) {
 	pathIndex := -1
 	if importPath != "" {
 		var ok bool
@@ -123,11 +125,11 @@ func (v *annotationVisitor) add(kind AnnotationKind, importPath string) {
 	v.annotations = append(v.annotations, Annotation{Kind: kind, PathIndex: int16(pathIndex)})
 }
 
-func (v *annotationVisitor) ignoreName() {
+func (v *declVisitor) ignoreName() {
 	v.add(-1, "")
 }
 
-func (v *annotationVisitor) Visit(n ast.Node) ast.Visitor {
+func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 	switch n := n.(type) {
 	case *ast.TypeSpec:
 		v.ignoreName()
@@ -197,6 +199,31 @@ func (v *annotationVisitor) Visit(n ast.Node) ast.Visitor {
 		}
 		ast.Walk(v, n.X)
 		v.ignoreName()
+	case *ast.BasicLit:
+		if n.Kind == token.STRING && len(n.Value) > 128 {
+			v.comments = append(v.comments,
+				&ast.CommentGroup{List: []*ast.Comment{{
+					Slash: n.Pos(),
+					Text:  fmt.Sprintf("/* %d byte string literal not displayed */", len(n.Value)),
+				}}})
+			n.Value = `""`
+		} else {
+			return v
+		}
+	case *ast.CompositeLit:
+		if len(n.Elts) > 100 {
+			if n.Type != nil {
+				ast.Walk(v, n.Type)
+			}
+			v.comments = append(v.comments,
+				&ast.CommentGroup{List: []*ast.Comment{{
+					Slash: n.Lbrace,
+					Text:  fmt.Sprintf("/* %d elements not displayed */", len(n.Elts)),
+				}}})
+			n.Elts = n.Elts[:0]
+		} else {
+			return v
+		}
 	default:
 		return v
 	}
@@ -204,10 +231,13 @@ func (v *annotationVisitor) Visit(n ast.Node) ast.Visitor {
 }
 
 func (b *builder) printDecl(decl ast.Decl) (d Code) {
-	v := &annotationVisitor{pathIndex: make(map[string]int)}
+	v := &declVisitor{pathIndex: make(map[string]int)}
 	ast.Walk(v, decl)
 	b.buf = b.buf[:0]
-	err := (&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(sliceWriter{&b.buf}, b.fset, decl)
+	err := (&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(
+		sliceWriter{&b.buf},
+		b.fset,
+		&printer.CommentedNode{Node: decl, Comments: v.comments})
 	if err != nil {
 		return Code{Text: err.Error()}
 	}

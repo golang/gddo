@@ -43,10 +43,14 @@ func stats(c *command) {
 	}
 
 	var packageSizes []itemSize
+	var truncatedPackages []string
 	projectSizes := make(map[string]int)
 	err = db.Do(func(pi *database.PackageInfo) error {
 		packageSizes = append(packageSizes, itemSize{pi.PDoc.ImportPath, pi.Size})
 		projectSizes[pi.PDoc.ProjectRoot] += pi.Size
+		if pi.PDoc.Truncated {
+			truncatedPackages = append(truncatedPackages, pi.PDoc.ImportPath)
+		}
 		return nil
 	})
 
@@ -55,13 +59,20 @@ func stats(c *command) {
 		sizes = append(sizes, itemSize{path, size})
 	}
 	sort.Sort(bySizeDesc(sizes))
+	fmt.Println("PROJECT SIZES")
 	for _, size := range sizes {
 		fmt.Printf("%6d %s\n", size.size, size.path)
 	}
 
 	sort.Sort(bySizeDesc(packageSizes))
+	fmt.Println("PACKAGE SIZES")
 	for _, size := range packageSizes {
 		fmt.Printf("%6d %s\n", size.size, size.path)
 	}
 
+	sort.Sort(sort.StringSlice(truncatedPackages))
+	fmt.Println("TRUNCATED PACKAGES")
+	for _, p := range truncatedPackages {
+		fmt.Printf("%s\n", p)
+	}
 }

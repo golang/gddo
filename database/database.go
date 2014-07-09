@@ -214,8 +214,13 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		return err
 	}
 
+	gobBytes, err := snappy.Encode(nil, gobBuf.Bytes())
+	if err != nil {
+		return err
+	}
+
 	// Truncate large documents.
-	if gobBuf.Len() > 200000 {
+	if len(gobBytes) > 400000 {
 		pdocNew := *pdoc
 		pdoc = &pdocNew
 		pdoc.Truncated = true
@@ -228,11 +233,10 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		if err := gob.NewEncoder(&gobBuf).Encode(pdoc); err != nil {
 			return err
 		}
-	}
-
-	gobBytes, err := snappy.Encode(nil, gobBuf.Bytes())
-	if err != nil {
-		return err
+		gobBytes, err = snappy.Encode(nil, gobBuf.Bytes())
+		if err != nil {
+			return err
+		}
 	}
 
 	kind := "p"
