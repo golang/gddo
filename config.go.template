@@ -1,9 +1,5 @@
 package talksapp
 
-import (
-	"github.com/garyburd/gosrc"
-)
-
 func init() {
     // Register an application at https://github.com/settings/applications/new
     // and enter the client ID and client secret here.
