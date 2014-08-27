@@ -8,9 +8,6 @@
 package talksapp
 
 import (
-	"appengine"
-	"appengine/memcache"
-	"appengine/urlfetch"
 	"bytes"
 	"errors"
 	"fmt"
@@ -20,6 +17,10 @@ import (
 	"os"
 	"path"
 	"time"
+
+	"appengine"
+	"appengine/memcache"
+	"appengine/urlfetch"
 
 	"code.google.com/p/go.tools/present"
 	"github.com/golang/gddo/gosrc"
@@ -147,7 +148,7 @@ func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "Not Found.")
 	} else if e, ok := err.(*gosrc.RemoteError); ok {
 		writeTextHeader(w, 500)
-		fmt.Fprintf(w, "Error accessing %s.", e.Host)
+		fmt.Fprintf(w, "Error accessing %s.\n%v", e.Host, e)
 		c.Infof("Remote error %s: %v", e.Host, e)
 	} else if e, ok := err.(presFileNotFoundError); ok {
 		writeTextHeader(w, 200)
