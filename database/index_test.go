@@ -7,10 +7,11 @@
 package database
 
 import (
-	"github.com/golang/gddo/doc"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/golang/gddo/doc"
 )
 
 var indexTests = []struct {
@@ -95,6 +96,25 @@ func TestDocTerms(t *testing.T) {
 		sort.Strings(tt.terms)
 		if !reflect.DeepEqual(terms, tt.terms) {
 			t.Errorf("documentTerms(%s)=%#v, want %#v", tt.pdoc.ImportPath, terms, tt.terms)
+		}
+	}
+}
+
+func TestExcludedPath(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected bool
+	}{
+		{"code.google.com/p/go.text/internal/ucd", true},
+		{"code.google.com/p/go.text/internal", true},
+		{"camlistore.org/third_party/bazil.org/fuse", true},
+		{"bazil.org/fuse", false},
+	}
+
+	for _, tt := range tests {
+		actual := isExcludedPath(tt.path)
+		if actual != tt.expected {
+			t.Errorf("isExcludedPath=%t, want %t for %s", actual, tt.expected, tt.path)
 		}
 	}
 }
