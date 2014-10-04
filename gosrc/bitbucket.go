@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"time"
 )
 
 func init() {
@@ -20,22 +21,38 @@ func init() {
 	})
 }
 
-var bitbucketEtagRe = regexp.MustCompile(`^(hg|git)-`)
-
 func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 
 	c := &httpClient{client: client}
 
-	if m := bitbucketEtagRe.FindStringSubmatch(savedEtag); m != nil {
-		match["vcs"] = m[1]
-	} else {
-		var repo struct {
+	var repo struct {
+		Scm         string
+		CreatedOn   string `json:"created_on"`
+		LastUpdated string `json:"last_updated"`
+		ForkOf      struct {
 			Scm string
-		}
-		if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
-			return nil, err
-		}
-		match["vcs"] = repo.Scm
+		} `json:"fork_of"`
+	}
+
+	if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
+		return nil, err
+	}
+	match["vcs"] = repo.Scm
+
+	l := "2006-01-02T15:04:05.999999999"
+	created, err := time.Parse(l, repo.CreatedOn)
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := time.Parse(l, repo.LastUpdated)
+	if err != nil {
+		return nil, err
+	}
+
+	isDeadEndFork := false
+	if repo.ForkOf.Scm != "" && created.Unix() >= updated.Unix() {
+		isDeadEndFork = true
 	}
 
 	tags := make(map[string]string)
@@ -51,7 +68,6 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		}
 	}
 
-	var err error
 	match["tag"], match["commit"], err = bestTag(tags, defaultTags[match["vcs"]])
 	if err != nil {
 		return nil, err
@@ -98,5 +114,6 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		ProjectURL:     expand("https://bitbucket.org/{owner}/{repo}/", match),
 		Subdirectories: contents.Directories,
 		VCS:            match["vcs"],
+		VCSDeadEndFork: isDeadEndFork,
 	}, nil
 }

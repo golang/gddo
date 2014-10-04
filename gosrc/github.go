@@ -147,6 +147,20 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		browseURL = expand("https://github.com/{owner}/{repo}/tree/{tag}{dir}", match)
 	}
 
+	var repo = struct {
+		CreatedAt time.Time `json:"created_at"`
+		PushedAt  time.Time `json:"pushed_at"`
+	}{}
+
+	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
+		return nil, err
+	}
+
+	isDeadEndFork := false
+	if repo.CreatedAt.Unix() > repo.PushedAt.Unix() {
+		isDeadEndFork = true
+	}
+
 	return &Directory{
 		BrowseURL:      browseURL,
 		Etag:           commit,
@@ -157,6 +171,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		ProjectURL:     expand("https://github.com/{owner}/{repo}", match),
 		Subdirectories: subdirs,
 		VCS:            "git",
+		VCSDeadEndFork: isDeadEndFork,
 	}, nil
 }
 

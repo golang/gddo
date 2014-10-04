@@ -31,6 +31,8 @@
     {{if .pkgs}}<span class="text-muted">|</span> <a href="#pkg-subdirectories">Directories</a>{{end}}
   </span>
   {{end}}
+
+  {{if .pdoc.VCSDeadEndFork}}<span>(dead-end fork)</span>{{end}}
 </div>{{end}}
 
 {{define "Pkgs"}}
