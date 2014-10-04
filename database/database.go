@@ -133,12 +133,13 @@ func (db *Database) Exists(path string) (bool, error) {
 var putScript = redis.NewScript(0, `
     local path = ARGV[1]
     local synopsis = ARGV[2]
-    local score = ARGV[3]
-    local gob = ARGV[4]
-    local terms = ARGV[5]
-    local etag = ARGV[6]
-    local kind = ARGV[7]
-    local nextCrawl = ARGV[8]
+    local hidden = ARGV[3]
+    local score = ARGV[4]
+    local gob = ARGV[5]
+    local terms = ARGV[6]
+    local etag = ARGV[7]
+    local kind = ARGV[8]
+    local nextCrawl = ARGV[9]
 
     local id = redis.call('HGET', 'ids', path)
     if not id then
@@ -176,7 +177,7 @@ var putScript = redis.NewScript(0, `
         redis.call('HSET', 'pkg:' .. id, 'crawl', nextCrawl)
     end
 
-    return redis.call('HMSET', 'pkg:' .. id, 'path', path, 'synopsis', synopsis, 'score', score, 'gob', gob, 'terms', terms, 'etag', etag, 'kind', kind)
+    return redis.call('HMSET', 'pkg:' .. id, 'path', path, 'synopsis', synopsis, 'hidden', hidden, 'score', score, 'gob', gob, 'terms', terms, 'etag', etag, 'kind', kind)
 `)
 
 var addCrawlScript = redis.NewScript(0, `
@@ -252,7 +253,12 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		t = nextCrawl.Unix()
 	}
 
-	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
+	hidden := false
+	if pdoc.VCSDeadEndFork {
+		hidden = true
+	}
+
+	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, hidden, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
 	if err != nil {
 		return err
 	}
@@ -687,6 +693,7 @@ func (db *Database) IsBlocked(path string) (bool, error) {
 type queryResult struct {
 	Path     string
 	Synopsis string
+	Hidden   bool
 	Score    float64
 }
 
@@ -697,6 +704,10 @@ func (p byScore) Less(i, j int) bool { return p[j].Score < p[i].Score }
 func (p byScore) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (db *Database) Query(q string) ([]Package, error) {
+	return db.QueryWithVisibility(q, false)
+}
+
+func (db *Database) QueryWithVisibility(q string, showHidden bool) ([]Package, error) {
 	terms := parseQuery(q)
 	if len(terms) == 0 {
 		return nil, nil
@@ -714,7 +725,7 @@ func (db *Database) Query(q string) ([]Package, error) {
 		args = append(args, "index:"+term)
 	}
 	c.Send("SINTERSTORE", args...)
-	c.Send("SORT", id, "DESC", "BY", "nosort", "GET", "pkg:*->path", "GET", "pkg:*->synopsis", "GET", "pkg:*->score")
+	c.Send("SORT", id, "DESC", "BY", "nosort", "GET", "pkg:*->path", "GET", "pkg:*->synopsis", "GET", "pkg:*->hidden", "GET", "pkg:*->score")
 	c.Send("DEL", id)
 	c.Flush()
 	c.Receive()                              // SINTERSTORE
@@ -725,7 +736,7 @@ func (db *Database) Query(q string) ([]Package, error) {
 	c.Receive() // DEL
 
 	var queryResults []*queryResult
-	if err := redis.ScanSlice(values, &queryResults, "Path", "Synopsis", "Score"); err != nil {
+	if err := redis.ScanSlice(values, &queryResults, "Path", "Synopsis", "Hidden", "Score"); err != nil {
 		return nil, err
 	}
 
@@ -760,6 +771,10 @@ func (db *Database) Query(q string) ([]Package, error) {
 
 	pkgs := make([]Package, len(queryResults))
 	for i, qr := range queryResults {
+		if !showHidden && qr.Hidden {
+			continue
+		}
+
 		pkgs[i].Path = qr.Path
 		pkgs[i].Synopsis = qr.Synopsis
 	}
