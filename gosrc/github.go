@@ -148,6 +148,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	}
 
 	var repo = struct {
+		Fork      bool      `json:"fork"`
 		CreatedAt time.Time `json:"created_at"`
 		PushedAt  time.Time `json:"pushed_at"`
 	}{}
@@ -156,7 +157,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		return nil, err
 	}
 
-	isDeadEndFork := repo.PushedAt.Before(repo.CreatedAt)
+	isDeadEndFork := repo.Fork && repo.PushedAt.Before(repo.CreatedAt)
 
 	return &Directory{
 		BrowseURL:      browseURL,
