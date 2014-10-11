@@ -253,10 +253,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		t = nextCrawl.Unix()
 	}
 
-	hidden := false
-	if pdoc.VCSDeadEndFork {
-		hidden = true
-	}
+	hidden := pdoc.VCSDeadEndFork
 
 	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, hidden, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
 	if err != nil {
