@@ -50,7 +50,7 @@ type Directory struct {
 	VCS string
 
 	// Version control: belongs to a dead end fork
-	VCSDeadEndFork bool
+	DeadEndFork bool
 
 	// Cache validation tag. This tag is not necessarily an HTTP entity tag.
 	// The tag is "" if there is no meaningful cache validation for the VCS.

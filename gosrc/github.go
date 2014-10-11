@@ -156,10 +156,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		return nil, err
 	}
 
-	isDeadEndFork := false
-	if repo.CreatedAt.Unix() > repo.PushedAt.Unix() {
-		isDeadEndFork = true
-	}
+	isDeadEndFork := repo.PushedAt.Before(repo.CreatedAt)
 
 	return &Directory{
 		BrowseURL:      browseURL,
@@ -171,7 +168,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		ProjectURL:     expand("https://github.com/{owner}/{repo}", match),
 		Subdirectories: subdirs,
 		VCS:            "git",
-		VCSDeadEndFork: isDeadEndFork,
+		DeadEndFork:    isDeadEndFork,
 	}, nil
 }
 

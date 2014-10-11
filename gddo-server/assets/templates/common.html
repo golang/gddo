@@ -31,8 +31,6 @@
     {{if .pkgs}}<span class="text-muted">|</span> <a href="#pkg-subdirectories">Directories</a>{{end}}
   </span>
   {{end}}
-
-  {{if .pdoc.VCSDeadEndFork}}<span>(dead-end fork)</span>{{end}}
 </div>{{end}}
 
 {{define "Pkgs"}}
@@ -71,6 +69,7 @@
   {{if not .Updated.IsZero}}Updated <span class="timeago" title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{.Updated.Format "2006-01-02"}}</span>{{if or (equal .GOOS "windows") (equal .GOOS "darwin")}} with GOOS={{.GOOS}}{{end}}.{{end}}
   <a href="javascript:document.getElementsByName('x-refresh')[0].submit();" title="Refresh this page from the source.">Refresh now</a>.
   <a href="?tools">Tools</a> for package owners.
+  {{if .DeadEndFork}}This is a dead-end fork (no commits since the fork).{{end}}
 {{end}}
 {{with $.pdoc.Errors}}
     <p>The <a href="http://golang.org/cmd/go/#Download_and_install_packages_and_dependencies">go get</a>

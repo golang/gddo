@@ -392,7 +392,7 @@ type Package struct {
 	VCS string
 
 	// Version control: belongs to a dead end fork
-	VCSDeadEndFork bool
+	DeadEndFork bool
 
 	// The time this object was created.
 	Updated time.Time
@@ -466,7 +466,7 @@ func newPackage(dir *gosrc.Directory) (*Package, error) {
 		BrowseURL:      dir.BrowseURL,
 		Etag:           PackageVersion + "-" + dir.Etag,
 		VCS:            dir.VCS,
-		VCSDeadEndFork: dir.VCSDeadEndFork,
+		DeadEndFork:    dir.DeadEndFork,
 		Subdirectories: dir.Subdirectories,
 	}
 

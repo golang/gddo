@@ -114,6 +114,6 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		ProjectURL:     expand("https://bitbucket.org/{owner}/{repo}/", match),
 		Subdirectories: contents.Directories,
 		VCS:            match["vcs"],
-		VCSDeadEndFork: isDeadEndFork,
+		DeadEndFork:    isDeadEndFork,
 	}, nil
 }
