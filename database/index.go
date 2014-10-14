@@ -117,6 +117,7 @@ func isExcludedPath(path string) bool {
 func documentScore(pdoc *doc.Package) float64 {
 	if pdoc.Name == "" ||
 		pdoc.IsCmd ||
+		pdoc.DeadEndFork ||
 		len(pdoc.Errors) > 0 ||
 		isExcludedPath(pdoc.ImportPath) {
 		return 0

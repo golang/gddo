@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"time"
 )
 
 func init() {
@@ -22,19 +23,27 @@ func init() {
 
 var bitbucketEtagRe = regexp.MustCompile(`^(hg|git)-`)
 
-func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+type bitbucketRepo struct {
+	Scm         string
+	CreatedOn   string `json:"created_on"`
+	LastUpdated string `json:"last_updated"`
+	ForkOf      struct {
+		Scm string
+	} `json:"fork_of"`
+}
 
+func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+	var repo *bitbucketRepo
 	c := &httpClient{client: client}
 
 	if m := bitbucketEtagRe.FindStringSubmatch(savedEtag); m != nil {
 		match["vcs"] = m[1]
 	} else {
-		var repo struct {
-			Scm string
-		}
-		if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
+		repo, err := getBitbucketRepo(c, match)
+		if err != nil {
 			return nil, err
 		}
+
 		match["vcs"] = repo.Scm
 	}
 
@@ -60,6 +69,13 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 	etag := expand("{vcs}-{commit}", match)
 	if etag == savedEtag {
 		return nil, ErrNotModified
+	}
+
+	if repo == nil {
+		repo, err = getBitbucketRepo(c, match)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var contents struct {
@@ -98,5 +114,35 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		ProjectURL:     expand("https://bitbucket.org/{owner}/{repo}/", match),
 		Subdirectories: contents.Directories,
 		VCS:            match["vcs"],
+		DeadEndFork:    isBitbucketDeadEndFork(repo),
 	}, nil
+}
+
+func getBitbucketRepo(c *httpClient, match map[string]string) (*bitbucketRepo, error) {
+	var repo bitbucketRepo
+	if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
+		return nil, err
+	}
+
+	return &repo, nil
+}
+
+func isBitbucketDeadEndFork(repo *bitbucketRepo) bool {
+	l := "2006-01-02T15:04:05.999999999"
+	created, err := time.Parse(l, repo.CreatedOn)
+	if err != nil {
+		return false
+	}
+
+	updated, err := time.Parse(l, repo.LastUpdated)
+	if err != nil {
+		return false
+	}
+
+	isDeadEndFork := false
+	if repo.ForkOf.Scm != "" && created.Unix() >= updated.Unix() {
+		isDeadEndFork = true
+	}
+
+	return isDeadEndFork
 }
