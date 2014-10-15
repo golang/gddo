@@ -72,6 +72,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 var httpClient = &http.Client{Transport: &transport{
 	t: http.Transport{
-		Dial: timeoutDial,
+		Proxy: http.ProxyFromEnvironment,
+		Dial:  timeoutDial,
 		ResponseHeaderTimeout: *requestTimeout / 2,
 	}}}
