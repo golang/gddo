@@ -22,7 +22,7 @@ type httpClient struct {
 
 func (c *httpClient) err(resp *http.Response) error {
 	if resp.StatusCode == 404 {
-		return NotFoundError{"Resource not found: " + resp.Request.URL.String()}
+		return NotFoundError{Message: "Resource not found: " + resp.Request.URL.String()}
 	}
 	if c.errFn != nil {
 		return c.errFn(resp)
@@ -82,7 +82,7 @@ func (c *httpClient) getJSON(url string, v interface{}) (*http.Response, error) 
 	}
 	err = json.NewDecoder(resp.Body).Decode(v)
 	if _, ok := err.(*json.SyntaxError); ok {
-		err = NotFoundError{"JSON syntax error at " + url}
+		err = NotFoundError{Message: "JSON syntax error at " + url}
 	}
 	return resp, err
 }
@@ -115,7 +115,7 @@ func (c *httpClient) getFiles(urls []string, files []*File) error {
 			ch <- nil
 		}(i)
 	}
-	for _ = range files {
+	for range files {
 		if err := <-ch; err != nil {
 			return err
 		}
