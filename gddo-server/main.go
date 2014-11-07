@@ -76,7 +76,7 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 		// A hack in the database package uses the path "-" to represent the
 		// next document to crawl. Block "-" here so that requests to /- always
 		// return not found.
-		return nil, nil, nil
+		return nil, nil, &httpError{status: http.StatusNotFound}
 	}
 
 	pdoc, pkgs, nextCrawl, err := db.Get(path)
@@ -94,38 +94,45 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 		needsCrawl = nextCrawl.IsZero() && len(pkgs) > 0
 	}
 
-	if needsCrawl {
-		c := make(chan crawlResult, 1)
-		go func() {
-			pdoc, err := crawlDoc("web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
-			c <- crawlResult{pdoc, err}
-		}()
-		var err error
-		timeout := *getTimeout
-		if pdoc == nil {
-			timeout = *firstGetTimeout
-		}
-		select {
-		case rr := <-c:
-			if rr.err == nil {
-				pdoc = rr.pdoc
-			}
-			err = rr.err
-		case <-time.After(timeout):
-			err = errUpdateTimeout
-		}
-		if err != nil {
-			if pdoc != nil {
-				log.Printf("Serving %q from database after error: %v", path, err)
-				err = nil
-			} else if err == errUpdateTimeout {
-				// Handle timeout on packages never seeen before as not found.
-				log.Printf("Serving %q as not found after timeout", path)
-				err = &httpError{status: http.StatusNotFound}
-			}
-		}
+	if !needsCrawl {
+		return pdoc, pkgs, nil
 	}
-	return pdoc, pkgs, err
+
+	c := make(chan crawlResult, 1)
+	go func() {
+		pdoc, err := crawlDoc("web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
+		c <- crawlResult{pdoc, err}
+	}()
+
+	timeout := *getTimeout
+	if pdoc == nil {
+		timeout = *firstGetTimeout
+	}
+
+	select {
+	case cr := <-c:
+		err = cr.err
+		if err == nil {
+			pdoc = cr.pdoc
+		}
+	case <-time.After(timeout):
+		err = errUpdateTimeout
+	}
+
+	switch {
+	case err == nil:
+		return pdoc, pkgs, nil
+	case gosrc.IsNotFound(err):
+		return nil, nil, err
+	case pdoc != nil:
+		log.Printf("Serving %q from database after error getting doc: %v", path, err)
+		return pdoc, pkgs, nil
+	case err == errUpdateTimeout:
+		log.Printf("Serving %q as not found after timeout getting doc", path)
+		return nil, nil, &httpError{status: http.StatusNotFound}
+	default:
+		return nil, nil, err
+	}
 }
 
 func templateExt(req *http.Request) string {
@@ -198,7 +205,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		p = p[len("/pkg"):]
 	}
 	if p != req.URL.Path {
-		http.Redirect(resp, req, p, 301)
+		http.Redirect(resp, req, p, http.StatusMovedPermanently)
 		return nil
 	}
 
@@ -219,6 +226,20 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
 	pdoc, pkgs, err := getDoc(importPath, requestType)
+
+	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
+		// To prevent dumb clients from following redirect loops, respond with
+		// status 404 if the target document is not found.
+		if _, _, err := getDoc(e.Redirect, requestType); gosrc.IsNotFound(err) {
+			return &httpError{status: http.StatusNotFound}
+		}
+		u := "/" + e.Redirect
+		if req.URL.RawQuery != "" {
+			u += "?" + req.URL.RawQuery
+		}
+		http.Redirect(resp, req, u, http.StatusMovedPermanently)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -332,7 +353,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if fname == "" {
 			break
 		}
-		http.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), 301)
+		http.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), http.StatusMovedPermanently)
 		return nil
 	case isView(req, "file"):
 		if srcFiles == nil {
@@ -412,7 +433,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		http.Redirect(resp, req, u, 301)
+		http.Redirect(resp, req, u, http.StatusMovedPermanently)
 		return nil
 	case req.Form.Get("view") != "":
 		// Redirect deprecated view= queries.
@@ -430,7 +451,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if q != "" {
 			u := *req.URL
 			u.RawQuery = q
-			http.Redirect(resp, req, u.String(), 301)
+			http.Redirect(resp, req, u.String(), http.StatusMovedPermanently)
 			return nil
 		}
 	}
@@ -453,10 +474,14 @@ func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	case <-time.After(*getTimeout):
 		err = errUpdateTimeout
 	}
+	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
+		http.Redirect(resp, req, "/"+e.Redirect, http.StatusFound)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	http.Redirect(resp, req, "/"+path, 302)
+	http.Redirect(resp, req, "/"+path, http.StatusFound)
 	return nil
 }
 
@@ -578,8 +603,12 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
 		pdoc, pkgs, err := getDoc(q, queryRequest)
+		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
+			http.Redirect(resp, req, "/"+e.Redirect, http.StatusFound)
+			return nil
+		}
 		if err == nil && (pdoc != nil || len(pkgs) > 0) {
-			http.Redirect(resp, req, "/"+q, 302)
+			http.Redirect(resp, req, "/"+q, http.StatusFound)
 			return nil
 		}
 	}
@@ -729,6 +758,8 @@ func runHandler(resp http.ResponseWriter, req *http.Request,
 			logError(req, err, nil)
 		}
 		errfn(resp, req, e.status, e.err)
+	} else if gosrc.IsNotFound(err) {
+		errfn(resp, req, http.StatusNotFound, nil)
 	} else {
 		logError(req, err, nil)
 		errfn(resp, req, http.StatusInternalServerError, err)
@@ -918,14 +949,14 @@ func main() {
 	mux.Handle("/-/subrepo", handler(serveGoSubrepoIndex))
 	mux.Handle("/-/index", handler(serveIndex))
 	mux.Handle("/-/refresh", handler(serveRefresh))
-	mux.Handle("/a/index", http.RedirectHandler("/-/index", 301))
-	mux.Handle("/about", http.RedirectHandler("/-/about", 301))
+	mux.Handle("/a/index", http.RedirectHandler("/-/index", http.StatusMovedPermanently))
+	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	mux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
 	mux.Handle("/humans.txt", staticServer.FileHandler("humans.txt"))
 	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
 	mux.Handle("/BingSiteAuth.xml", staticServer.FileHandler("BingSiteAuth.xml"))
-	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", 301))
+	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/ajax.googleapis.com/", http.NotFoundHandler())
 	mux.Handle("/", handler(serveHome))
 

@@ -57,7 +57,7 @@ func documentTerms(pdoc *doc.Package, score float64) []string {
 	projectRoot := normalizeProjectRoot(pdoc.ProjectRoot)
 	terms["project:"+projectRoot] = true
 
-	if strings.HasPrefix(pdoc.ImportPath, "code.google.com/p/go.") {
+	if strings.HasPrefix(pdoc.ImportPath, "golang.org/x/") {
 		terms["project:subrepo"] = true
 	}
 

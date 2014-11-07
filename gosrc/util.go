@@ -21,7 +21,7 @@ func bestTag(tags map[string]string, defaultTag string) (string, string, error) 
 	if commit, ok := tags[defaultTag]; ok {
 		return defaultTag, commit, nil
 	}
-	return "", "", NotFoundError{"Tag or branch not found."}
+	return "", "", NotFoundError{Message: "Tag or branch not found."}
 }
 
 // expand replaces {k} in template with match[k] or subs[atoi(k)] if k is not in match.

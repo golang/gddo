@@ -110,7 +110,7 @@ func getLaunchpadDir(client *http.Client, match map[string]string, savedEtag str
 	}
 
 	if !inTree {
-		return nil, NotFoundError{"Directory tree does not contain Go files."}
+		return nil, NotFoundError{Message: "Directory tree does not contain Go files."}
 	}
 
 	sort.Sort(byHash(hash))

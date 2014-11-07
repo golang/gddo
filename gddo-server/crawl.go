@@ -57,19 +57,23 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		// Go Frontend source tree mirror.
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "Go Frontend source tree mirror."}
+	} else if strings.HasPrefix(importPath, "code.google.com/p/go.") {
+		// Old import path for Go sub-repository.
+		pdoc = nil
+		err = gosrc.NotFoundError{Message: "old Go sub-repo", Redirect: "golang.org/x/" + importPath[len("code.google.com/p/go."):]}
 	} else if m := nestedProjectPat.FindStringIndex(importPath); m != nil && exists(importPath[m[0]+1:]) {
 		pdoc = nil
-		err = gosrc.NotFoundError{Message: "Copy of other project."}
+		err = gosrc.NotFoundError{Message: "copy of other project."}
 	} else if blocked, e := db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
-		err = gosrc.NotFoundError{Message: "Blocked."}
+		err = gosrc.NotFoundError{Message: "blocked."}
 	} else {
 		var pdocNew *doc.Package
 		pdocNew, err = doc.Get(httpClient, importPath, etag)
 		message = append(message, "fetch:", int64(time.Since(start)/time.Millisecond))
 		if err == nil && pdocNew.Name == "" && !hasSubdirs {
 			pdoc = nil
-			err = gosrc.NotFoundError{Message: "No Go files or subdirs"}
+			err = gosrc.NotFoundError{Message: "no Go files or subdirs"}
 		} else if err != gosrc.ErrNotModified {
 			pdoc = pdocNew
 		}
@@ -90,20 +94,21 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		if err := db.Put(pdoc, nextCrawl, false); err != nil {
 			log.Printf("ERROR db.Put(%q): %v", importPath, err)
 		}
+		return pdoc, nil
 	case err == gosrc.ErrNotModified:
 		message = append(message, "touch")
 		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, nextCrawl); err != nil {
 			log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
 		}
+		return pdoc, nil
 	case gosrc.IsNotFound(err):
 		message = append(message, "notfound:", err)
 		if err := db.Delete(importPath); err != nil {
 			log.Printf("ERROR db.Delete(%q): %v", importPath, err)
 		}
+		return nil, err
 	default:
 		message = append(message, "ERROR:", err)
 		return nil, err
 	}
-
-	return pdoc, nil
 }

@@ -35,6 +35,7 @@ func init() {
 var (
 	gitHubRawHeader     = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
 	gitHubPreviewHeader = http.Header{"Accept": {"application/vnd.github.preview"}}
+	ownerRepoPat        = regexp.MustCompile(`^https://api.github.com/repos/([^/]+)/([^/]+)/`)
 )
 
 func gitHubError(resp *http.Response) error {
@@ -112,13 +113,18 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	}
 
 	if len(contents) == 0 {
-		return nil, NotFoundError{"No files in directory."}
+		return nil, NotFoundError{Message: "No files in directory."}
 	}
 
-	// Because Github API URLs are case-insensitive, we check that the owner
-	// and repo returned from Github matches the one that we are requesting.
-	if !strings.HasPrefix(contents[0].GitURL, expand("https://api.github.com/repos/{owner}/{repo}/", match)) {
-		return nil, NotFoundError{"Github import path has incorrect case."}
+	// GitHub owner and repo names are case-insensitive. Redirect if requested
+	// names do not match the canonical names in API response.
+	if m := ownerRepoPat.FindStringSubmatch(contents[0].GitURL); m != nil && (m[1] != match["owner"] || m[2] != match["repo"]) {
+		match["owner"] = m[1]
+		match["repo"] = m[2]
+		return nil, NotFoundError{
+			Message:  "Github import path has incorrect case.",
+			Redirect: expand("github.com/{owner}/{repo}{dir}", match),
+		}
 	}
 
 	var files []*File
@@ -289,7 +295,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 	}
 
 	if len(gist.History) == 0 {
-		return nil, NotFoundError{"History not found."}
+		return nil, NotFoundError{Message: "History not found."}
 	}
 	commit := gist.History[0].Version
 

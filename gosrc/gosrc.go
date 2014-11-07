@@ -78,6 +78,9 @@ type Project struct {
 type NotFoundError struct {
 	// Diagnostic message describing why the directory was not found.
 	Message string
+
+	// Redirect specifies the path where package can be found.
+	Redirect string
 }
 
 func (e NotFoundError) Error() string {
@@ -130,7 +133,7 @@ func (s *service) match(importPath string) (map[string]string, error) {
 	m := s.pattern.FindStringSubmatch(importPath)
 	if m == nil {
 		if s.prefix != "" {
-			return nil, NotFoundError{"Import path prefix matches known service, but regexp does not."}
+			return nil, NotFoundError{Message: "Import path prefix matches known service, but regexp does not."}
 		}
 		return nil, nil
 	}
@@ -208,7 +211,7 @@ metaScan:
 				continue metaScan
 			}
 			if match != nil {
-				return nil, NotFoundError{"More than one <meta> found at " + scheme + "://" + importPath}
+				return nil, NotFoundError{Message: "More than one <meta> found at " + scheme + "://" + importPath}
 			}
 
 			projectRoot, vcs, repo := f[0], f[1], f[2]
@@ -216,7 +219,7 @@ metaScan:
 			repo = strings.TrimSuffix(repo, "."+vcs)
 			i := strings.Index(repo, "://")
 			if i < 0 {
-				return nil, NotFoundError{"Bad repo URL in <meta>."}
+				return nil, NotFoundError{Message: "Bad repo URL in <meta>."}
 			}
 			proto := repo[:i]
 			repo = repo[i+len("://"):]
@@ -239,7 +242,7 @@ metaScan:
 		}
 	}
 	if match == nil {
-		return nil, NotFoundError{"<meta> not found."}
+		return nil, NotFoundError{Message: "<meta> not found."}
 	}
 	return match, nil
 }
@@ -261,7 +264,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 			return nil, err
 		}
 		if rootMatch["projectRoot"] != match["projectRoot"] {
-			return nil, NotFoundError{"Project root mismatch."}
+			return nil, NotFoundError{Message: "Project root mismatch."}
 		}
 	}
 
@@ -325,7 +328,7 @@ func Get(client *http.Client, importPath string, etag string) (dir *Directory, e
 	}
 
 	if err == errNoMatch {
-		err = NotFoundError{"Import path not valid:"}
+		err = NotFoundError{Message: "Import path not valid:"}
 	}
 
 	return dir, err
@@ -335,7 +338,7 @@ func Get(client *http.Client, importPath string, etag string) (dir *Directory, e
 func GetPresentation(client *http.Client, importPath string) (*Presentation, error) {
 	ext := path.Ext(importPath)
 	if ext != ".slide" && ext != ".article" {
-		return nil, NotFoundError{"unknown file extension."}
+		return nil, NotFoundError{Message: "unknown file extension."}
 	}
 
 	importPath, file := path.Split(importPath)
@@ -353,7 +356,7 @@ func GetPresentation(client *http.Client, importPath string) (*Presentation, err
 			return s.getPresentation(client, match)
 		}
 	}
-	return nil, NotFoundError{"path does not match registered service"}
+	return nil, NotFoundError{Message: "path does not match registered service"}
 }
 
 // GetProject gets information about a repository.
@@ -370,5 +373,5 @@ func GetProject(client *http.Client, importPath string) (*Project, error) {
 			return s.getProject(client, match)
 		}
 	}
-	return nil, NotFoundError{"path does not match registered service"}
+	return nil, NotFoundError{Message: "path does not match registered service"}
 }

@@ -114,7 +114,7 @@ func getGoogleVCS(c *httpClient, match map[string]string) error {
 	}
 	m := googleRepoRe.FindSubmatch(p)
 	if m == nil {
-		return NotFoundError{"Could not VCS on Google Code project page."}
+		return NotFoundError{Message: "Could not find VCS on Google Code project page."}
 	}
 	match["vcs"] = string(m[1])
 	return nil
