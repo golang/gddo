@@ -509,9 +509,7 @@ func newPackage(dir *gosrc.Directory) (*Package, error) {
 	for _, env := range goEnvs {
 		ctxt.GOOS = env.GOOS
 		ctxt.GOARCH = env.GOARCH
-		// TODO(garyburd): Change second argument to build.ImportComment when
-		// gddo is upgraded to Go 1.4.
-		bpkg, err = dir.Import(&ctxt, 0 /* build.ImportComment */)
+		bpkg, err = dir.Import(&ctxt, build.ImportComment)
 		if _, ok := err.(*build.NoGoError); !ok {
 			break
 		}
@@ -523,19 +521,12 @@ func newPackage(dir *gosrc.Directory) (*Package, error) {
 		return pkg, nil
 	}
 
-	/*
-	        TODO(garyburd): This block of code uses the import comment feature
-	        added in Go 1.4. Uncomment this block when gddo upgraded to Go 1.4.
-	        Also, change the second argument to dir.Import above from 0 to
-	        build.ImportComment.
-
-			if bpkg.ImportComment != "" && bpkg.ImportComment != dir.ImportPath {
-				return nil, gosrc.NotFoundError{
-					Message:  "not at canonical import path",
-					Redirect: bpkg.ImportComment,
-				}
-			}
-	*/
+	if bpkg.ImportComment != "" && bpkg.ImportComment != dir.ImportPath {
+		return nil, gosrc.NotFoundError{
+			Message:  "not at canonical import path",
+			Redirect: bpkg.ImportComment,
+		}
+	}
 
 	// Parse the Go files
 
