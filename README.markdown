@@ -29,7 +29,7 @@ Development Environment Setup
         $ go get github.com/golang/gddo/gddo-server
         $ gddo-server
 
-- Go to http://localhost:8080/ in your browser
+- Browse to [http://localhost:8080/](http://localhost:8080/)
 - Enter an import path to have the server retrieve & display a package's documentation
 
 Optional:
