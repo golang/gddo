@@ -8,10 +8,8 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"crypto/md5"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -296,15 +294,6 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		}
 		template += templateExt(req)
 
-		if srcFiles[importPath+"/_sourceMap"] != nil {
-			for _, f := range pdoc.Files {
-				if srcFiles[importPath+"/"+f.Name] != nil {
-					f.URL = fmt.Sprintf("/%s?file=%s", importPath, f.Name)
-					pdoc.LineFmt = "%s#L%d"
-				}
-			}
-		}
-
 		return executeTemplate(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
 			"pkgs":          pkgs,
 			"pdoc":          newTDoc(pdoc),
@@ -330,62 +319,6 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		return executeTemplate(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
 			"uri":  fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
 			"pdoc": newTDoc(pdoc),
-		})
-	case isView(req, "redir"):
-		if srcFiles == nil {
-			break
-		}
-		f := srcFiles[importPath+"/_sourceMap"]
-		if f == nil {
-			break
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
-		var sourceMap map[string]string
-		if err := gob.NewDecoder(rc).Decode(&sourceMap); err != nil {
-			return err
-		}
-		id := req.Form.Get("redir")
-		fname := sourceMap[id]
-		if fname == "" {
-			break
-		}
-		http.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), http.StatusMovedPermanently)
-		return nil
-	case isView(req, "file"):
-		if srcFiles == nil {
-			break
-		}
-		fname := req.Form.Get("file")
-		f := srcFiles[importPath+"/"+fname]
-		if f == nil {
-			break
-		}
-		r, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer r.Close()
-		src := make([]byte, f.UncompressedSize64)
-		if n, err := io.ReadFull(r, src); err != nil {
-			return err
-		} else {
-			src = src[:n]
-		}
-		var url string
-		for _, f := range pdoc.Files {
-			if f.Name == fname {
-				url = f.URL
-			}
-		}
-		return executeTemplate(resp, "file.html", http.StatusOK, nil, map[string]interface{}{
-			"fname": fname,
-			"url":   url,
-			"src":   template.HTML(src),
-			"pdoc":  newTDoc(pdoc),
 		})
 	case isView(req, "importers"):
 		if pdoc.Name == "" {
@@ -835,7 +768,6 @@ var (
 	db                    *database.Database
 	statusImageHandlerPNG http.Handler
 	statusImageHandlerSVG http.Handler
-	srcFiles              = make(map[string]*zip.File)
 )
 
 var (
@@ -845,7 +777,6 @@ var (
 	firstGetTimeout   = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge            = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr          = flag.String("http", ":8080", "Listen for HTTP connections on this address")
-	srcZip            = flag.String("srcZip", "", "")
 	sidebarEnabled    = flag.Bool("sidebar", false, "Enable package page sidebar.")
 	gitHubCredentials = ""
 	userAgent         = ""
@@ -854,18 +785,6 @@ var (
 func main() {
 	flag.Parse()
 	log.Printf("Starting server, os.Args=%s", strings.Join(os.Args, " "))
-
-	if *srcZip != "" {
-		r, err := zip.OpenReader(*srcZip)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, f := range r.File {
-			if strings.HasPrefix(f.Name, "root/") {
-				srcFiles[f.Name[len("root/"):]] = f
-			}
-		}
-	}
 
 	if err := parseHTMLTemplates([][]string{
 		{"about.html", "common.html", "layout.html"},
@@ -876,7 +795,6 @@ func main() {
 		{"importers.html", "common.html", "layout.html"},
 		{"importers_robot.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
-		{"file.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
