@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	godoc "go/doc"
@@ -22,6 +23,7 @@ import (
 	"sort"
 	"strings"
 	ttemp "text/template"
+	"time"
 
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
@@ -29,6 +31,50 @@ import (
 )
 
 var cacheBusters httputil.CacheBusters
+
+type flashMessage struct {
+	ID   string
+	Args []string
+}
+
+// getFlashMessages retrieves flash messages from the request and clears the flash cookie if needed.
+func getFlashMessages(resp http.ResponseWriter, req *http.Request) []flashMessage {
+	c, err := req.Cookie("flash")
+	if err == http.ErrNoCookie {
+		return nil
+	}
+	http.SetCookie(resp, &http.Cookie{Name: "flash", Path: "/", MaxAge: -1, Expires: time.Now().Add(-100 * 24 * time.Hour)})
+	if err != nil {
+		return nil
+	}
+	p, err := base64.URLEncoding.DecodeString(c.Value)
+	if err != nil {
+		return nil
+	}
+	var messages []flashMessage
+	for _, s := range strings.Split(string(p), "\000") {
+		idArgs := strings.Split(s, "\001")
+		messages = append(messages, flashMessage{ID: idArgs[0], Args: idArgs[1:]})
+	}
+	return messages
+}
+
+// setFlashMessages sets a cookie with the given flash messages.
+func setFlashMessages(resp http.ResponseWriter, messages []flashMessage) {
+	var buf []byte
+	for i, message := range messages {
+		if i > 0 {
+			buf = append(buf, '\000')
+		}
+		buf = append(buf, message.ID...)
+		for _, arg := range message.Args {
+			buf = append(buf, '\001')
+			buf = append(buf, arg...)
+		}
+	}
+	value := base64.URLEncoding.EncodeToString(buf)
+	http.SetCookie(resp, &http.Cookie{Name: "flash", Value: value, Path: "/"})
+}
 
 type tdoc struct {
 	*doc.Package

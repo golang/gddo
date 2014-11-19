@@ -20,7 +20,7 @@
   </form>
 {{end}}
 
-{{define "ProjectNav"}}<div class="clearfix" id="x-projnav">
+{{define "ProjectNav"}}{{template "FlashMessages" .flashMessages}}<div class="clearfix" id="x-projnav">
   {{if .pdoc.ProjectRoot}}{{if .pdoc.ProjectURL}}<a href="{{.pdoc.ProjectURL}}"><strong>{{.pdoc.ProjectName}}:</strong></a>{{else}}<strong>{{.pdoc.ProjectName}}:</strong>{{end}}{{else}}<a href="/-/go">Go:</a>{{end}}
   {{.pdoc.Breadcrumbs templateName}}
   {{if and .pdoc.Name (equal templateName "pkg.html")}}
@@ -84,3 +84,10 @@
 {{define "Bootstrap.css"}}<link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" rel="stylesheet">{{end}}
 {{define "Bootstrap.js"}}<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>{{end}}
 {{define "jQuery"}}<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>{{end}}
+
+{{define "FlashMessages"}}{{range .}}
+  {{if eq .ID "redir"}}{{if eq (len .Args) 1}}<div class="alert alert-warning">Redirected from {{index .Args 0}}.</div>{{end}}
+  {{else if eq .ID "refresh"}}{{if eq (len .Args) 1}}<div class="alert alert-danger">Error refreshing package: {{index .Args 0}}</div>{{end}}
+  {{end}}
+{{end}}{{end}}
+
