@@ -908,8 +908,6 @@ func main() {
 
 	go runBackgroundTasks()
 
-	cssFiles := []string{"third_party/bootstrap/css/bootstrap.min.css", "site.css"}
-
 	staticServer := httputil.StaticServer{
 		Dir:    *assetsDir,
 		MaxAge: time.Hour,
@@ -936,9 +934,8 @@ func main() {
 	mux.Handle("/-/site.js", staticServer.FilesHandler(
 		"third_party/jquery.timeago.js",
 		"third_party/typeahead.min.js",
-		"third_party/bootstrap/js/bootstrap.min.js",
 		"site.js"))
-	mux.Handle("/-/site.css", staticServer.FilesHandler(cssFiles...))
+	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
 	if *sidebarEnabled {
 		mux.Handle("/-/sidebar.css", staticServer.FilesHandler("sidebar.css"))
 	}
