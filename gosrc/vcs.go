@@ -57,7 +57,7 @@ var vcsServices = []*urlTemplates{
 		regexp.MustCompile(`^(?P<r1>[^.]+)\.googlesource.com/(?P<r2>[^./]+)$`),
 		"https://{r1}.googlesource.com/{r2}/+/{tag}/{dir}{0}",
 		"https://{r1}.googlesource.com/{r2}/+/{tag}",
-		"",
+		"%s#%d",
 	},
 	{
 		regexp.MustCompile(`^gitcafe.com/(?P<repo>[^/]+/.[^/]+)$`),
