@@ -69,25 +69,46 @@ func TestReferences(t *testing.T) {
 	}
 }
 
-var simpleImporterTests = []string{
-	"code.google.com/p/biogo.foobar",
-	"code.google.com/p/google-api-go-client/foobar/v3",
-	"git.gitorious.org/go-pkg/foobar.git",
-	"github.com/quux/go-foobar",
-	"github.com/quux/go.foobar",
-	"github.com/quux/foobar.go",
-	"github.com/quux/foobar-go",
-	"github.com/quux/foobar",
-	"foobar",
-	"quux/foobar",
+var simpleImporterTests = []struct {
+	path string
+	name string
+}{
+	// Last element with .suffix removed.
+	{"example.com/user/name.git", "name"},
+	{"example.com/user/name.svn", "name"},
+	{"example.com/user/name.hg", "name"},
+	{"example.com/user/name.bzr", "name"},
+	{"example.com/name.v0", "name"},
+	{"example.com/user/repo/name.v11", "name"},
+
+	// Last element with "go" prefix or suffix removed.
+	{"github.com/user/go-name", "name"},
+	{"github.com/user/go.name", "name"},
+	{"github.com/user/name.go", "name"},
+	{"github.com/user/name-go", "name"},
+
+	// Special cases for popular repos.
+	{"code.google.com/p/biogo.name", "name"},
+	{"code.google.com/p/google-api-go-client/name/v3", "name"},
+
+	// Use last element of path.
+	{"example.com/user/name.other", "name.other"},
+	{"example.com/.v0", ".v0"},
+	{"example.com/user/repo.v2/name", "name"},
+	{"github.com/user/namev0", "namev0"},
+	{"github.com/user/goname", "goname"},
+	{"github.com/user/namego", "namego"},
+	{"github.com/user/name", "name"},
+	{"name", "name"},
+	{"user/name", "name"},
 }
 
 func TestSimpleImporter(t *testing.T) {
-	for _, path := range simpleImporterTests {
+	for _, tt := range simpleImporterTests {
 		m := make(map[string]*ast.Object)
-		obj, _ := simpleImporter(m, path)
-		if obj.Name != "foobar" {
-			t.Errorf("simpleImporter(%q) = %q, want %q", path, obj.Name, "foobar")
+		obj, _ := simpleImporter(m, tt.path)
+		if obj.Name != tt.name {
+			t.Errorf("simpleImporter(%q) = %q, want %q", tt.path, obj.Name, tt.name)
 		}
 	}
 }
