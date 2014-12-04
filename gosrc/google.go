@@ -120,52 +120,6 @@ func getGoogleVCS(c *httpClient, match map[string]string) error {
 	return nil
 }
 
-func getStandardDir(client *http.Client, importPath string, savedEtag string) (*Directory, error) {
-	c := &httpClient{client: client}
-
-	p, err := c.getBytes("http://go.googlecode.com/hg-history/release/src/pkg/" + importPath + "/")
-	if err != nil {
-		return nil, err
-	}
-
-	var etag string
-	m := googleRevisionRe.FindSubmatch(p)
-	if m == nil {
-		return nil, errors.New("Could not find revision for " + importPath)
-	}
-	etag = string(m[1])
-	if etag == savedEtag {
-		return nil, ErrNotModified
-	}
-
-	var files []*File
-	var dataURLs []string
-	for _, m := range googleFileRe.FindAllSubmatch(p, -1) {
-		fname := strings.Split(string(m[1]), "?")[0]
-		if isDocFile(fname) {
-			files = append(files, &File{Name: fname, BrowseURL: "http://code.google.com/p/go/source/browse/src/pkg/" + importPath + "/" + fname + "?name=release"})
-			dataURLs = append(dataURLs, "http://go.googlecode.com/hg-history/release/src/pkg/"+importPath+"/"+fname)
-		}
-	}
-
-	if err := c.getFiles(dataURLs, files); err != nil {
-		return nil, err
-	}
-
-	return &Directory{
-		BrowseURL:    "http://code.google.com/p/go/source/browse/src/pkg/" + importPath + "?name=release",
-		Etag:         etag,
-		Files:        files,
-		ImportPath:   importPath,
-		LineFmt:      "%s#%d",
-		ProjectName:  "Go",
-		ProjectRoot:  "",
-		ProjectURL:   "https://code.google.com/p/go/",
-		ResolvedPath: importPath,
-		VCS:          "hg",
-	}, nil
-}
-
 func getGooglePresentation(client *http.Client, match map[string]string) (*Presentation, error) {
 	c := &httpClient{client: client}
 
