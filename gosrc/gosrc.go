@@ -10,6 +10,7 @@ package gosrc
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path"
@@ -146,6 +147,36 @@ func (s *service) match(importPath string) (map[string]string, error) {
 	return match, nil
 }
 
+// importMeta represents the values in a go-import meta tag.
+type importMeta struct {
+	projectRoot string
+	vcs         string
+	repo        string
+}
+
+// sourceMeta represents the values in a go-source meta tag.
+type sourceMeta struct {
+	projectRoot  string
+	projectURL   string
+	dirTemplate  string
+	fileTemplate string
+}
+
+func isHTTPURL(s string) bool {
+	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "http://")
+}
+
+func replaceDir(s string, dir string) string {
+	slashDir := ""
+	dir = strings.Trim(dir, "/")
+	if dir != "" {
+		slashDir = "/" + dir
+	}
+	s = strings.Replace(s, "{dir}", dir, -1)
+	s = strings.Replace(s, "{/dir}", slashDir, -1)
+	return s
+}
+
 func attrValue(attrs []xml.Attr, name string) string {
 	for _, a := range attrs {
 		if strings.EqualFold(a.Name.Local, name) {
@@ -155,7 +186,7 @@ func attrValue(attrs []xml.Attr, name string) string {
 	return ""
 }
 
-func fetchMeta(client *http.Client, importPath string) (map[string]string, error) {
+func fetchMeta(client *http.Client, importPath string) (string, *importMeta, *sourceMeta, error) {
 	uri := importPath
 	if !strings.Contains(uri, "/") {
 		// Add slash for root of domain.
@@ -173,15 +204,19 @@ func fetchMeta(client *http.Client, importPath string) (map[string]string, error
 		scheme = "http"
 		resp, err = c.get(scheme + "://" + uri)
 		if err != nil {
-			return nil, err
+			return scheme, nil, nil, err
 		}
 	}
 	defer resp.Body.Close()
-	return parseMeta(scheme, importPath, resp.Body)
+	im, sm, err := parseMeta(scheme, importPath, resp.Body)
+	return scheme, im, sm, err
 }
 
-func parseMeta(scheme, importPath string, r io.Reader) (map[string]string, error) {
-	var match map[string]string
+func parseMeta(scheme, importPath string, r io.Reader) (*importMeta, *sourceMeta, error) {
+	var im *importMeta
+	var sm *sourceMeta
+
+	errorMessage := "go-import meta tag not found"
 
 	d := xml.NewDecoder(r)
 	d.Strict = false
@@ -200,93 +235,151 @@ metaScan:
 			if strings.EqualFold(t.Name.Local, "body") {
 				break metaScan
 			}
-			if !strings.EqualFold(t.Name.Local, "meta") ||
-				attrValue(t.Attr, "name") != "go-import" {
+			if !strings.EqualFold(t.Name.Local, "meta") {
 				continue metaScan
 			}
-			f := strings.Fields(attrValue(t.Attr, "content"))
-			if len(f) != 3 ||
-				!strings.HasPrefix(importPath, f[0]) ||
-				!(len(importPath) == len(f[0]) || importPath[len(f[0])] == '/') {
+			nameAttr := attrValue(t.Attr, "name")
+			if nameAttr != "go-import" && nameAttr != "go-source" {
 				continue metaScan
 			}
-			if match != nil {
-				return nil, NotFoundError{Message: "More than one <meta> found at " + scheme + "://" + importPath}
+			fields := strings.Fields(attrValue(t.Attr, "content"))
+			if len(fields) < 1 {
+				continue metaScan
 			}
-
-			projectRoot, vcs, repo := f[0], f[1], f[2]
-
-			repo = strings.TrimSuffix(repo, "."+vcs)
-			i := strings.Index(repo, "://")
-			if i < 0 {
-				return nil, NotFoundError{Message: "Bad repo URL in <meta>."}
+			projectRoot := fields[0]
+			if !strings.HasPrefix(importPath, projectRoot) ||
+				!(len(importPath) == len(projectRoot) || importPath[len(projectRoot)] == '/') {
+				// Ignore if root is not a prefix of the  path. This allows a
+				// site to use a single error page for multiple repositories.
+				continue metaScan
 			}
-			proto := repo[:i]
-			repo = repo[i+len("://"):]
-
-			match = map[string]string{
-				// Used in getVCSDoc, same as vcsPattern matches.
-				"importPath": importPath,
-				"repo":       repo,
-				"vcs":        vcs,
-				"dir":        importPath[len(projectRoot):],
-
-				// Used in getVCSDoc
-				"scheme": proto,
-
-				// Used in getDynamic.
-				"projectRoot": projectRoot,
-				"projectName": path.Base(projectRoot),
-				"projectURL":  scheme + "://" + projectRoot,
+			switch nameAttr {
+			case "go-import":
+				if len(fields) != 3 {
+					errorMessage = "go-import meta tag content attribute does not have three fields"
+					continue metaScan
+				}
+				if im != nil {
+					im = nil
+					errorMessage = "more than one go-import meta tag found"
+					break metaScan
+				}
+				im = &importMeta{
+					projectRoot: projectRoot,
+					vcs:         fields[1],
+					repo:        fields[2],
+				}
+			case "go-source":
+				if sm != nil {
+					// Ignore extra go-source meta tags.
+					continue metaScan
+				}
+				if len(fields) != 4 {
+					continue metaScan
+				}
+				sm = &sourceMeta{
+					projectRoot:  projectRoot,
+					projectURL:   fields[1],
+					dirTemplate:  fields[2],
+					fileTemplate: fields[3],
+				}
 			}
 		}
 	}
-	if match == nil {
-		return nil, NotFoundError{Message: "<meta> not found."}
+	if im == nil {
+		return nil, nil, NotFoundError{Message: fmt.Sprintf("%s at %s://%s", errorMessage, scheme, importPath)}
 	}
-	return match, nil
+	if sm != nil && sm.projectRoot != im.projectRoot {
+		sm = nil
+	}
+	return im, sm, nil
 }
 
+// getVCSDirFn is called by getDynamic to fetch source using VCS commands. The
+// default value here does nothing. If the code is not built for App Engine,
+// then getvCSDirFn is set getVCSDir, the function that actually does the work.
 var getVCSDirFn = func(client *http.Client, m map[string]string, etag string) (*Directory, error) {
 	return nil, errNoMatch
 }
 
 // getDynamic gets a directory from a service that is not statically known.
 func getDynamic(client *http.Client, importPath, etag string) (*Directory, error) {
-	match, err := fetchMeta(client, importPath)
+	metaProto, im, sm, err := fetchMeta(client, importPath)
 	if err != nil {
 		return nil, err
 	}
 
-	if match["projectRoot"] != importPath {
-		rootMatch, err := fetchMeta(client, match["projectRoot"])
+	if im.projectRoot != importPath {
+		var imRoot *importMeta
+		metaProto, imRoot, _, err = fetchMeta(client, im.projectRoot)
 		if err != nil {
 			return nil, err
 		}
-		if rootMatch["projectRoot"] != match["projectRoot"] {
-			return nil, NotFoundError{Message: "Project root mismatch."}
+		if *imRoot != *im {
+			return nil, NotFoundError{Message: "project root mismatch."}
 		}
 	}
 
-	dir, err := getStatic(client, expand("{repo}{dir}", match), etag)
+	repo := strings.TrimSuffix(im.repo, "."+im.vcs)
+	i := strings.Index(repo, "://")
+	if i < 0 {
+		return nil, NotFoundError{Message: "bad repo URL: " + im.repo}
+	}
+	proto := repo[:i]
+	repo = repo[i+len("://"):]
+	dirName := importPath[len(im.projectRoot):]
+
+	resolvedPath := repo + dirName
+	dir, err := getStatic(client, resolvedPath, etag)
 	if err == errNoMatch {
+		resolvedPath = repo + "." + im.vcs + dirName
+		match := map[string]string{
+			"dir":        dirName,
+			"importPath": importPath,
+			"repo":       repo,
+			"scheme":     proto,
+			"vcs":        im.vcs,
+		}
 		dir, err = getVCSDirFn(client, match, etag)
 	}
-	if err != nil {
+	if err != nil || dir == nil {
 		return nil, err
 	}
 
-	if dir != nil {
-		dir.ImportPath = importPath
-		dir.ProjectRoot = match["projectRoot"]
-		dir.ProjectName = match["projectName"]
-		dir.ProjectURL = match["projectURL"]
-		if dir.ResolvedPath == "" {
-			dir.ResolvedPath = dir.ImportPath
+	dir.ImportPath = importPath
+	dir.ProjectRoot = im.projectRoot
+	dir.ResolvedPath = resolvedPath
+	dir.ProjectName = path.Base(im.projectRoot)
+	dir.ProjectURL = metaProto + "://" + im.projectRoot
+
+	if sm == nil {
+		return dir, nil
+	}
+
+	if isHTTPURL(sm.projectURL) {
+		dir.ProjectURL = sm.projectURL
+	}
+
+	if isHTTPURL(sm.dirTemplate) {
+		dir.BrowseURL = replaceDir(sm.dirTemplate, dirName)
+	}
+
+	if isHTTPURL(sm.fileTemplate) {
+		fileTemplate := replaceDir(sm.fileTemplate, dirName)
+		parts := strings.SplitN(fileTemplate, "#", 2)
+		if strings.Contains(parts[0], "{file}") {
+			for _, f := range dir.Files {
+				f.BrowseURL = strings.Replace(parts[0], "{file}", f.Name, -1)
+			}
+			if len(parts) == 2 && strings.Count(parts[1], "{line}") == 1 {
+				s := strings.Replace(parts[1], "%", "%%", -1)
+				s = strings.Replace(s, "{line}", "%d", 1)
+				dir.LineFmt = "%s#" + s
+			}
 		}
 	}
 
-	return dir, err
+	return dir, nil
 }
 
 // getStatic gets a diretory from a statically known service. getStatic
