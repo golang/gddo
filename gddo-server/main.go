@@ -8,10 +8,8 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"crypto/md5"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -174,7 +172,7 @@ func isView(req *http.Request, key string) bool {
 }
 
 // httpEtag returns the package entity tag used in HTTP transactions.
-func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int) string {
+func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, flashMessages []flashMessage) string {
 	b := make([]byte, 0, 128)
 	b = strconv.AppendInt(b, pdoc.Updated.Unix(), 16)
 	b = append(b, 0)
@@ -192,6 +190,14 @@ func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int) str
 	}
 	if *sidebarEnabled {
 		b = append(b, "\000xsb"...)
+	}
+	for _, m := range flashMessages {
+		b = append(b, 0)
+		b = append(b, m.ID...)
+		for _, a := range m.Args {
+			b = append(b, 1)
+			b = append(b, a...)
+		}
 	}
 	h := md5.New()
 	h.Write(b)
@@ -237,12 +243,15 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if req.URL.RawQuery != "" {
 			u += "?" + req.URL.RawQuery
 		}
-		http.Redirect(resp, req, u, http.StatusMovedPermanently)
+		setFlashMessages(resp, []flashMessage{{ID: "redir", Args: []string{importPath}}})
+		http.Redirect(resp, req, u, http.StatusFound)
 		return nil
 	}
 	if err != nil {
 		return err
 	}
+
+	flashMessages := getFlashMessages(resp, req)
 
 	if pdoc == nil {
 		if len(pkgs) == 0 {
@@ -270,7 +279,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			}
 		}
 
-		etag := httpEtag(pdoc, pkgs, importerCount)
+		etag := httpEtag(pdoc, pkgs, importerCount, flashMessages)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified
@@ -296,16 +305,8 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		}
 		template += templateExt(req)
 
-		if srcFiles[importPath+"/_sourceMap"] != nil {
-			for _, f := range pdoc.Files {
-				if srcFiles[importPath+"/"+f.Name] != nil {
-					f.URL = fmt.Sprintf("/%s?file=%s", importPath, f.Name)
-					pdoc.LineFmt = "%s#L%d"
-				}
-			}
-		}
-
 		return executeTemplate(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
+			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
 			"pdoc":          newTDoc(pdoc),
 			"importerCount": importerCount,
@@ -319,8 +320,9 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			return err
 		}
 		return executeTemplate(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
-			"pkgs": pkgs,
-			"pdoc": newTDoc(pdoc),
+			"flashMessages": flashMessages,
+			"pkgs":          pkgs,
+			"pdoc":          newTDoc(pdoc),
 		})
 	case isView(req, "tools"):
 		proto := "http"
@@ -328,64 +330,9 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			proto = "https"
 		}
 		return executeTemplate(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
-			"uri":  fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
-			"pdoc": newTDoc(pdoc),
-		})
-	case isView(req, "redir"):
-		if srcFiles == nil {
-			break
-		}
-		f := srcFiles[importPath+"/_sourceMap"]
-		if f == nil {
-			break
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
-		var sourceMap map[string]string
-		if err := gob.NewDecoder(rc).Decode(&sourceMap); err != nil {
-			return err
-		}
-		id := req.Form.Get("redir")
-		fname := sourceMap[id]
-		if fname == "" {
-			break
-		}
-		http.Redirect(resp, req, fmt.Sprintf("?file=%s#%s", fname, id), http.StatusMovedPermanently)
-		return nil
-	case isView(req, "file"):
-		if srcFiles == nil {
-			break
-		}
-		fname := req.Form.Get("file")
-		f := srcFiles[importPath+"/"+fname]
-		if f == nil {
-			break
-		}
-		r, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer r.Close()
-		src := make([]byte, f.UncompressedSize64)
-		if n, err := io.ReadFull(r, src); err != nil {
-			return err
-		} else {
-			src = src[:n]
-		}
-		var url string
-		for _, f := range pdoc.Files {
-			if f.Name == fname {
-				url = f.URL
-			}
-		}
-		return executeTemplate(resp, "file.html", http.StatusOK, nil, map[string]interface{}{
-			"fname": fname,
-			"url":   url,
-			"src":   template.HTML(src),
-			"pdoc":  newTDoc(pdoc),
+			"flashMessages": flashMessages,
+			"uri":           fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
+			"pdoc":          newTDoc(pdoc),
 		})
 	case isView(req, "importers"):
 		if pdoc.Name == "" {
@@ -401,8 +348,9 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			template = "importers_robot.html"
 		}
 		return executeTemplate(resp, template, http.StatusOK, nil, map[string]interface{}{
-			"pkgs": pkgs,
-			"pdoc": newTDoc(pdoc),
+			"flashMessages": flashMessages,
+			"pkgs":          pkgs,
+			"pdoc":          newTDoc(pdoc),
 		})
 	case isView(req, "import-graph"):
 		if pdoc.Name == "" {
@@ -424,9 +372,10 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			return err
 		}
 		return executeTemplate(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
-			"svg":  template.HTML(b),
-			"pdoc": newTDoc(pdoc),
-			"hide": hide,
+			"flashMessages": flashMessages,
+			"svg":           template.HTML(b),
+			"pdoc":          newTDoc(pdoc),
+			"hide":          hide,
 		})
 	case isView(req, "play"):
 		u, err := playURL(pdoc, req.Form.Get("play"))
@@ -459,14 +408,14 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
-	path := req.Form.Get("path")
-	_, pkgs, _, err := db.Get(path)
+	importPath := req.Form.Get("path")
+	_, pkgs, _, err := db.Get(importPath)
 	if err != nil {
 		return err
 	}
 	c := make(chan error, 1)
 	go func() {
-		_, err := crawlDoc("rfrsh", path, nil, len(pkgs) > 0, time.Time{})
+		_, err := crawlDoc("rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
 		c <- err
 	}()
 	select {
@@ -475,13 +424,13 @@ func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 		err = errUpdateTimeout
 	}
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-		http.Redirect(resp, req, "/"+e.Redirect, http.StatusFound)
-		return nil
+		setFlashMessages(resp, []flashMessage{{ID: "redir", Args: []string{importPath}}})
+		importPath = e.Redirect
+		err = nil
+	} else if err != nil {
+		setFlashMessages(resp, []flashMessage{{ID: "refresh", Args: []string{errorText(err)}}})
 	}
-	if err != nil {
-		return err
-	}
-	http.Redirect(resp, req, "/"+path, http.StatusFound)
+	http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 	return nil
 }
 
@@ -778,20 +727,24 @@ func (h apiHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	runHandler(resp, req, h, handleAPIError)
 }
 
+func errorText(err error) string {
+	if err == errUpdateTimeout {
+		return "Timeout getting package files from the version control system."
+	}
+	if e, ok := err.(*gosrc.RemoteError); ok {
+		return "Error getting package files from " + e.Host + "."
+	}
+	return "Internal server error."
+}
+
 func handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch status {
 	case http.StatusNotFound:
 		executeTemplate(resp, "notfound"+templateExt(req), status, nil, nil)
 	default:
-		s := http.StatusText(status)
-		if err == errUpdateTimeout {
-			s = "Timeout getting package files from the version control system."
-		} else if e, ok := err.(*gosrc.RemoteError); ok {
-			s = "Error getting package files from " + e.Host + "."
-		}
 		resp.Header().Set("Content-Type", textMIMEType)
 		resp.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(resp, s)
+		io.WriteString(resp, errorText(err))
 	}
 }
 
@@ -835,7 +788,6 @@ var (
 	db                    *database.Database
 	statusImageHandlerPNG http.Handler
 	statusImageHandlerSVG http.Handler
-	srcFiles              = make(map[string]*zip.File)
 )
 
 var (
@@ -845,7 +797,6 @@ var (
 	firstGetTimeout   = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	maxAge            = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
 	httpAddr          = flag.String("http", ":8080", "Listen for HTTP connections on this address")
-	srcZip            = flag.String("srcZip", "", "")
 	sidebarEnabled    = flag.Bool("sidebar", false, "Enable package page sidebar.")
 	gitHubCredentials = ""
 	userAgent         = ""
@@ -854,18 +805,6 @@ var (
 func main() {
 	flag.Parse()
 	log.Printf("Starting server, os.Args=%s", strings.Join(os.Args, " "))
-
-	if *srcZip != "" {
-		r, err := zip.OpenReader(*srcZip)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, f := range r.File {
-			if strings.HasPrefix(f.Name, "root/") {
-				srcFiles[f.Name[len("root/"):]] = f
-			}
-		}
-	}
 
 	if err := parseHTMLTemplates([][]string{
 		{"about.html", "common.html", "layout.html"},
@@ -876,7 +815,6 @@ func main() {
 		{"importers.html", "common.html", "layout.html"},
 		{"importers_robot.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
-		{"file.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
