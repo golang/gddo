@@ -313,10 +313,14 @@ func (b *builder) types(tdocs []*doc.Type) []*Type {
 }
 
 var packageNamePats = []*regexp.Regexp{
-	// Strip suffix and prefix separated by illegal id runes "." and "-".
-	regexp.MustCompile(`/([^-./]+)[-.](?:go|git)$`),
-	regexp.MustCompile(`/(?:go)[-.]([^-./]+)$`),
+	// Last element with .suffix removed.
+	regexp.MustCompile(`/([^-./]+)[-.](?:git|svn|hg|bzr|v\d+)$`),
 
+	// Last element with "go" prefix or suffix removed.
+	regexp.MustCompile(`/([^-./]+)[-.]go$`),
+	regexp.MustCompile(`/go[-.]([^-./]+)$`),
+
+	// Special cases for popular repos.
 	regexp.MustCompile(`^code\.google\.com/p/google-api-go-client/([^/]+)/v[^/]+$`),
 	regexp.MustCompile(`^code\.google\.com/p/biogo\.([^/]+)$`),
 
