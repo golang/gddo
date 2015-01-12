@@ -129,7 +129,7 @@ func documentScore(pdoc *doc.Package) float64 {
 		}
 	}
 
-	if !pdoc.Truncated &&
+	if !pdoc.IsCmd && !pdoc.Truncated &&
 		len(pdoc.Consts) == 0 &&
 		len(pdoc.Vars) == 0 &&
 		len(pdoc.Funcs) == 0 &&
@@ -139,6 +139,10 @@ func documentScore(pdoc *doc.Package) float64 {
 	}
 
 	r := 1.0
+	if pdoc.IsCmd && !importsGoPackages(pdoc) {
+		// Penalize commands that don't use the "go/*" packages.
+		r *= 0.9
+	}
 	if pdoc.Doc == "" || pdoc.Synopsis == "" {
 		r *= 0.95
 	}
@@ -163,4 +167,13 @@ func parseQuery(q string) []string {
 		}
 	}
 	return terms
+}
+
+func importsGoPackages(pdoc *doc.Package) bool {
+	for _, m := range pdoc.Imports {
+		if strings.HasPrefix(m, "go/") {
+			return true
+		}
+	}
+	return false
 }
