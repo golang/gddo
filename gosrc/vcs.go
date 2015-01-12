@@ -100,6 +100,10 @@ var vcsCmds = map[string]*vcsCmd{
 		schemes:  []string{"http", "https", "git"},
 		download: downloadGit,
 	},
+	"svn": {
+		schemes:  []string{"http", "https", "svn"},
+		download: downloadSVN,
+	},
 }
 
 var lsremoteRe = regexp.MustCompile(`(?m)^([0-9a-f]{40})\s+refs/(?:tags|heads)/(.+)$`)
@@ -168,6 +172,68 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 	}
 
 	return tag, etag, nil
+}
+
+func downloadSVN(schemes []string, repo, savedEtag string) (string, string, error) {
+	var scheme string
+	var revno string
+	for i := range schemes {
+		var err error
+		revno, err = getSVNRevision(schemes[i] + "://" + repo)
+		if err == nil {
+			scheme = schemes[i]
+			break
+		}
+	}
+
+	if scheme == "" {
+		return "", "", NotFoundError{"VCS not found"}
+	}
+
+	etag := scheme + "-" + revno
+	if etag == savedEtag {
+		return "", "", ErrNotModified
+	}
+
+	dir := filepath.Join(TempDir, repo+".svn")
+	localRevno, err := getSVNRevision(dir)
+	switch {
+	case err != nil:
+		log.Printf("err: %v", err)
+		if err := os.MkdirAll(dir, 0777); err != nil {
+			return "", "", err
+		}
+		cmd := exec.Command("svn", "checkout", scheme+"://"+repo, "-r", revno, dir)
+		log.Println(strings.Join(cmd.Args, " "))
+		if err := cmd.Run(); err != nil {
+			return "", "", err
+		}
+	case localRevno != revno:
+		cmd := exec.Command("svn", "update", "-r", revno)
+		log.Println(strings.Join(cmd.Args, " "))
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			return "", "", err
+		}
+	}
+
+	return "", etag, nil
+}
+
+var svnrevRe = regexp.MustCompile(`(?m)^Last Changed Rev: ([0-9]+)$`)
+
+func getSVNRevision(target string) (string, error) {
+	cmd := exec.Command("svn", "info", target)
+	log.Println(strings.Join(cmd.Args, " "))
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	match := svnrevRe.FindStringSubmatch(string(out))
+	if match != nil {
+		return match[1], nil
+	}
+	return "", NotFoundError{"Last changed revision not found"}
 }
 
 func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (*Directory, error) {
