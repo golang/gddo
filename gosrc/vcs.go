@@ -187,7 +187,7 @@ func downloadSVN(schemes []string, repo, savedEtag string) (string, string, erro
 	}
 
 	if scheme == "" {
-		return "", "", NotFoundError{"VCS not found"}
+		return "", "", NotFoundError{Message: "VCS not found"}
 	}
 
 	etag := scheme + "-" + revno
@@ -233,7 +233,7 @@ func getSVNRevision(target string) (string, error) {
 	if match != nil {
 		return match[1], nil
 	}
-	return "", NotFoundError{"Last changed revision not found"}
+	return "", NotFoundError{Message: "Last changed revision not found"}
 }
 
 func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (*Directory, error) {
