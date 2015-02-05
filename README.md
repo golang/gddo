@@ -1,9 +1,11 @@
 lintapp
 =======
 
-This project is the source for [go-lint.appspot.com](http://go-lint.appspot.com).
+This directory contains the source for [go-lint.appspot.com](http://go-lint.appspot.com).
 
-License
--------
+Development Environment Setup
+-----------------------------
 
-[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html).
+- Copy config.go.template to config.go and edit the file as described in the comments.
+- Install Go App Engine SDK 
+- Run the server using the dev_appserver command.
