@@ -1,7 +1,8 @@
 #!/bin/sh
-go get code.google.com/p/go.tools/godoc
-present=`go list -f '{{.Dir}}' code.google.com/p/go.tools/cmd/present`
-godoc=`go list -f '{{.Dir}}' code.google.com/p/go.tools/godoc`
+go get golang.org/x/tools/cmd/present
+go get golang.org/x/tools/godoc
+present=`go list -f '{{.Dir}}' golang.org/x/tools/cmd/present`
+godoc=`go list -f '{{.Dir}}' golang.org/x/tools/godoc`
 mkdir -p present
 
 (cat $godoc/static/jquery.js $godoc/static/playground.js $godoc/static/play.js && echo "initPlayground(new HTTPTransport());") > present/play.js
