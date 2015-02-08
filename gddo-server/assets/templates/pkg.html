@@ -142,11 +142,6 @@
             {{template "Examples" .|$.pdoc.ObjExamples}}
           {{end}}
         {{end}}
-
-        <!-- Bugs -->
-        {{with .Notes}}{{with .BUG}}
-          <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}
-        {{end}}{{end}}
         {{template "PkgCmdFooter" $}}
 
 {{if sidebarEnabled}}

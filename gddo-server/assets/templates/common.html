@@ -56,6 +56,11 @@
 {{end}}{{end}}
 
 {{define "PkgCmdFooter"}}
+<!-- Bugs -->
+{{with .pdoc}}{{with .Notes}}{{with .BUG}}
+  <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" ""}} {{.Body}}{{end}}
+{{end}}{{end}}{{end}}
+
 {{if $.pkgs}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
