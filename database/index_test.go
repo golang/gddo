@@ -100,21 +100,30 @@ func TestDocTerms(t *testing.T) {
 	}
 }
 
-func TestExcludedPath(t *testing.T) {
-	tests := []struct {
-		path     string
-		expected bool
-	}{
-		{"code.google.com/p/go.text/internal/ucd", true},
-		{"code.google.com/p/go.text/internal", true},
-		{"camlistore.org/third_party/bazil.org/fuse", true},
-		{"bazil.org/fuse", false},
-	}
+var vendorPatTests = []struct {
+	path  string
+	match bool
+}{
+	{"camlistore.org/third_party/github.com/user/repo", true},
+	{"camlistore.org/third_party/dir", false},
+	{"camlistore.org/third_party", false},
+	{"camlistore.org/xthird_party/github.com/user/repo", false},
+	{"camlistore.org/third_partyx/github.com/user/repo", false},
 
-	for _, tt := range tests {
-		actual := isExcludedPath(tt.path)
-		if actual != tt.expected {
-			t.Errorf("isExcludedPath=%t, want %t for %s", actual, tt.expected, tt.path)
+	{"example.org/_third_party/github.com/user/repo/dir", true},
+	{"example.org/_third_party/dir", false},
+
+	{"github.com/user/repo/Godeps/_workspace/src/github.com/user/repo", true},
+	{"github.com/user/repo/Godeps/_workspace/src/dir", false},
+
+	{"github.com/user/repo", false},
+}
+
+func TestVendorPat(t *testing.T) {
+	for _, tt := range vendorPatTests {
+		match := vendorPat.MatchString(tt.path)
+		if match != tt.match {
+			t.Errorf("match(%q) = %v, want %v", tt.path, match, match)
 		}
 	}
 }

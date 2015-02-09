@@ -8,23 +8,12 @@ package main
 
 import (
 	"log"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 )
-
-var nestedProjectPat = regexp.MustCompile(`/(?:github\.com|launchpad\.net|code\.google\.com/p|bitbucket\.org|labix\.org)/`)
-
-func exists(path string) bool {
-	b, err := db.Exists(path)
-	if err != nil {
-		b = false
-	}
-	return b
-}
 
 // crawlDoc fetches the package documentation from the VCS and updates the database.
 func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bool, nextCrawl time.Time) (*doc.Package, error) {
@@ -61,9 +50,6 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		// Old import path for Go sub-repository.
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "old Go sub-repo", Redirect: "golang.org/x/" + importPath[len("code.google.com/p/go."):]}
-	} else if m := nestedProjectPat.FindStringIndex(importPath); m != nil && exists(importPath[m[0]+1:]) {
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "copy of other project."}
 	} else if blocked, e := db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "blocked."}

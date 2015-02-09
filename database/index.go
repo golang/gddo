@@ -103,23 +103,22 @@ func documentTerms(pdoc *doc.Package, score float64) []string {
 	return result
 }
 
-func isExcludedPath(path string) bool {
-	if strings.HasSuffix(path, ".go") ||
-		strings.HasPrefix(path, "gist.github.com/") ||
-		strings.Contains(path, "/internal/") ||
-		strings.HasSuffix(path, "/internal") ||
-		strings.Contains(path, "/third_party/") {
-		return true
-	}
-	return false
-}
+// vendorPat matches the path of a vendored package.
+var vendorPat = regexp.MustCompile(
+	// match directories used by tools to vendor packages.
+	`/(?:_?third_party|vendors|Godeps/_workspace/src)/` +
+		// match a domain name.
+		`[^./]+\.[^/]+`)
 
 func documentScore(pdoc *doc.Package) float64 {
 	if pdoc.Name == "" ||
-		pdoc.IsCmd ||
 		pdoc.DeadEndFork ||
 		len(pdoc.Errors) > 0 ||
-		isExcludedPath(pdoc.ImportPath) {
+		strings.HasSuffix(pdoc.ImportPath, ".go") ||
+		strings.HasPrefix(pdoc.ImportPath, "gist.github.com/") ||
+		strings.HasSuffix(pdoc.ImportPath, "/internal") ||
+		strings.Contains(pdoc.ImportPath, "/internal/") ||
+		vendorPat.MatchString(pdoc.ImportPath) {
 		return 0
 	}
 
@@ -129,31 +128,48 @@ func documentScore(pdoc *doc.Package) float64 {
 		}
 	}
 
-	if !pdoc.IsCmd && !pdoc.Truncated &&
-		len(pdoc.Consts) == 0 &&
-		len(pdoc.Vars) == 0 &&
-		len(pdoc.Funcs) == 0 &&
-		len(pdoc.Types) == 0 &&
-		len(pdoc.Examples) == 0 {
-		return 0
-	}
-
 	r := 1.0
-	if pdoc.IsCmd && !importsGoPackages(pdoc) {
-		// Penalize commands that don't use the "go/*" packages.
-		r *= 0.9
-	}
-	if pdoc.Doc == "" || pdoc.Synopsis == "" {
-		r *= 0.95
-	}
-	if path.Base(pdoc.ImportPath) != pdoc.Name {
-		r *= 0.9
-	}
-	for i := 0; i < strings.Count(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/"); i++ {
-		r *= 0.99
-	}
-	if strings.Index(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/src/") > 0 {
-		r *= 0.95
+	if pdoc.IsCmd {
+		if pdoc.Doc == "" {
+			// Do not include command in index if it does not have documentation.
+			return 0
+		}
+		if !importsGoPackages(pdoc) {
+			// Penalize commands that don't use the "go/*" packages.
+			r *= 0.9
+		}
+	} else {
+		if !pdoc.Truncated &&
+			len(pdoc.Consts) == 0 &&
+			len(pdoc.Vars) == 0 &&
+			len(pdoc.Funcs) == 0 &&
+			len(pdoc.Types) == 0 &&
+			len(pdoc.Examples) == 0 {
+			// Do not include package in index if it does not have exports.
+			return 0
+		}
+		if pdoc.Doc == "" {
+			// Penalty for no documentation.
+			r *= 0.95
+		}
+		if path.Base(pdoc.ImportPath) != pdoc.Name {
+			// Penalty for last element of path != package name.
+			r *= 0.9
+		}
+		for i := 0; i < strings.Count(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/"); i++ {
+			// Penalty for deeply nested packages.
+			r *= 0.99
+		}
+		if strings.Index(pdoc.ImportPath[len(pdoc.ProjectRoot):], "/src/") > 0 {
+			r *= 0.95
+		}
+		for _, p := range pdoc.Imports {
+			if vendorPat.MatchString(p) {
+				// Penalize packages that import vendored packages.
+				r *= 0.1
+				break
+			}
+		}
 	}
 	return r
 }
