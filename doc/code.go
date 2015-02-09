@@ -299,13 +299,13 @@ func (b *builder) printExample(e *doc.Example) (code Code, output string) {
 	output = e.Output
 
 	b.buf = b.buf[:0]
-	err := (&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(
-		sliceWriter{&b.buf},
-		b.fset,
-		&printer.CommentedNode{
-			Node:     e.Code,
-			Comments: e.Comments,
-		})
+	var n interface{}
+	if _, ok := e.Code.(*ast.File); ok {
+		n = e.Play
+	} else {
+		n = &printer.CommentedNode{Node: e.Code, Comments: e.Comments}
+	}
+	err := (&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(sliceWriter{&b.buf}, b.fset, n)
 	if err != nil {
 		return Code{Text: err.Error()}, output
 	}
