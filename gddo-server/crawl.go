@@ -84,7 +84,7 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 	case err == gosrc.ErrNotModified:
 		message = append(message, "touch")
 		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, nextCrawl); err != nil {
-			log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
+			log.Printf("ERROR db.SetNextCrawlEtag(%q): %v", importPath, err)
 		}
 		return pdoc, nil
 	case gosrc.IsNotFound(err):
