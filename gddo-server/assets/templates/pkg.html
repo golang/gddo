@@ -82,7 +82,7 @@
         {{with .AllExamples}}
           <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
           <ul class="list-unstyled">
-            {{range . }}<li><a href="#example-{{.Id}}" onclick="$('#ex-{{.Id}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a></li>{{end}}
+            {{range . }}<li><a href="#example-{{.ID}}" onclick="$('#ex-{{.ID}}').addClass('in').removeClass('collapse').height('auto')">{{.Label}}</a></li>{{end}}
           </ul>
         {{else}}
           <span id="pkg-examples"></span>
@@ -156,11 +156,11 @@
   {{if .}}
     <div class="panel-group">
     {{range .}}
-      <div class="panel panel-default" id="example-{{.Id}}">
-        <div class="panel-heading"><a class="accordion-toggle" data-toggle="collapse" href="#ex-{{.Id}}">Example{{with .Example.Name}} ({{.}}){{end}}</a></div>
-        <div id="ex-{{.Id}}" class="panel-collapse collapse"><div class="panel-body">
+      <div class="panel panel-default" id="example-{{.ID}}">
+        <div class="panel-heading"><a class="accordion-toggle" data-toggle="collapse" href="#ex-{{.ID}}">Example{{with .Example.Name}} ({{.}}){{end}}</a></div>
+        <div id="ex-{{.ID}}" class="panel-collapse collapse"><div class="panel-body">
           {{with .Example.Doc}}<p>{{.|comment}}{{end}}
-          <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.Id}}">play</a>&nbsp;</span>{{end}}
+          <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
           <pre>{{code .Example.Code nil}}</pre>
           {{with .Example.Output}}<p>Output:<pre>{{.}}</pre>{{end}}
         </div></div>

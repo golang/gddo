@@ -82,7 +82,7 @@ type tdoc struct {
 }
 
 type texample struct {
-	Id      string
+	ID      string
 	Label   string
 	Example *doc.Example
 	obj     interface{}
@@ -123,23 +123,23 @@ func (pdoc *tdoc) addExamples(obj interface{}, export, method string, examples [
 		id += "-" + method
 	}
 	for _, e := range examples {
-		te := &texample{Label: label, Id: id, Example: e, obj: obj}
+		te := &texample{Label: label, ID: id, Example: e, obj: obj}
 		if e.Name != "" {
 			te.Label += " (" + e.Name + ")"
 			if method == "" {
-				te.Id += "-"
+				te.ID += "-"
 			}
-			te.Id += "-" + e.Name
+			te.ID += "-" + e.Name
 		}
 		pdoc.allExamples = append(pdoc.allExamples, te)
 	}
 }
 
-type byExampleId []*texample
+type byExampleID []*texample
 
-func (e byExampleId) Len() int           { return len(e) }
-func (e byExampleId) Less(i, j int) bool { return e[i].Id < e[j].Id }
-func (e byExampleId) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+func (e byExampleID) Len() int           { return len(e) }
+func (e byExampleID) Less(i, j int) bool { return e[i].ID < e[j].ID }
+func (e byExampleID) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 
 func (pdoc *tdoc) AllExamples() []*texample {
 	if pdoc.allExamples != nil {
@@ -161,7 +161,7 @@ func (pdoc *tdoc) AllExamples() []*texample {
 			}
 		}
 	}
-	sort.Sort(byExampleId(pdoc.allExamples))
+	sort.Sort(byExampleID(pdoc.allExamples))
 	return pdoc.allExamples
 }
 
@@ -239,13 +239,13 @@ func hostFn(urlStr string) string {
 
 func mapFn(kvs ...interface{}) (map[string]interface{}, error) {
 	if len(kvs)%2 != 0 {
-		return nil, errors.New("map requires even number of arguments.")
+		return nil, errors.New("map requires even number of arguments")
 	}
 	m := make(map[string]interface{})
 	for i := 0; i < len(kvs); i += 2 {
 		s, ok := kvs[i].(string)
 		if !ok {
-			return nil, errors.New("even args to map must be strings.")
+			return nil, errors.New("even args to map must be strings")
 		}
 		m[s] = kvs[i+1]
 	}
@@ -424,7 +424,7 @@ func executeTemplate(resp http.ResponseWriter, name string, status int, header h
 	resp.Header().Set("Content-Type", mimeType)
 	t := templates[name]
 	if t == nil {
-		return fmt.Errorf("Template %s not found", name)
+		return fmt.Errorf("template %s not found", name)
 	}
 	resp.WriteHeader(status)
 	if status == http.StatusNotModified {
