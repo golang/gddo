@@ -77,11 +77,6 @@ a, .navbar-default .navbar-brand {
     background-color: transparent;
 }
 
-#x-file .highlight {
-    color: red;
-    text-decoration: underline;
-}
-
 a.permalink {
     display: none;
 }

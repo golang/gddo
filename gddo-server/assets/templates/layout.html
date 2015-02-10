@@ -40,7 +40,7 @@
   </div>
 </div>
 
-<div id="x-shortcuts" tabindex="-1" class="modal fade">
+<div id="x-shortcuts" tabindex="-1" class="modal">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
@@ -51,6 +51,7 @@
           <table>{{$mutePkg := not (equal "pkg.html" templateName)}}
           <tr><td align="right"><b>?</b></td><td> : This menu</td></tr>
           <tr><td align="right"><b>/</b></td><td> : Search site</td></tr>
+          <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>f</b></td><td> : Jump to identifier</td></tr>
           <tr><td align="right"><b>g</b> then <b>g</b></td><td> : Go to top of page</td></tr>
           <tr><td align="right"><b>g</b> then <b>b</b></td><td> : Go to end of page</td></tr>
           <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>i</b></td><td> : Go to index</td></tr>

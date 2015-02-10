@@ -871,7 +871,6 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/-/site.js", staticServer.FilesHandler(
 		"third_party/jquery.timeago.js",
-		"third_party/typeahead.min.js",
 		"site.js"))
 	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
 	if *sidebarEnabled {
