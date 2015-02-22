@@ -38,15 +38,7 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 
 	start := time.Now()
 	var err error
-	if i := strings.Index(importPath, "/src/pkg/"); i > 0 && gosrc.IsGoRepoPath(importPath[i+len("/src/pkg/"):]) {
-		// Go source tree mirror.
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "Go source tree mirror."}
-	} else if i := strings.Index(importPath, "/libgo/go/"); i > 0 && gosrc.IsGoRepoPath(importPath[i+len("/libgo/go/"):]) {
-		// Go Frontend source tree mirror.
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "Go Frontend source tree mirror."}
-	} else if strings.HasPrefix(importPath, "code.google.com/p/go.") {
+	if strings.HasPrefix(importPath, "code.google.com/p/go.") {
 		// Old import path for Go sub-repository.
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "old Go sub-repo", Redirect: "golang.org/x/" + importPath[len("code.google.com/p/go."):]}
