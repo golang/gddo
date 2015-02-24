@@ -53,17 +53,6 @@ that you want to remove.
 <p>Send your ideas, feature requests and questions to the <a href="https://groups.google.com/group/golang-dev">golang-dev mailing list</a>.
 Report bugs using the <a href="https://github.com/golang/gddo/issues/new">GitHub Issue Tracker</a>. 
 
-<h4 id="plain-text">Plain Text</h4>
-
-GoDoc provides plain text output for integration with shell scripts. Use the
-HTTP Accept header to request a plain text response.
-
-<p>Search for packages with the term 'sql':
-<pre>$ curl -H 'Accept: text/plain' http://godoc.org/?q=sql</pre>
-
-<p>Get the documentation for the standard math package:
-<pre>$ curl -H 'Accept: text/plain' http://godoc.org/math</pre>
-
 <h4 id="shortcuts">Keyboard Shortcuts</h4>
 
 <p>GoDoc has keyboard shortcuts for navigating package documentation
@@ -75,5 +64,9 @@ pages. Type '?' on a package page for help.
 and Google Project Hosting to the package documentation. To install the
 bookmarklet, click and drag the following link to your bookmark bar: <a
  href="javascript:window.location='http://{{.Host}}/?q='+encodeURIComponent(window.location)">GoDoc</a>
+
+<h4>More Documentation</h4>
+
+<p>More documentation about GoDoc is available on <a href="https://github.com/golang/gddo/wiki">the project's GitHub wiki</a>.
 
 {{end}}
