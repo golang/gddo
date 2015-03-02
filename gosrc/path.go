@@ -18,7 +18,7 @@ var validHost = regexp.MustCompile(`^[-a-z0-9]+(?:\.[-a-z0-9]+)+$`)
 var validPathElement = regexp.MustCompile(`^[-A-Za-z0-9~+_][-A-Za-z0-9_.]*$`)
 
 func isValidPathElement(s string) bool {
-	return validPathElement.MatchString(s) && s != "testdata"
+	return validPathElement.MatchString(s)
 }
 
 // IsValidRemotePath returns true if importPath is structurally valid for "go get".

@@ -8,12 +8,15 @@ package main
 
 import (
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 )
+
+var testdataPat = regexp.MustCompile(`/testdata(?:/|$)`)
 
 // crawlDoc fetches the package documentation from the VCS and updates the database.
 func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bool, nextCrawl time.Time) (*doc.Package, error) {
@@ -45,6 +48,9 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 	} else if blocked, e := db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "blocked."}
+	} else if testdataPat.MatchString(importPath) {
+		pdoc = nil
+		err = gosrc.NotFoundError{Message: "testdata."}
 	} else {
 		var pdocNew *doc.Package
 		pdocNew, err = doc.Get(httpClient, importPath, etag)

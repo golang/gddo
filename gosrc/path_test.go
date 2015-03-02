@@ -28,7 +28,6 @@ var badImportPaths = []string{
 	".bar",
 	"favicon.ico",
 	"exmpple.com",
-	"github.com/user/repo/testdata/x",
 	"github.com/user/repo/.ignore/x",
 }
 
