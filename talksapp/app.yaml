@@ -17,3 +17,9 @@ handlers:
   upload: present/play.js
 - url: /.*
   script: _go_app
+
+env_variables:
+  CONTACT_EMAIL: ''        # set contact email for /-/bot.html
+  GITHUB_CLIENT_ID: ''     # used to increase rate-limits; see https://github.com/settings/applications/new
+  GITHUB_CLIENT_SECRET: '' # used to increase rate-limits; see https://github.com/settings/applications/new
+  GITHUB_TOKEN: ''         # personal token used for authentication; see https://github.com/settings/tokens/new

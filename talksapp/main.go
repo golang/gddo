@@ -9,14 +9,11 @@ package talksapp
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"time"
@@ -25,8 +22,10 @@ import (
 	"appengine/memcache"
 	"appengine/urlfetch"
 
-	"code.google.com/p/go.tools/present"
 	"github.com/golang/gddo/gosrc"
+	"github.com/golang/gddo/httputil"
+
+	"golang.org/x/tools/present"
 )
 
 var (
@@ -34,9 +33,9 @@ var (
 		".article": parsePresentTemplate("article.tmpl"),
 		".slide":   parsePresentTemplate("slides.tmpl"),
 	}
-	homeArticle       = loadHomeArticle()
-	contactEmail      = "golang-dev@googlegroups.com"
-	githubCredentials = parseGithubCredentials()
+	homeArticle  = loadHomeArticle()
+	contactEmail = "golang-dev@googlegroups.com"
+	github       = httputil.NewAuthTransportFromEnvironment(nil)
 )
 
 func init() {
@@ -44,25 +43,9 @@ func init() {
 	http.Handle("/compile", handlerFunc(serveCompile))
 	http.Handle("/bot.html", handlerFunc(serveBot))
 	present.PlayEnabled = true
-}
-
-func parseGithubCredentials() string {
-	f, err := os.Open("secret.json")
-	if err != nil {
-		log.Fatalf("open github credentials file secret.json: %v", err)
+	if s := os.Getenv("CONTACT_EMAIL"); s != "" {
+		contactEmail = s
 	}
-	defer f.Close()
-	var cred struct{ ClientID, ClientSecret string }
-	if err := json.NewDecoder(f).Decode(&cred); err != nil {
-		log.Fatalf("parse github credentials: %v", err)
-	}
-	if cred.ClientID == "" || cred.ClientSecret == "" {
-		log.Fatalf("secret.json needs to define ClientID and ClientSecret")
-	}
-	return url.Values{
-		"client_id":     {cred.ClientID},
-		"client_secret": {cred.ClientSecret},
-	}.Encode()
 }
 
 func playable(c present.Code) bool {
@@ -131,29 +114,15 @@ func writeTextHeader(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 }
 
-type transport struct {
-	rt http.RoundTripper
-	ua string
-}
-
-func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.Header.Set("User-Agent", t.ua)
-	if r.URL.Host == "api.github.com" {
-		if r.URL.RawQuery == "" {
-			r.URL.RawQuery = githubCredentials
-		} else {
-			r.URL.RawQuery += "&" + githubCredentials
-		}
-	}
-	return t.rt.RoundTrip(r)
-}
-
 func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
 	return &http.Client{
-		Transport: &transport{
-			rt: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
-			ua: fmt.Sprintf("%s (+http://%s/bot.html)", appengine.AppID(c), r.Host),
+		Transport: &httputil.Transport{
+			Token:        github.Token,
+			ClientID:     github.ClientID,
+			ClientSecret: github.ClientSecret,
+			Base:         &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
+			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
 		},
 	}
 }

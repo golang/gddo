@@ -6,6 +6,6 @@ This directory contains the source for [go-lint.appspot.com](http://go-lint.apps
 Development Environment Setup
 -----------------------------
 
-- Copy config.go.template to config.go and edit the file as described in the comments.
-- Install Go App Engine SDK 
-- Run the server using the dev_appserver command.
+- Copy `app.yaml` to `prod.yaml` and put in the authentication data.
+- Install Go App Engine SDK.
+- Run the server using the `goapp serve prod.yaml` command.
