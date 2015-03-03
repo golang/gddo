@@ -394,6 +394,12 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 	return htemp.HTML(buf.String())
 }
 
+var isInterfacePat = regexp.MustCompile(`^type [^ ]+ interface`)
+
+func isInterfaceFn(t *doc.Type) bool {
+	return isInterfacePat.MatchString(t.Decl.Text)
+}
+
 var gaAccount string
 
 func gaAccountFn() string {
@@ -457,6 +463,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
 			"importPath":        importPathFn,
+			"isInterface":       isInterfaceFn,
 			"isValidImportPath": gosrc.IsValidPath,
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,

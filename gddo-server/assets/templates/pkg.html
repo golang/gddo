@@ -99,13 +99,13 @@
         <!-- Contants -->
         {{if .Consts}}
           <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
-          {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+          {{range .Consts}}<pre data-kind="c">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
         {{end}}
 
         <!-- Variables -->
         {{if .Vars}}
           <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
-          {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+          {{range .Vars}}<pre data-kind="v">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
         {{end}}
 
         <!-- Functions -->
@@ -113,7 +113,7 @@
             <h3 id="pkg-functions" class="section-header">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
         {{end}}{{end}}
         {{range .Funcs}}
-          <h3 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <h3 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
           <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
           {{template "Examples" .|$.pdoc.ObjExamples}}
         {{end}}
@@ -124,25 +124,42 @@
         {{end}}{{end}}
 
         {{range $t := .Types}}
-          <h3 id="{{.Name}}">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-          <pre>{{code .Decl $t}}</pre>{{.Doc|comment}}
-          {{range .Consts}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
-          {{range .Vars}}<pre>{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+          <h3 id="{{.Name}}" data-kind="t">type {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <pre data-kind="{{if isInterface $t}}m{{else}}d{{end}}">{{code .Decl $t}}</pre>{{.Doc|comment}}
+          {{range .Consts}}<pre data-kind="c">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
+          {{range .Vars}}<pre data-kind="v">{{code .Decl nil}}</pre>{{.Doc|comment}}{{end}}
           {{template "Examples" .|$.pdoc.ObjExamples}}
 
           {{range .Funcs}}
-            <h4 id="{{.Name}}">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+            <h4 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name .Name}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
             <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
             {{template "Examples" .|$.pdoc.ObjExamples}}
           {{end}}
 
           {{range .Methods}}
-            <h4 id="{{$t.Name}}.{{.Name}}">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name (printf "%s.%s" $t.Name .Name)}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+            <h4 id="{{$t.Name}}.{{.Name}}" data-kind="m">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name (printf "%s.%s" $t.Name .Name)}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
             <pre class="funcdecl">{{code .Decl nil}}</pre>{{.Doc|comment}}
             {{template "Examples" .|$.pdoc.ObjExamples}}
           {{end}}
         {{end}}
         {{template "PkgCmdFooter" $}}
+        <div id="x-jump" tabindex="-1" class="modal">
+            <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h4 class="modal-title">Jump to identifier</h4>
+                <br class="clearfix">
+                <input id="x-jump-filter" class="form-control" autocomplete="off" type="text">
+              </div>
+              <div id="x-jump-body" class="modal-body" style="height: 260px; overflow: auto;">
+                <div id="x-jump-list" class="list-group" style="margin-bottom: 0;"></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn" data-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
 {{if sidebarEnabled}}
       </div>
