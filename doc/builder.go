@@ -458,6 +458,29 @@ var goEnvs = []struct{ GOOS, GOARCH string }{
 	{"windows", "amd64"},
 }
 
+// SetDefaultGOOS sets given GOOS value as default one to use when building
+// package documents.
+func SetDefaultGOOS(goos string) {
+	if goos == "" {
+		return
+	}
+	var i int
+	for ; i < len(goEnvs); i++ {
+		if goEnvs[i].GOOS == goos {
+			break
+		}
+	}
+	switch i {
+	case 0:
+		return
+	case len(goEnvs):
+		env := goEnvs[0]
+		env.GOOS = goos
+		goEnvs = append(goEnvs, env)
+	}
+	goEnvs[0], goEnvs[i] = goEnvs[i], goEnvs[0]
+}
+
 func newPackage(dir *gosrc.Directory) (*Package, error) {
 
 	pkg := &Package{
