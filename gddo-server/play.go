@@ -55,10 +55,10 @@ func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
 	return nil
 }
 
-var exampleIdPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
+var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
 func playURL(pdoc *doc.Package, id string) (string, error) {
-	if m := exampleIdPat.FindStringSubmatch(id); m != nil {
+	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
 		if e := findExample(pdoc, m[1], m[2], m[3]); e != nil && e.Play != "" {
 			resp, err := httpClient.Post("http://play.golang.org/share", "text/plain", strings.NewReader(e.Play))
 			if err != nil {

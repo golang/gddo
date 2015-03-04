@@ -515,7 +515,7 @@ func popular() ([]database.Package, error) {
 		prev = pkg.Path + "/"
 		pkgs[j] = pkg
 		rank[j] = rank[i]
-		j += 1
+		j++
 	}
 	pkgs = pkgs[:j]
 
