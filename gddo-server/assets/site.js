@@ -147,6 +147,10 @@ $(function() {
             return true;
         }
 
+        if (e.metaKey) {
+            return true;
+        }
+
         var ch = String.fromCharCode(e.which);
 
         if (combo) {
