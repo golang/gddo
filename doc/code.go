@@ -247,6 +247,7 @@ func (b *builder) printDecl(decl ast.Decl) (d Code) {
 	fset := token.NewFileSet()
 	file := fset.AddFile("", fset.Base(), len(b.buf))
 	s.Init(file, b.buf, nil, scanner.ScanComments)
+	prevTok := token.ILLEGAL
 loop:
 	for {
 		pos, tok, lit := s.Scan()
@@ -256,7 +257,11 @@ loop:
 		case token.COMMENT:
 			p := file.Offset(pos)
 			e := p + len(lit)
-			annotations = append(annotations, Annotation{Kind: CommentAnnotation, Pos: int32(p), End: int32(e)})
+			if prevTok == token.COMMENT {
+				annotations[len(annotations)-1].End = int32(e)
+			} else {
+				annotations = append(annotations, Annotation{Kind: CommentAnnotation, Pos: int32(p), End: int32(e)})
+			}
 		case token.IDENT:
 			if len(v.annotations) == 0 {
 				// Oops!
@@ -273,6 +278,7 @@ loop:
 			annotation.End = int32(e)
 			annotations = append(annotations, annotation)
 		}
+		prevTok = tok
 	}
 	return Code{Text: string(b.buf), Annotations: annotations, Paths: v.paths}
 }
@@ -330,6 +336,7 @@ func (b *builder) printExample(e *doc.Example) (code Code, output string) {
 	fset := token.NewFileSet()
 	file := fset.AddFile("", fset.Base(), len(b.buf))
 	s.Init(file, b.buf, nil, scanner.ScanComments)
+	prevTok := token.ILLEGAL
 scanLoop:
 	for {
 		pos, tok, lit := s.Scan()
@@ -339,8 +346,13 @@ scanLoop:
 		case token.COMMENT:
 			p := file.Offset(pos)
 			e := p + len(lit)
-			annotations = append(annotations, Annotation{Kind: CommentAnnotation, Pos: int32(p), End: int32(e)})
+			if prevTok == token.COMMENT {
+				annotations[len(annotations)-1].End = int32(e)
+			} else {
+				annotations = append(annotations, Annotation{Kind: CommentAnnotation, Pos: int32(p), End: int32(e)})
+			}
 		}
+		prevTok = tok
 	}
 
 	return Code{Text: string(b.buf), Annotations: annotations}, output
