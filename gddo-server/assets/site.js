@@ -147,7 +147,7 @@ $(function() {
             return true;
         }
 
-        if (e.metaKey) {
+        if (e.metaKey || e.ctrlKey) {
             return true;
         }
 
