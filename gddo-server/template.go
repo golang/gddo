@@ -105,6 +105,49 @@ func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HT
 		htemp.HTMLEscapeString(text)))
 }
 
+// UsesLink generates a link to uses of a symbol definition.
+// title is used as the tooltip. defParts are parts of the symbol definition name.
+func (pdoc *tdoc) UsesLink(title string, defParts ...string) htemp.HTML {
+	if *sourcegraphURL == "" {
+		return ""
+	}
+
+	var def string
+	switch len(defParts) {
+	case 1:
+		// Funcs and types have one def part.
+		def = defParts[0]
+
+	case 3:
+		// Methods have three def parts, the original receiver name, actual receiver name and method name.
+		orig, recv, methodName := defParts[0], defParts[1], defParts[2]
+
+		if orig == "" {
+			// TODO: Remove this fallback after 2016-08-05. It's only needed temporarily to backfill data.
+			//       Actual receiver is not needed, it's only used because original receiver value
+			//       was recently added to gddo/doc package and will be blank until next package rebuild.
+			//
+			// Use actual receiver as fallback.
+			orig = recv
+		}
+
+		// Trim "*" from "*T" if it's a pointer receiver method.
+		typeName := strings.TrimPrefix(orig, "*")
+
+		def = typeName + "/" + methodName
+	default:
+		panic(fmt.Errorf("%v defParts, want 1 or 3", len(defParts)))
+	}
+
+	q := url.Values{
+		"repo": {pdoc.ProjectRoot},
+		"pkg":  {pdoc.ImportPath},
+		"def":  {def},
+	}
+	u := *sourcegraphURL + "/-/godoc/refs?" + q.Encode()
+	return htemp.HTML(fmt.Sprintf(`<a class="uses" title="%s" href="%s">Uses</a>`, htemp.HTMLEscapeString(title), htemp.HTMLEscapeString(u)))
+}
+
 func (pdoc *tdoc) PageName() string {
 	if pdoc.Name != "" && !pdoc.IsCmd {
 		return pdoc.Name

@@ -111,7 +111,13 @@ a.permalink {
     display: none;
 }
 
-h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permalink, h5:hover .permalink, h6:hover .permalink {
+a.uses {
+    display: none;
+    color: #666;
+    font-size: 0.8em;
+}
+
+h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permalink, h5:hover .permalink, h6:hover .permalink, h1:hover .uses, h2:hover .uses, h3:hover .uses, h4:hover .uses, h5:hover .uses, h6:hover .uses {
     display: inline;
 }
 

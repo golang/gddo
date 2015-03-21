@@ -856,6 +856,7 @@ var (
 	sidebarEnabled  = flag.Bool("sidebar", false, "Enable package page sidebar.")
 	defaultGOOS     = flag.String("default_goos", "", "Default GOOS to use when building package documents.")
 	trustProxy      = flag.Bool("trust_proxy_headers", false, "If enabled, identify the remote address of the request using X-Real-Ip in header.")
+	sourcegraphURL  = flag.String("sourcegraph_url", "https://sourcegraph.com", "Link to global uses on Sourcegraph based at this URL (no need for trailing slash).")
 )
 
 func main() {

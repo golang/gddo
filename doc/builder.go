@@ -254,7 +254,8 @@ type Func struct {
 	Pos      Pos
 	Doc      string
 	Name     string
-	Recv     string
+	Recv     string // Actual receiver "T" or "*T".
+	Orig     string // Original receiver "T" or "*T". This can be different from Recv due to embedding.
 	Examples []*Example
 }
 
@@ -276,6 +277,7 @@ func (b *builder) funcs(fdocs []*doc.Func) []*Func {
 			Doc:      d.Doc,
 			Name:     d.Name,
 			Recv:     d.Recv,
+			Orig:     d.Orig,
 			Examples: b.getExamples(exampleName),
 		})
 	}

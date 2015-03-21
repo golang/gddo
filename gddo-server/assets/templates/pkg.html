@@ -108,7 +108,7 @@
             <h3 id="pkg-functions" class="section-header">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
         {{end}}{{end}}
         {{range .Funcs}}
-          <h3 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <h3 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a> {{$.pdoc.UsesLink "List Function Callers" .Name}}</h3>
           <div class="funcdecl decl">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
           {{template "Examples" .|$.pdoc.ObjExamples}}
         {{end}}
@@ -119,20 +119,20 @@
         {{end}}{{end}}
 
         {{range $t := .Types}}
-          <h3 id="{{.Name}}" data-kind="t">type {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <h3 id="{{.Name}}" data-kind="t">type {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a> {{$.pdoc.UsesLink "List Uses of This Type" .Name}}</h3>
           <div class="decl" data-kind="{{if isInterface $t}}m{{else}}d{{end}}">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl $t}}</div>{{.Doc|comment}}
           {{range .Consts}}<div class="decl" data-kind="c">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
           {{range .Vars}}<div class="decl" data-kind="v">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
           {{template "Examples" .|$.pdoc.ObjExamples}}
 
           {{range .Funcs}}
-            <h4 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+            <h4 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a> {{$.pdoc.UsesLink "List Function Callers" .Name}}</h4>
             <div class="funcdecl decl">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
             {{template "Examples" .|$.pdoc.ObjExamples}}
           {{end}}
 
           {{range .Methods}}
-            <h4 id="{{$t.Name}}.{{.Name}}" data-kind="m">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+            <h4 id="{{$t.Name}}.{{.Name}}" data-kind="m">func ({{.Recv}}) {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a> {{$.pdoc.UsesLink "List Method Callers" .Orig .Recv .Name}}</h4>
             <div class="funcdecl decl">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
             {{template "Examples" .|$.pdoc.ObjExamples}}
           {{end}}
