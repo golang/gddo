@@ -42,14 +42,39 @@ pre {
     word-wrap: normal;
 }
 
-.funcdecl {
-  white-space: pre-wrap;
-  word-break: break-all;
-  word-wrap: break-word;
+.funcdecl > pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    word-wrap: break-word;
 }
 
 pre .com {
   color: rgb(147, 161, 161);
+}
+
+.decl {
+    position: relative;
+}
+
+.decl > a {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    display: none;
+    border: 1px solid #ccc;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.decl > a:hover {
+    background-color: white;
+    text-decoration: none;
+}
+
+.decl:hover > a {
+    display: block;
 }
 
 a, .navbar-default .navbar-brand {

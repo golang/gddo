@@ -92,19 +92,17 @@ func newTDoc(pdoc *doc.Package) *tdoc {
 	return &tdoc{Package: pdoc}
 }
 
-func (pdoc *tdoc) SourceLink(pos doc.Pos, text, anchor string) htemp.HTML {
-	text = htemp.HTMLEscapeString(text)
+func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
 	if pos.Line == 0 || pdoc.LineFmt == "" || pdoc.Files[pos.File].URL == "" {
-		return htemp.HTML(text)
+		if textOnlyOK {
+			return htemp.HTML(htemp.HTMLEscapeString(text))
+		} else {
+			return ""
+		}
 	}
-	var u string
-	if anchor != "" && strings.HasPrefix(pdoc.Files[pos.File].URL, "/") {
-		u = fmt.Sprintf("%s#%s", pdoc.Files[pos.File].URL, anchor)
-	} else {
-		u = fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)
-	}
-	u = htemp.HTMLEscapeString(u)
-	return htemp.HTML(fmt.Sprintf(`<a title="View Source" href="%s">%s</a>`, u, text))
+	return htemp.HTML(fmt.Sprintf(`<a title="View Source" href="%s">%s</a>`,
+		htemp.HTMLEscapeString(fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)),
+		htemp.HTMLEscapeString(text)))
 }
 
 func (pdoc *tdoc) PageName() string {
@@ -348,6 +346,7 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 	var buf bytes.Buffer
 	last := 0
 	src := []byte(c.Text)
+	buf.WriteString("<pre>")
 	for _, a := range c.Annotations {
 		htemp.HTMLEscape(&buf, src[last:a.Pos])
 		switch a.Kind {
@@ -391,6 +390,7 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 		last = int(a.End)
 	}
 	htemp.HTMLEscape(&buf, src[last:])
+	buf.WriteString("</pre>")
 	return htemp.HTML(buf.String())
 }
 
