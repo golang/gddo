@@ -45,10 +45,10 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/snappy-go/snappy"
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
+	"github.com/golang/snappy/snappy"
 )
 
 type Database struct {
