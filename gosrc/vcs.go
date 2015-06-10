@@ -10,6 +10,7 @@ package gosrc
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -29,6 +31,13 @@ func init() {
 	})
 	getVCSDirFn = getVCSDir
 }
+
+const (
+	lsRemoteTimeout = 5 * time.Minute
+	cloneTimeout    = 10 * time.Minute
+	fetchTimeout    = 5 * time.Minute
+	checkoutTimeout = 1 * time.Minute
+)
 
 // Store temporary data in this directory.
 var TempDir = filepath.Join(os.TempDir(), "gddo")
@@ -115,7 +124,7 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 		cmd := exec.Command("git", "ls-remote", "--heads", "--tags", schemes[i]+"://"+repo+".git")
 		log.Println(strings.Join(cmd.Args, " "))
 		var err error
-		p, err = cmd.Output()
+		p, err = outputWithTimeout(cmd, lsRemoteTimeout)
 		if err == nil {
 			scheme = schemes[i]
 			break
@@ -151,7 +160,7 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 		}
 		cmd := exec.Command("git", "clone", scheme+"://"+repo+".git", dir)
 		log.Println(strings.Join(cmd.Args, " "))
-		if err := cmd.Run(); err != nil {
+		if err := runWithTimeout(cmd, cloneTimeout); err != nil {
 			return "", "", err
 		}
 	case string(bytes.TrimRight(p, "\n")) == commit:
@@ -160,14 +169,14 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 		cmd := exec.Command("git", "fetch")
 		log.Println(strings.Join(cmd.Args, " "))
 		cmd.Dir = dir
-		if err := cmd.Run(); err != nil {
+		if err := runWithTimeout(cmd, fetchTimeout); err != nil {
 			return "", "", err
 		}
 	}
 
 	cmd := exec.Command("git", "checkout", "--detach", "--force", commit)
 	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
+	if err := runWithTimeout(cmd, checkoutTimeout); err != nil {
 		return "", "", err
 	}
 
@@ -205,14 +214,14 @@ func downloadSVN(schemes []string, repo, savedEtag string) (string, string, erro
 		}
 		cmd := exec.Command("svn", "checkout", scheme+"://"+repo, "-r", revno, dir)
 		log.Println(strings.Join(cmd.Args, " "))
-		if err := cmd.Run(); err != nil {
+		if err := runWithTimeout(cmd, cloneTimeout); err != nil {
 			return "", "", err
 		}
 	case localRevno != revno:
 		cmd := exec.Command("svn", "update", "-r", revno)
 		log.Println(strings.Join(cmd.Args, " "))
 		cmd.Dir = dir
-		if err := cmd.Run(); err != nil {
+		if err := runWithTimeout(cmd, fetchTimeout); err != nil {
 			return "", "", err
 		}
 	}
@@ -225,7 +234,7 @@ var svnrevRe = regexp.MustCompile(`(?m)^Last Changed Rev: ([0-9]+)$`)
 func getSVNRevision(target string) (string, error) {
 	cmd := exec.Command("svn", "info", target)
 	log.Println(strings.Join(cmd.Args, " "))
-	out, err := cmd.Output()
+	out, err := outputWithTimeout(cmd, lsRemoteTimeout)
 	if err != nil {
 		return "", err
 	}
@@ -318,4 +327,23 @@ func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (
 		Subdirectories: subdirs,
 		Files:          files,
 	}, nil
+}
+
+func runWithTimeout(cmd *exec.Cmd, timeout time.Duration) error {
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	t := time.AfterFunc(timeout, func() { cmd.Process.Kill() })
+	defer t.Stop()
+	return cmd.Wait()
+}
+
+func outputWithTimeout(cmd *exec.Cmd, timeout time.Duration) ([]byte, error) {
+	if cmd.Stdout != nil {
+		return nil, errors.New("exec: Stdout already set")
+	}
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	err := runWithTimeout(cmd, timeout)
+	return b.Bytes(), err
 }
