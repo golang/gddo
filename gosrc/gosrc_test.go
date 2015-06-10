@@ -64,6 +64,13 @@ var testWeb = map[string]string{
 	"https://bob.com/pkg/source": `<head>` +
 		`<meta name="go-import" content="bob.com/pkg git https://vcs.net/bob/pkg.git">` +
 		`<meta name="go-source" content="bob.com/pkg http://bob.com/pkg http://bob.com/pkg{/dir}/ http://bob.com/pkg{/dir}/?f={file}#Line{line}">`,
+	// Meta refresh to godoc.org
+	"http://rsc.io/benchstat": `<head>` +
+		`<!DOCTYPE html><html><head>` +
+		`<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>` +
+		`<meta name="go-import" content="rsc.io/benchstat git https://github.com/rsc/benchstat">` +
+		`<meta http-equiv="refresh" content="0; url=https://godoc.org/rsc.io/benchstat">` +
+		`</head>`,
 }
 
 var getDynamicTests = []struct {
@@ -157,6 +164,17 @@ var getDynamicTests = []struct {
 		ResolvedPath: "vcs.net/bob/pkg.git/source",
 		VCS:          "git",
 		Files:        []*File{{Name: "main.go", BrowseURL: "http://bob.com/pkg/source/?f=main.go"}},
+	}},
+	{"rsc.io/benchstat", &Directory{
+		BrowseURL:    "https://github.com/rsc/benchstat",
+		ImportPath:   "rsc.io/benchstat",
+		LineFmt:      "%s#L%d",
+		ProjectName:  "benchstat",
+		ProjectRoot:  "rsc.io/benchstat",
+		ProjectURL:   "https://github.com/rsc/benchstat",
+		ResolvedPath: "github.com/rsc/benchstat",
+		VCS:          "git",
+		Files:        []*File{{Name: "main.go", BrowseURL: "https://github.com/rsc/benchstat/blob/master/main.go"}},
 	}},
 }
 
