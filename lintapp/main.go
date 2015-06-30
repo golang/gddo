@@ -33,7 +33,7 @@ func init() {
 }
 
 var (
-	contactEmail    = "golang-dev@googlegroups.com"
+	contactEmail    = "unknown@example.com"
 	homeTemplate    = parseTemplate("common.html", "index.html")
 	packageTemplate = parseTemplate("common.html", "package.html")
 	errorTemplate   = parseTemplate("common.html", "error.html")
