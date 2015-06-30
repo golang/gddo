@@ -33,7 +33,7 @@ func init() {
 }
 
 var (
-	contactEmail    = "unknown@example.com"
+	contactEmail    = "info@godoc.org"
 	homeTemplate    = parseTemplate("common.html", "index.html")
 	packageTemplate = parseTemplate("common.html", "package.html")
 	errorTemplate   = parseTemplate("common.html", "error.html")
