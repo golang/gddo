@@ -16,6 +16,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -56,9 +57,12 @@ func parseGithubCredentials() string {
 		log.Fatalf("parse github credentials: %v", err)
 	}
 	if cred.ClientID == "" || cred.ClientSecret == "" {
-		log.Fatal("secret.json needs to define ClientID and ClientSecret")
+		log.Fatalf("secret.json needs to define ClientID and ClientSecret")
 	}
-	return fmt.Sprintf("client_id=%s&client_secret=%s", cred.ClientID, cred.ClientSecret)
+	return url.Values{
+		"client_id":     {cred.ClientID},
+		"client_secret": {cred.ClientSecret},
+	}.Encode()
 }
 
 func playable(c present.Code) bool {
