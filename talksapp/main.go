@@ -9,11 +9,14 @@ package talksapp
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -32,8 +35,8 @@ var (
 		".slide":   parsePresentTemplate("slides.tmpl"),
 	}
 	homeArticle       = loadHomeArticle()
-	contactEmail      = "unknown@example.com"
-	gitHubCredentials = ""
+	contactEmail      = "golang-dev@googlegroups.com"
+	githubCredentials = parseGithubCredentials()
 )
 
 func init() {
@@ -41,6 +44,25 @@ func init() {
 	http.Handle("/compile", handlerFunc(serveCompile))
 	http.Handle("/bot.html", handlerFunc(serveBot))
 	present.PlayEnabled = true
+}
+
+func parseGithubCredentials() string {
+	f, err := os.Open("secret.json")
+	if err != nil {
+		log.Fatalf("open github credentials file secret.json: %v", err)
+	}
+	defer f.Close()
+	var cred struct{ ClientID, ClientSecret string }
+	if err := json.NewDecoder(f).Decode(&cred); err != nil {
+		log.Fatalf("parse github credentials: %v", err)
+	}
+	if cred.ClientID == "" || cred.ClientSecret == "" {
+		log.Fatalf("secret.json needs to define ClientID and ClientSecret")
+	}
+	return url.Values{
+		"client_id":     {cred.ClientID},
+		"client_secret": {cred.ClientSecret},
+	}.Encode()
 }
 
 func playable(c present.Code) bool {
@@ -116,11 +138,11 @@ type transport struct {
 
 func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.Header.Set("User-Agent", t.ua)
-	if r.URL.Host == "api.github.com" && gitHubCredentials != "" {
+	if r.URL.Host == "api.github.com" {
 		if r.URL.RawQuery == "" {
-			r.URL.RawQuery = gitHubCredentials
+			r.URL.RawQuery = githubCredentials
 		} else {
-			r.URL.RawQuery += "&" + gitHubCredentials
+			r.URL.RawQuery += "&" + githubCredentials
 		}
 	}
 	return t.rt.RoundTrip(r)
