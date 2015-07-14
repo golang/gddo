@@ -291,7 +291,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		Files map[string]struct {
 			Content string
 		}
-		HtmlUrl string `json:"html_url"`
+		HTMLURL string `json:"html_url"`
 		History []struct {
 			Version string
 		}
@@ -317,19 +317,19 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 			files = append(files, &File{
 				Name:      name,
 				Data:      []byte(file.Content),
-				BrowseURL: gist.HtmlUrl + "#file-" + strings.Replace(name, ".", "-", -1),
+				BrowseURL: gist.HTMLURL + "#file-" + strings.Replace(name, ".", "-", -1),
 			})
 		}
 	}
 
 	return &Directory{
-		BrowseURL:      gist.HtmlUrl,
+		BrowseURL:      gist.HTMLURL,
 		Etag:           commit,
 		Files:          files,
 		LineFmt:        "%s-L%d",
 		ProjectName:    match["gist"],
 		ProjectRoot:    expand("gist.github.com/{gist}.git", match),
-		ProjectURL:     gist.HtmlUrl,
+		ProjectURL:     gist.HTMLURL,
 		Subdirectories: nil,
 		VCS:            "git",
 	}, nil

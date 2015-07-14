@@ -236,7 +236,7 @@ func filterByConfidence(r *http.Request, pkg *lintPackage) {
 		for i := range f.Problems {
 			if f.Problems[i].Confidence >= minConfidence {
 				f.Problems[j] = f.Problems[i]
-				j += 1
+				j++
 			}
 		}
 		f.Problems = f.Problems[:j]

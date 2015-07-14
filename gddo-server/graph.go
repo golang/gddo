@@ -39,10 +39,10 @@ func renderGraph(pdoc *doc.Package, pkgs []database.Package, edges [][2]int) ([]
 	}
 
 	p := out.Bytes()
-	if i := bytes.Index(p, []byte("<svg")); i < 0 {
+	i := bytes.Index(p, []byte("<svg"))
+	if i < 0 {
 		return nil, errors.New("<svg not found")
-	} else {
-		p = p[i:]
 	}
+	p = p[i:]
 	return p, nil
 }

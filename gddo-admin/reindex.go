@@ -57,7 +57,7 @@ func reindex(c *command) {
 	}
 	var n int
 	err = db.Do(func(pi *database.PackageInfo) error {
-		n += 1
+		n++
 		fix(pi.PDoc)
 		return db.Put(pi.PDoc, time.Time{}, false)
 	})

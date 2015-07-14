@@ -114,11 +114,11 @@ func New() (*Database, error) {
 		IdleTimeout: *redisIdleTimeout,
 	}
 
-	if c := pool.Get(); c.Err() != nil {
+	c := pool.Get()
+	if c.Err() != nil {
 		return nil, c.Err()
-	} else {
-		c.Close()
 	}
+	c.Close()
 
 	return &Database{Pool: pool}, nil
 }

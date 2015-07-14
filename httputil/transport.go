@@ -96,11 +96,11 @@ func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // CancelRequest cancels an in-flight request by closing its connection.
-func (c *AuthTransport) CancelRequest(req *http.Request) {
+func (t *AuthTransport) CancelRequest(req *http.Request) {
 	type canceler interface {
 		CancelRequest(req *http.Request)
 	}
-	if cr, ok := c.base().(canceler); ok {
+	if cr, ok := t.base().(canceler); ok {
 		cr.CancelRequest(req)
 	}
 }

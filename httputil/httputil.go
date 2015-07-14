@@ -20,4 +20,6 @@ func StripPort(s string) string {
 	return s
 }
 
+// Error defines a type for a function that accepts a ResponseWriter for
+// a Request with the HTTP status code and error.
 type Error func(w http.ResponseWriter, r *http.Request, status int, err error)

@@ -48,7 +48,7 @@ func sanitizeTokenRune(r rune) rune {
 	return r
 }
 
-// Token returns the cache busting token for path. If the token is not already
+// Get returns the cache busting token for path. If the token is not already
 // cached, Get issues a HEAD request on handler and uses the response ETag and
 // Last-Modified headers to compute a token.
 func (cb *CacheBusters) Get(path string) string {

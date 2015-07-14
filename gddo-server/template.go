@@ -97,9 +97,8 @@ func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HT
 	if pos.Line == 0 || pdoc.LineFmt == "" || pdoc.Files[pos.File].URL == "" {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
-		} else {
-			return ""
 		}
+		return ""
 	}
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" href="%s">%s</a>`,
 		htemp.HTMLEscapeString(fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)),
