@@ -270,7 +270,7 @@ func importPathFn(path string) htemp.HTML {
 
 var (
 	h3Pat      = regexp.MustCompile(`<h3 id="([^"]+)">([^<]+)</h3>`)
-	rfcPat     = regexp.MustCompile(`RFC\s+(\d{3,4})((,|)\s+[Ss]ection\s+(\d+)((\.\d+|)|)|)`)
+	rfcPat     = regexp.MustCompile(`RFC\s+(\d{3,4})(,?\s+[Ss]ection\s+(\d+(\.\d+)*))?`)
 	packagePat = regexp.MustCompile(`\s+package\s+([-a-z0-9]\S+)`)
 )
 
@@ -310,15 +310,10 @@ func commentFn(v string) htemp.HTML {
 		out = append(out, `<a href="http://tools.ietf.org/html/rfc`...)
 		out = append(out, src[m[2]:m[3]]...)
 
-		// If available, add major section fragment
-		if m[6] != -1 {
+		// If available, add section fragment
+		if m[4] != -1 {
 			out = append(out, `#section-`...)
-			out = append(out, src[m[8]:m[9]]...)
-
-			// If available, add minor section fragment
-			if m[13] != -1 {
-				out = append(out, src[m[12]:m[13]]...)
-			}
+			out = append(out, src[m[6]:m[7]]...)
 		}
 
 		out = append(out, `">`...)
