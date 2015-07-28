@@ -198,7 +198,8 @@ $(function() {
 $(function() {
     $('span.timeago').timeago();
     if (window.location.hash.substring(0, 9) == '#example-') {
-       $(id).addClass('in').removeClass('collapse').height('auto');
+        var id = '#ex-' + window.location.hash.substring(9);
+        $(id).addClass('in').removeClass('collapse').height('auto');
     }
 
     $(document).on("click", "input.click-select", function(e) {
