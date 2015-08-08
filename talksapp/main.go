@@ -36,6 +36,10 @@ var (
 	homeArticle  = loadHomeArticle()
 	contactEmail = "golang-dev@googlegroups.com"
 	github       = httputil.NewAuthTransportFromEnvironment(nil)
+
+	// used for mocking in tests
+	getPresentation = gosrc.GetPresentation
+	playCompileUrl  = "http://play.golang.org/compile"
 )
 
 func init() {
@@ -180,7 +184,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	c.Infof("Fetching presentation %s.", importPath)
-	pres, err := gosrc.GetPresentation(httpClient(r), importPath)
+	pres, err := getPresentation(httpClient(r), importPath)
 	if err != nil {
 		return err
 	}
@@ -222,7 +226,7 @@ func serveCompile(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
-	resp, err := client.PostForm("http://play.golang.org/compile", r.Form)
+	resp, err := client.PostForm(playCompileUrl, r.Form)
 	if err != nil {
 		return err
 	}
