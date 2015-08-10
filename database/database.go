@@ -214,10 +214,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		return err
 	}
 
-	gobBytes, err := snappy.Encode(nil, gobBuf.Bytes())
-	if err != nil {
-		return err
-	}
+	gobBytes := snappy.Encode(nil, gobBuf.Bytes())
 
 	// Truncate large documents.
 	if len(gobBytes) > 400000 {
@@ -233,10 +230,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		if err := gob.NewEncoder(&gobBuf).Encode(pdoc); err != nil {
 			return err
 		}
-		gobBytes, err = snappy.Encode(nil, gobBuf.Bytes())
-		if err != nil {
-			return err
-		}
+		gobBytes = snappy.Encode(nil, gobBuf.Bytes())
 	}
 
 	kind := "p"
@@ -252,7 +246,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		t = nextCrawl.Unix()
 	}
 
-	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
+	_, err := putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
 	if err != nil {
 		return err
 	}
