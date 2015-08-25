@@ -83,7 +83,7 @@ func main() {
 
 	// Get list of valid TLDs.
 
-	resp, err := http.Get("http://data.iana.org/TLD/tlds-alpha-by-domain.txt")
+	resp, err := http.Get("https://data.iana.org/TLD/tlds-alpha-by-domain.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
