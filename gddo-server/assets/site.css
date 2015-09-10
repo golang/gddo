@@ -31,11 +31,12 @@ h4 { margin-top: 20px; }
 code {
     background-color: inherit;
     border: none;
-    color: inherit;
+    color: #222;
     padding: 0;
 }
 
 pre {
+    color: #222;
     overflow: auto;
     white-space: pre;
     word-break: normal;
@@ -49,7 +50,7 @@ pre {
 }
 
 pre .com {
-  color: rgb(147, 161, 161);
+    color: #006600;
 }
 
 .decl {
