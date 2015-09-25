@@ -48,6 +48,60 @@ func term(s string) string {
 
 var httpPat = regexp.MustCompile(`https?://\S+`)
 
+func collectSynopsisTerms(terms map[string]bool, synopsis string) {
+
+	synopsis = httpPat.ReplaceAllLiteralString(synopsis, "")
+
+	fields := strings.FieldsFunc(synopsis, isTermSep)
+	for i := range fields {
+		fields[i] = strings.ToLower(fields[i])
+	}
+
+	// Ignore boilerplate in the following common patterns:
+	//  Package foo ...
+	//  Command foo ...
+	//  Package foo implements ... (and provides, contains)
+	//  The foo package ...
+	//  The foo package implements ...
+	//  The foo command ...
+
+	checkPackageVerb := false
+	switch {
+	case len(fields) >= 1 && fields[0] == "package":
+		fields = fields[1:]
+		checkPackageVerb = true
+	case len(fields) >= 1 && fields[0] == "command":
+		fields = fields[1:]
+	case len(fields) >= 3 && fields[0] == "the" && fields[2] == "package":
+		fields[2] = fields[1]
+		fields = fields[2:]
+		checkPackageVerb = true
+	case len(fields) >= 3 && fields[0] == "the" && fields[2] == "command":
+		fields[2] = fields[1]
+		fields = fields[2:]
+	}
+
+	if checkPackageVerb && len(fields) >= 2 &&
+		(fields[1] == "implements" || fields[1] == "provides" || fields[1] == "contains") {
+		fields[1] = fields[0]
+		fields = fields[1:]
+	}
+
+	for _, s := range fields {
+		if !stopWord[s] {
+			terms[term(s)] = true
+		}
+	}
+}
+
+func termSlice(terms map[string]bool) []string {
+	result := make([]string, 0, len(terms))
+	for term := range terms {
+		result = append(result, term)
+	}
+	return result
+}
+
 func documentTerms(pdoc *doc.Package, score float64) []string {
 
 	terms := make(map[string]bool)
@@ -87,20 +141,11 @@ func documentTerms(pdoc *doc.Package, score float64) []string {
 
 		// Synopsis
 
-		synopsis := httpPat.ReplaceAllLiteralString(pdoc.Synopsis, "")
-		for i, s := range strings.FieldsFunc(synopsis, isTermSep) {
-			s = strings.ToLower(s)
-			if !stopWord[s] && (i > 3 || s != "package") {
-				terms[term(s)] = true
-			}
-		}
+		collectSynopsisTerms(terms, pdoc.Synopsis)
+
 	}
 
-	result := make([]string, 0, len(terms))
-	for term := range terms {
-		result = append(result, term)
-	}
-	return result
+	return termSlice(terms)
 }
 
 // vendorPat matches the path of a vendored package.
