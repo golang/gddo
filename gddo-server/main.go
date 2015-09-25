@@ -18,6 +18,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -760,12 +761,29 @@ func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err
 	json.NewEncoder(resp).Encode(&data)
 }
 
-type hostMux []struct {
+type rootHandler []struct {
 	prefix string
 	h      http.Handler
 }
 
-func (m hostMux) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (m rootHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	host := req.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	if host == "godoc.org" {
+		if req.Header.Get("X-Scheme") != "https" {
+			u := *req.URL
+			u.Scheme = "https"
+			u.Host = host
+			http.Redirect(resp, req, u.String(), http.StatusFound)
+			return
+		}
+		// Because https is not used api.godoc.org, the includeSubDomains
+		// parameter is not used here.
+		resp.Header().Add("Strict-Transport-Security", "max-age=631138519; preload")
+	}
+
 	var h http.Handler
 	for _, ph := range m {
 		if strings.HasPrefix(req.Host, ph.prefix) {
@@ -773,6 +791,7 @@ func (m hostMux) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			break
 		}
 	}
+
 	h.ServeHTTP(resp, req)
 }
 
@@ -898,11 +917,7 @@ func main() {
 
 	cacheBusters.Handler = mux
 
-	allMux := httpsEnforcerHandler{
-		hostMux{{"api.", apiMux}, {"", mux}},
-	}
-
-	if err := http.ListenAndServe(*httpAddr, allMux); err != nil {
+	if err := http.ListenAndServe(*httpAddr, rootHandler{{"api.", apiMux}, {"", mux}}); err != nil {
 		log.Fatal(err)
 	}
 }
