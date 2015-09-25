@@ -60,6 +60,7 @@ const (
 	robotRequest
 	queryRequest
 	refreshRequest
+	apiRequest
 )
 
 type crawlResult struct {
@@ -84,7 +85,7 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 
 	needsCrawl := false
 	switch requestType {
-	case queryRequest:
+	case queryRequest, apiRequest:
 		needsCrawl = nextCrawl.IsZero() && len(pkgs) == 0
 	case humanRequest:
 		needsCrawl = nextCrawl.Before(time.Now())
@@ -598,7 +599,10 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	var pkgs []database.Package
 
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, _, err := getDoc(q, robotRequest)
+		pdoc, _, err := getDoc(q, apiRequest)
+		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
+			pdoc, _, err = getDoc(e.Redirect, robotRequest)
+		}
 		if err == nil && pdoc != nil {
 			pkgs = []database.Package{{Path: pdoc.ImportPath, Synopsis: pdoc.Synopsis}}
 		}
