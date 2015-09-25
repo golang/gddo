@@ -898,7 +898,11 @@ func main() {
 
 	cacheBusters.Handler = mux
 
-	if err := http.ListenAndServe(*httpAddr, hostMux{{"api.", apiMux}, {"", mux}}); err != nil {
+	allMux := httpsEnforcerHandler{
+		hostMux{{"api.", apiMux}, {"", mux}},
+	}
+
+	if err := http.ListenAndServe(*httpAddr, allMux); err != nil {
 		log.Fatal(err)
 	}
 }
