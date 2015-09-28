@@ -178,7 +178,7 @@
         <div id="ex-{{.ID}}" class="panel-collapse collapse"><div class="panel-body">
           {{with .Example.Doc}}<p>{{.|comment}}{{end}}
           <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
-          <pre>{{code .Example.Code nil}}</pre>
+          {{code .Example.Code nil}}
           {{with .Example.Output}}<p>Output:<pre>{{.}}</pre>{{end}}
         </div></div>
       </div>
