@@ -19,12 +19,12 @@ ADD deploy/services /services
 
 # Manually fetch and install gddo-server dependencies (faster than "go get").
 ADD https://github.com/garyburd/redigo/archive/779af66db5668074a96f522d9025cb0a5ef50d89.zip /x/redigo.zip
-ADD https://snappy-go.googlecode.com/archive/12e4b4183793ac4b061921e7980845e750679fd0.tar.gz /x/snappy-go.tar.gz
-RUN unzip /x/redigo.zip -d /x && tar xzvf /x/snappy-go.tar.gz -C /x && \
+ADD https://github.com/golang/snappy/archive/master.zip /x/snappy-go.zip
+RUN unzip /x/redigo.zip -d /x && unzip /x/snappy-go.zip -d /x && \
 	mkdir -p /go/src/github.com/garyburd && \
-	mkdir -p /go/src/code.google.com/p && \
+	mkdir -p /go/src/github.com/golang && \
 	mv /x/redigo-* /go/src/github.com/garyburd/redigo && \
-	mv /x/snappy-go-* /go/src/code.google.com/p/snappy-go && \
+	mv /x/snappy-master /go/src/github.com/golang/snappy && \
 	rm -rf /x
 
 # Build the local gddo files.
