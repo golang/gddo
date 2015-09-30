@@ -95,7 +95,7 @@ func TestDocTerms(t *testing.T) {
 		sort.Strings(terms)
 		sort.Strings(tt.terms)
 		if !reflect.DeepEqual(terms, tt.terms) {
-			t.Errorf("documentTerms(%s)=%#v, want %#v", tt.pdoc.ImportPath, terms, tt.terms)
+			t.Errorf("documentTerms(%s) ->\n got: %#v\nwant: %#v", tt.pdoc.ImportPath, terms, tt.terms)
 		}
 	}
 }
@@ -124,6 +124,79 @@ func TestVendorPat(t *testing.T) {
 		match := vendorPat.MatchString(tt.path)
 		if match != tt.match {
 			t.Errorf("match(%q) = %v, want %v", tt.path, match, match)
+		}
+	}
+}
+
+var synopsisTermTests = []struct {
+	synopsis string
+	terms    []string
+}{
+	{
+		"Package foo implements bar.",
+		[]string{"bar", "foo"},
+	},
+	{
+		"Package foo provides bar.",
+		[]string{"bar", "foo"},
+	},
+	{
+		"The foo package provides bar.",
+		[]string{"bar", "foo"},
+	},
+	{
+		"Package foo contains an implementation of bar.",
+		[]string{"bar", "foo", "impl"},
+	},
+	{
+		"Package foo is awesome",
+		[]string{"awesom", "foo"},
+	},
+	{
+		"The foo package is awesome",
+		[]string{"awesom", "foo"},
+	},
+	{
+		"The foo command is awesome",
+		[]string{"awesom", "foo"},
+	},
+	{
+		"Command foo is awesome",
+		[]string{"awesom", "foo"},
+	},
+	{
+		"The foo package",
+		[]string{"foo"},
+	},
+	{
+		"Package foo",
+		[]string{"foo"},
+	},
+	{
+		"Command foo",
+		[]string{"foo"},
+	},
+	{
+		"Package",
+		[]string{},
+	},
+	{
+		"Command",
+		[]string{},
+	},
+}
+
+func TestSynopsisTerms(t *testing.T) {
+	for _, tt := range synopsisTermTests {
+		terms := make(map[string]bool)
+		collectSynopsisTerms(terms, tt.synopsis)
+
+		actual := termSlice(terms)
+		expected := tt.terms
+		sort.Strings(actual)
+		sort.Strings(expected)
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("%q ->\n got: %#v\nwant: %#v", tt.synopsis, actual, expected)
 		}
 	}
 }
