@@ -119,6 +119,24 @@ $(function() {
 
 });
 
+$(function() {
+
+    if ("onhashchange" in window) {
+        var highlightedSel = "";
+        window.onhashchange = function() {
+            if (highlightedSel) {
+                $(highlightedSel).removeClass("highlighted");
+            }
+            highlightedSel = window.location.hash.replace( /(:|\.|\[|\]|,)/g, "\\$1" );
+            if (highlightedSel && (highlightedSel.indexOf("example-") == -1)) {
+                $(highlightedSel).addClass("highlighted");
+            }
+        };
+        window.onhashchange();
+    }
+
+});
+
 // keyboard shortcuts
 $(function() {
     var prevCh = null, prevTime = 0, modal = false;
