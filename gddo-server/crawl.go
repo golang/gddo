@@ -56,6 +56,9 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		pdocNew, err = doc.Get(httpClient, importPath, etag)
 		message = append(message, "fetch:", int64(time.Since(start)/time.Millisecond))
 		if err == nil && pdocNew.Name == "" && !hasSubdirs {
+			for _, e := range pdocNew.Errors {
+				message = append(message, "err:", e)
+			}
 			pdoc = nil
 			err = gosrc.NotFoundError{Message: "no Go files or subdirs"}
 		} else if err != gosrc.ErrNotModified {
