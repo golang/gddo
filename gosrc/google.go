@@ -30,10 +30,32 @@ var (
 	googleFileRe     = regexp.MustCompile(`<li><a href="([^"]+)"`)
 )
 
+func checkGoogleRedir(c *httpClient, match map[string]string) error {
+	resp, err := c.getNoFollow(expand("https://code.google.com/{pr}/{repo}/", match))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	}
+	if resp.StatusCode == http.StatusMovedPermanently {
+		if u, err := url.Parse(resp.Header.Get("Location")); err == nil {
+			p := u.Host + u.Path + match["dir"]
+			return NotFoundError{Message: "Project moved", Redirect: p}
+		}
+	}
+	return c.err(resp)
+}
+
 func getGoogleDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+	setupGoogleMatch(match)
 	c := &httpClient{client: client}
 
-	setupGoogleMatch(match)
+	if err := checkGoogleRedir(c, match); err != nil {
+		return nil, err
+	}
+
 	if m := googleEtagRe.FindStringSubmatch(savedEtag); m != nil {
 		match["vcs"] = m[1]
 	} else if err := getGoogleVCS(c, match); err != nil {
