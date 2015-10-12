@@ -745,7 +745,9 @@ func errorText(err error) string {
 func handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch status {
 	case http.StatusNotFound:
-		executeTemplate(resp, "notfound"+templateExt(req), status, nil, nil)
+		executeTemplate(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
+			"flashMessages": getFlashMessages(resp, req),
+		})
 	default:
 		resp.Header().Set("Content-Type", textMIMEType)
 		resp.WriteHeader(http.StatusInternalServerError)
