@@ -30,6 +30,7 @@ func (c *httpClient) err(resp *http.Response) error {
 	return &RemoteError{resp.Request.URL.Host, fmt.Errorf("%d: (%s)", resp.StatusCode, resp.Request.URL.String())}
 }
 
+// get issues a GET to the specified URL.
 func (c *httpClient) get(url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -39,6 +40,26 @@ func (c *httpClient) get(url string) (*http.Response, error) {
 		req.Header[k] = vs
 	}
 	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, &RemoteError{req.URL.Host, err}
+	}
+	return resp, err
+}
+
+// getNoFollow issues a GET to the specified URL without following redirects.
+func (c *httpClient) getNoFollow(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, vs := range c.header {
+		req.Header[k] = vs
+	}
+	t := c.client.Transport
+	if t == nil {
+		t = http.DefaultTransport
+	}
+	resp, err := t.RoundTrip(req)
 	if err != nil {
 		return nil, &RemoteError{req.URL.Host, err}
 	}
