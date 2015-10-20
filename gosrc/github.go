@@ -18,7 +18,7 @@ import (
 
 func init() {
 	addService(&service{
-		pattern:         regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[^/]*)?$`),
+		pattern:         regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/.*)?$`),
 		prefix:          "github.com/",
 		get:             getGitHubDir,
 		getPresentation: getGitHubPresentation,
