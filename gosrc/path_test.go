@@ -36,7 +36,15 @@ func TestIsValidRemotePath(t *testing.T) {
 		if !IsValidRemotePath(importPath) {
 			t.Errorf("isBadImportPath(%q) -> true, want false", importPath)
 		}
+
+		for _, s := range services {
+			if _, err := s.match(importPath); err != nil {
+				t.Errorf("match(%#v) → error %v", importPath, err)
+				break
+			}
+		}
 	}
+
 	for _, importPath := range badImportPaths {
 		if IsValidRemotePath(importPath) {
 			t.Errorf("isBadImportPath(%q) -> false, want true", importPath)
