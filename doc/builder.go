@@ -456,6 +456,7 @@ var goEnvs = []struct{ GOOS, GOARCH string }{
 	{"linux", "amd64"},
 	{"darwin", "amd64"},
 	{"windows", "amd64"},
+	{"linux", "js"},
 }
 
 // SetDefaultGOOS sets given GOOS value as default one to use when building
