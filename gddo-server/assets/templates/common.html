@@ -88,7 +88,7 @@
 
 {{define "Bootstrap.css"}}<link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" rel="stylesheet">{{end}}
 {{define "Bootstrap.js"}}<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>{{end}}
-{{define "jQuery"}}<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>{{end}}
+{{define "jQuery"}}<script src="//code.jquery.com/jquery-2.0.3.min.js"></script>{{end}}
 
 {{define "FlashMessages"}}{{range .}}
   {{if eq .ID "redir"}}{{if eq (len .Args) 1}}<div class="alert alert-warning">Redirected from {{index .Args 0}}.</div>{{end}}
