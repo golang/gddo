@@ -151,8 +151,8 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 		return "", "", ErrNotModified
 	}
 
-	dir := path.Join(TempDir, repo+".git")
-	p, err = ioutil.ReadFile(path.Join(dir, ".git/HEAD"))
+	dir := filepath.Join(TempDir, repo+".git")
+	p, err = ioutil.ReadFile(filepath.Join(dir, ".git", "HEAD"))
 	switch {
 	case err != nil:
 		if err := os.MkdirAll(dir, 0777); err != nil {
@@ -282,7 +282,7 @@ func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (
 
 	// Slurp source files.
 
-	d := path.Join(TempDir, expand("{repo}.{vcs}", match), match["dir"])
+	d := filepath.Join(TempDir, filepath.FromSlash(expand("{repo}.{vcs}", match)), filepath.FromSlash(match["dir"]))
 	f, err := os.Open(d)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -304,7 +304,7 @@ func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (
 				subdirs = append(subdirs, fi.Name())
 			}
 		case isDocFile(fi.Name()):
-			b, err := ioutil.ReadFile(path.Join(d, fi.Name()))
+			b, err := ioutil.ReadFile(filepath.Join(d, fi.Name()))
 			if err != nil {
 				return nil, err
 			}
