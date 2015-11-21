@@ -121,7 +121,7 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 	var p []byte
 	var scheme string
 	for i := range schemes {
-		cmd := exec.Command("git", "ls-remote", "--heads", "--tags", schemes[i]+"://"+repo+".git")
+		cmd := exec.Command("git", "ls-remote", "--heads", "--tags", schemes[i]+"://"+repo)
 		log.Println(strings.Join(cmd.Args, " "))
 		var err error
 		p, err = outputWithTimeout(cmd, lsRemoteTimeout)
@@ -158,7 +158,7 @@ func downloadGit(schemes []string, repo, savedEtag string) (string, string, erro
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return "", "", err
 		}
-		cmd := exec.Command("git", "clone", scheme+"://"+repo+".git", dir)
+		cmd := exec.Command("git", "clone", scheme+"://"+repo, dir)
 		log.Println(strings.Join(cmd.Args, " "))
 		if err := runWithTimeout(cmd, cloneTimeout); err != nil {
 			return "", "", err
