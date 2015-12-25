@@ -331,6 +331,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 	}
 	proto := repo[:i]
 	repo = repo[i+len("://"):]
+	repoVCS := im.repo[i+len("://"):]
 	dirName := importPath[len(im.projectRoot):]
 
 	resolvedPath := repo + dirName
@@ -341,6 +342,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 			"dir":        dirName,
 			"importPath": importPath,
 			"repo":       repo,
+			"repoVCS":    repoVCS, // repoVCS is like repo, but without the vcs suffix trimmed.
 			"scheme":     proto,
 			"vcs":        im.vcs,
 		}
