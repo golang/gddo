@@ -117,11 +117,11 @@ var vcsCmds = map[string]*vcsCmd{
 
 var lsremoteRe = regexp.MustCompile(`(?m)^([0-9a-f]{40})\s+refs/(?:tags|heads)/(.+)$`)
 
-func downloadGit(schemes []string, repo, repoVCS, savedEtag string) (string, string, error) {
+func downloadGit(schemes []string, clonePath, repo, savedEtag string) (string, string, error) {
 	var p []byte
 	var scheme string
 	for i := range schemes {
-		cmd := exec.Command("git", "ls-remote", "--heads", "--tags", schemes[i]+"://"+repoVCS)
+		cmd := exec.Command("git", "ls-remote", "--heads", "--tags", schemes[i]+"://"+clonePath)
 		log.Println(strings.Join(cmd.Args, " "))
 		var err error
 		p, err = outputWithTimeout(cmd, lsRemoteTimeout)
@@ -158,7 +158,7 @@ func downloadGit(schemes []string, repo, repoVCS, savedEtag string) (string, str
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return "", "", err
 		}
-		cmd := exec.Command("git", "clone", scheme+"://"+repoVCS, dir)
+		cmd := exec.Command("git", "clone", scheme+"://"+clonePath, dir)
 		log.Println(strings.Join(cmd.Args, " "))
 		if err := runWithTimeout(cmd, cloneTimeout); err != nil {
 			return "", "", err
@@ -183,12 +183,12 @@ func downloadGit(schemes []string, repo, repoVCS, savedEtag string) (string, str
 	return tag, etag, nil
 }
 
-func downloadSVN(schemes []string, repo, repoVCS, savedEtag string) (string, string, error) {
+func downloadSVN(schemes []string, clonePath, repo, savedEtag string) (string, string, error) {
 	var scheme string
 	var revno string
 	for i := range schemes {
 		var err error
-		revno, err = getSVNRevision(schemes[i] + "://" + repoVCS)
+		revno, err = getSVNRevision(schemes[i] + "://" + clonePath)
 		if err == nil {
 			scheme = schemes[i]
 			break
@@ -212,7 +212,7 @@ func downloadSVN(schemes []string, repo, repoVCS, savedEtag string) (string, str
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return "", "", err
 		}
-		cmd := exec.Command("svn", "checkout", scheme+"://"+repoVCS, "-r", revno, dir)
+		cmd := exec.Command("svn", "checkout", scheme+"://"+clonePath, "-r", revno, dir)
 		log.Println(strings.Join(cmd.Args, " "))
 		if err := runWithTimeout(cmd, cloneTimeout); err != nil {
 			return "", "", err
@@ -271,7 +271,7 @@ func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (
 
 	// Download and checkout.
 
-	tag, etag, err := cmd.download(schemes, match["repo"], match["repoVCS"], etagSaved)
+	tag, etag, err := cmd.download(schemes, match["clonePath"], match["repo"], etagSaved)
 	if err != nil {
 		return nil, err
 	}

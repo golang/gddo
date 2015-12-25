@@ -324,14 +324,17 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 		}
 	}
 
-	repo := strings.TrimSuffix(im.repo, "."+im.vcs)
-	i := strings.Index(repo, "://")
+	// clonePath is the repo URL from import meta tag, with the "scheme://" prefix removed.
+	// It should be used for cloning repositories.
+	// repo is the repo URL from import meta tag, with the "scheme://" prefix removed, and
+	// a possible ".vcs" suffix trimmed.
+	i := strings.Index(im.repo, "://")
 	if i < 0 {
 		return nil, NotFoundError{Message: "bad repo URL: " + im.repo}
 	}
-	proto := repo[:i]
-	repo = repo[i+len("://"):]
-	repoVCS := im.repo[i+len("://"):]
+	proto := im.repo[:i]
+	clonePath := im.repo[i+len("://"):]
+	repo := strings.TrimSuffix(clonePath, "."+im.vcs)
 	dirName := importPath[len(im.projectRoot):]
 
 	resolvedPath := repo + dirName
@@ -341,8 +344,8 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 		match := map[string]string{
 			"dir":        dirName,
 			"importPath": importPath,
+			"clonePath":  clonePath,
 			"repo":       repo,
-			"repoVCS":    repoVCS, // repoVCS is like repo, but without the vcs suffix trimmed.
 			"scheme":     proto,
 			"vcs":        im.vcs,
 		}
