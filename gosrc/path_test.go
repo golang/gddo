@@ -20,6 +20,7 @@ var goodImportPaths = []string{
 	"launchpad.net/~user/foo/trunk",
 	"launchpad.net/~user/+junk/version",
 	"github.com/user/repo/_ok/x",
+	"exampleproject.com",
 }
 
 var badImportPaths = []string{
@@ -27,7 +28,6 @@ var badImportPaths = []string{
 	"foo.",
 	".bar",
 	"favicon.ico",
-	"exmpple.com",
 	"github.com/user/repo/.ignore/x",
 }
 
