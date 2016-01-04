@@ -811,27 +811,28 @@ func defaultBase(path string) string {
 
 var (
 	db                    *database.Database
+	httpClient            *http.Client
 	statusImageHandlerPNG http.Handler
 	statusImageHandlerSVG http.Handler
 )
 
 var (
-	robot             = flag.Float64("robot", 100, "Request counter threshold for robots.")
-	assetsDir         = flag.String("assets", filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
-	getTimeout        = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
-	firstGetTimeout   = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
-	maxAge            = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
-	httpAddr          = flag.String("http", ":8080", "Listen for HTTP connections on this address.")
-	sidebarEnabled    = flag.Bool("sidebar", false, "Enable package page sidebar.")
-	defaultGOOS       = flag.String("default_goos", "", "Default GOOS to use when building package documents.")
-	gitHubCredentials = ""
-	userAgent         = ""
+	robot           = flag.Float64("robot", 100, "Request counter threshold for robots.")
+	assetsDir       = flag.String("assets", filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
+	getTimeout      = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
+	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
+	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
+	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address.")
+	sidebarEnabled  = flag.Bool("sidebar", false, "Enable package page sidebar.")
+	defaultGOOS     = flag.String("default_goos", "", "Default GOOS to use when building package documents.")
 )
 
 func main() {
 	flag.Parse()
-	doc.SetDefaultGOOS(*defaultGOOS)
 	log.Printf("Starting server, os.Args=%s", strings.Join(os.Args, " "))
+
+	doc.SetDefaultGOOS(*defaultGOOS)
+	httpClient = newHTTPClient()
 
 	if err := parseHTMLTemplates([][]string{
 		{"about.html", "common.html", "layout.html"},

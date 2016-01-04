@@ -6,7 +6,7 @@ This directory contains the source for [go-talks.appspot.com](http://go-talks.ap
 Development Environment Setup
 -----------------------------
 
-- Copy config.go.template to config.go and edit the file as described in the comments.
-- Install Go App Engine SDK 
+- Copy `app.yaml` to `prod.yaml` and put in the authentication data.
+- Install Go App Engine SDK.
 - $ sh setup.sh 
-- Run the server using the dev_appserver command.
+- Run the server using the `goapp serve prod.yaml` command.

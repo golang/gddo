@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,6 +24,8 @@ import (
 	"appengine/urlfetch"
 
 	"github.com/golang/gddo/gosrc"
+	"github.com/golang/gddo/httputil"
+
 	"github.com/golang/lint"
 )
 
@@ -30,6 +33,9 @@ func init() {
 	http.Handle("/", handlerFunc(serveRoot))
 	http.Handle("/-/bot", handlerFunc(serveBot))
 	http.Handle("/-/refresh", handlerFunc(serveRefresh))
+	if s := os.Getenv("CONTACT_EMAIL"); s != "" {
+		contactEmail = s
+	}
 }
 
 var (
@@ -41,7 +47,7 @@ var (
 		"timeago":      timeagoFn,
 		"contactEmail": contactEmailFn,
 	}
-	gitHubCredentials = ""
+	github = httputil.NewAuthTransportFromEnvironment(nil)
 )
 
 func parseTemplate(fnames ...string) *template.Template {
@@ -102,29 +108,15 @@ func writeErrorResponse(w http.ResponseWriter, status int) error {
 	return writeResponse(w, status, errorTemplate, http.StatusText(status))
 }
 
-type transport struct {
-	rt http.RoundTripper
-	ua string
-}
-
-func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.Header.Set("User-Agent", t.ua)
-	if r.URL.Host == "api.github.com" && gitHubCredentials != "" {
-		if r.URL.RawQuery == "" {
-			r.URL.RawQuery = gitHubCredentials
-		} else {
-			r.URL.RawQuery += "&" + gitHubCredentials
-		}
-	}
-	return t.rt.RoundTrip(r)
-}
-
 func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
 	return &http.Client{
-		Transport: &transport{
-			rt: &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
-			ua: fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
+		Transport: &httputil.Transport{
+			Token:        github.Token,
+			ClientID:     github.ClientID,
+			ClientSecret: github.ClientSecret,
+			Base:         &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
+			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
 		},
 	}
 }
