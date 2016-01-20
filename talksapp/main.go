@@ -117,7 +117,7 @@ func writeTextHeader(w http.ResponseWriter, status int) {
 func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
 	return &http.Client{
-		Transport: &httputil.Transport{
+		Transport: &httputil.AuthTransport{
 			Token:        github.Token,
 			ClientID:     github.ClientID,
 			ClientSecret: github.ClientSecret,
