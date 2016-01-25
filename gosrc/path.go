@@ -26,11 +26,6 @@ func IsValidRemotePath(importPath string) bool {
 
 	parts := strings.Split(importPath, "/")
 
-	if len(parts) <= 1 {
-		// Import path must contain at least one "/".
-		return false
-	}
-
 	if !validTLDs[path.Ext(parts[0])] {
 		return false
 	}
