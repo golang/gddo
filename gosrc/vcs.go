@@ -101,7 +101,7 @@ func lookupURLTemplate(repo, dir, tag string) (*urlTemplates, map[string]string)
 
 type vcsCmd struct {
 	schemes  []string
-	download func([]string, string, string, string) (string, string, error)
+	download func(schemes []string, clonePath, repo, savedEtag string) (tag, etag string, err error)
 }
 
 var vcsCmds = map[string]*vcsCmd{
