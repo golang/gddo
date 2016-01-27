@@ -115,6 +115,14 @@ func TestPresentationCacheHit(t *testing.T) {
 }
 
 func TestPresentationNotFound(t *testing.T) {
+	originalGetPresentation := getPresentation
+	getPresentation = func(client *http.Client, importPath string) (*gosrc.Presentation, error) {
+		return nil, gosrc.NotFoundError{}
+	}
+	defer func() {
+		getPresentation = originalGetPresentation
+	}()
+
 	do(t, "GET", "/"+importPath, func(r *http.Request) {
 		w := httptest.NewRecorder()
 		handlerFunc(serveRoot).ServeHTTP(w, r)
