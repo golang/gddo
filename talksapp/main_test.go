@@ -155,11 +155,11 @@ func TestCompile(t *testing.T) {
 			formBody := r.FormValue("body")
 
 			if formVersion != version {
-				t.Fatal("expected version sent to play.golang.org to be: %s, was: %s", version, formVersion)
+				t.Fatalf("expected version sent to play.golang.org to be: %s, was: %s", version, formVersion)
 			}
 
 			if formBody != body {
-				t.Fatal("expected body sent to play.golang.org to be: %s, was: %s", body, formBody)
+				t.Fatalf("expected body sent to play.golang.org to be: %s, was: %s", body, formBody)
 			}
 
 			w.Header().Set("Content-Type", "application/json")
