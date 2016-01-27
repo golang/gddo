@@ -170,8 +170,8 @@ func TestCompile(t *testing.T) {
 	)
 	defer server.Close()
 
-	defer func(old string) { playCompileUrl = old }(playCompileUrl)
-	playCompileUrl = server.URL
+	defer func(old string) { playCompileURL = old }(playCompileURL)
+	playCompileURL = server.URL
 
 	do(t, "POST", "/compile", func(r *http.Request) {
 		r.PostForm = url.Values{

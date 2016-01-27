@@ -39,7 +39,7 @@ var (
 
 	// used for mocking in tests
 	getPresentation = gosrc.GetPresentation
-	playCompileUrl  = "http://play.golang.org/compile"
+	playCompileURL  = "http://play.golang.org/compile"
 )
 
 func init() {
@@ -226,7 +226,7 @@ func serveCompile(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
-	resp, err := client.PostForm(playCompileUrl, r.Form)
+	resp, err := client.PostForm(playCompileURL, r.Form)
 	if err != nil {
 		return err
 	}
