@@ -25,28 +25,18 @@ import (
 const importPath = "github.com/user/repo/path/to/presentation.slide"
 
 func TestHome(t *testing.T) {
-	i, err := aetest.NewInstance(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer i.Close()
+	do(t, "GET", "/", func(r *http.Request) {
+		w := httptest.NewRecorder()
+		handlerFunc(serveRoot).ServeHTTP(w, r)
 
-	r, err := i.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
+		}
 
-	w := httptest.NewRecorder()
-
-	handlerFunc(serveRoot).ServeHTTP(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
-	}
-
-	if !strings.Contains(w.Body.String(), "go-talks.appspot.org") {
-		t.Fatal("expected response to contain: go-talks.appspot.org")
-	}
+		if !strings.Contains(w.Body.String(), "go-talks.appspot.org") {
+			t.Fatal("expected response to contain: go-talks.appspot.org")
+		}
+	})
 }
 
 func TestPresentation(t *testing.T) {
@@ -75,122 +65,75 @@ Subtitle
 		getPresentation = originalGetPresentation
 	}()
 
-	i, err := aetest.NewInstance(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer i.Close()
+	do(t, "GET", "/"+importPath, func(r *http.Request) {
+		w := httptest.NewRecorder()
+		handlerFunc(serveRoot).ServeHTTP(w, r)
 
-	r, err := i.NewRequest("GET", "/"+importPath, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	w := httptest.NewRecorder()
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
+		}
 
-	handlerFunc(serveRoot).ServeHTTP(w, r)
+		if !strings.Contains(w.Body.String(), presentationTitle) {
+			t.Fatalf("unexpected response body: %s", w.Body)
+		}
 
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
-	}
+		c := appengine.NewContext(r)
+		_, err := memcache.Get(c, importPath)
 
-	if !strings.Contains(w.Body.String(), presentationTitle) {
-		t.Fatalf("unexpected response body: %s", w.Body)
-	}
+		if err == memcache.ErrCacheMiss {
+			t.Fatal("expected result to be cached")
+		}
 
-	c := appengine.NewContext(r)
-	_, err = memcache.Get(c, importPath)
-
-	if err == memcache.ErrCacheMiss {
-		t.Fatal("expected result to be cached")
-	}
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %s", err)
-	}
+		if err != nil {
+			t.Fatalf("expected no error, got: %s", err)
+		}
+	})
 }
 
 func TestPresentationCacheHit(t *testing.T) {
-	cachedPresentation := "<div>My Presentation</div>"
+	do(t, "GET", "/"+importPath, func(r *http.Request) {
+		cachedPresentation := "<div>My Presentation</div>"
 
-	i, err := aetest.NewInstance(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer i.Close()
+		c := appengine.NewContext(r)
+		memcache.Add(c, &memcache.Item{
+			Key:        importPath,
+			Value:      []byte(cachedPresentation),
+			Expiration: time.Hour,
+		})
 
-	r, err := i.NewRequest("GET", "/"+importPath, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+		w := httptest.NewRecorder()
+		handlerFunc(serveRoot).ServeHTTP(w, r)
 
-	w := httptest.NewRecorder()
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
+		}
 
-	c := appengine.NewContext(r)
-	memcache.Add(c, &memcache.Item{
-		Key:        importPath,
-		Value:      []byte(cachedPresentation),
-		Expiration: time.Hour,
+		if w.Body.String() != cachedPresentation {
+			t.Fatal("response does not matched cached presentation")
+		}
 	})
-
-	handlerFunc(serveRoot).ServeHTTP(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
-	}
-
-	if w.Body.String() != cachedPresentation {
-		t.Fatal("response does not matched cached presentation")
-	}
 }
 
 func TestPresentationNotFound(t *testing.T) {
-	originalGetPresentation := getPresentation
-	getPresentation = func(client *http.Client, importPath string) (*gosrc.Presentation, error) {
-		return nil, gosrc.NotFoundError{}
-	}
-	defer func() {
-		getPresentation = originalGetPresentation
-	}()
+	do(t, "GET", "/"+importPath, func(r *http.Request) {
+		w := httptest.NewRecorder()
+		handlerFunc(serveRoot).ServeHTTP(w, r)
 
-	i, err := aetest.NewInstance(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer i.Close()
-
-	r, err := i.NewRequest("GET", "/"+importPath, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	w := httptest.NewRecorder()
-
-	handlerFunc(serveRoot).ServeHTTP(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected status: %d, got: %d", http.StatusBadRequest, w.Code)
-	}
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status: %d, got: %d", http.StatusBadRequest, w.Code)
+		}
+	})
 }
 
 func TestWrongMethod(t *testing.T) {
-	i, err := aetest.NewInstance(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer i.Close()
+	do(t, "POST", "/", func(r *http.Request) {
+		w := httptest.NewRecorder()
+		handlerFunc(serveRoot).ServeHTTP(w, r)
 
-	r, err := i.NewRequest("POST", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	w := httptest.NewRecorder()
-
-	handlerFunc(serveRoot).ServeHTTP(w, r)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected status %d", http.StatusMethodNotAllowed)
-	}
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("expected status %d", http.StatusMethodNotAllowed)
+		}
+	})
 }
 
 func TestCompile(t *testing.T) {
@@ -227,67 +170,59 @@ func TestCompile(t *testing.T) {
 	)
 	defer server.Close()
 
-	originalPlayCompileUrl := playCompileUrl
+	defer func(old string) { playCompileUrl = old }(playCompileUrl)
 	playCompileUrl = server.URL
-	defer func() {
-		playCompileUrl = originalPlayCompileUrl
-	}()
 
-	i, err := aetest.NewInstance(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer i.Close()
+	do(t, "POST", "/compile", func(r *http.Request) {
+		r.PostForm = url.Values{
+			"version": []string{version},
+			"body":    []string{body},
+		}
 
-	r, err := i.NewRequest("POST", "/compile", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+		w := httptest.NewRecorder()
+		handlerFunc(serveCompile).ServeHTTP(w, r)
 
-	r.PostForm = url.Values{
-		"version": []string{version},
-		"body":    []string{body},
-	}
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
+		}
 
-	w := httptest.NewRecorder()
+		contentType := w.Header().Get("Content-Type")
+		if w.Header().Get("Content-Type") != "application/json" {
+			t.Fatalf("unexpected Content-Type: %s", contentType)
+		}
 
-	handlerFunc(serveCompile).ServeHTTP(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
-	}
-
-	contentType := w.Header().Get("Content-Type")
-	if w.Header().Get("Content-Type") != "application/json" {
-		t.Fatalf("unexpected Content-Type: %s", contentType)
-	}
-
-	if strings.TrimSpace(w.Body.String()) != responseJSON {
-		t.Fatalf("unexpected response body: %s", w.Body)
-	}
+		if strings.TrimSpace(w.Body.String()) != responseJSON {
+			t.Fatalf("unexpected response body: %s", w.Body)
+		}
+	})
 }
 
 func TestBot(t *testing.T) {
+	do(t, "GET", "/bot.html", func(r *http.Request) {
+		w := httptest.NewRecorder()
+		handlerFunc(serveBot).ServeHTTP(w, r)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
+		}
+
+		if !strings.Contains(w.Body.String(), contactEmail) {
+			t.Fatalf("expected body to contain %s", contactEmail)
+		}
+	})
+}
+
+func do(t *testing.T, method, path string, f func(*http.Request)) {
 	i, err := aetest.NewInstance(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer i.Close()
 
-	r, err := i.NewRequest("GET", "/bot.html", nil)
+	r, err := i.NewRequest(method, path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	w := httptest.NewRecorder()
-
-	handlerFunc(serveBot).ServeHTTP(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
-	}
-
-	if !strings.Contains(w.Body.String(), contactEmail) {
-		t.Fatalf("expected body to contain %s", contactEmail)
-	}
+	f(r)
 }
