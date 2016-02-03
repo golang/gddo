@@ -9,7 +9,7 @@ Gary Burd
 * Introduction
 
 This site plays slide presentations and articles stored on GitHub in the 
-[[http://godoc.org/code.google.com/p/go.tools/present][present format]].
+[[https://godoc.org/golang.org/x/tools/present][present format]].
 
 The syntax for URLs is:
 
