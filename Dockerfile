@@ -29,7 +29,7 @@ RUN unzip /x/redigo.zip -d /x && unzip /x/snappy-go.zip -d /x && \
 
 # Build the local gddo files.
 ADD . /go/src/github.com/golang/gddo
-RUN go install github.com/golang/gddo/gddo-server
+RUN go get github.com/golang/gddo/gddo-server
 
 # Exposed ports and volumes.
 # /ssl should contain SSL certs.
