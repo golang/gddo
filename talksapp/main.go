@@ -35,7 +35,6 @@ var (
 	}
 	homeArticle  = loadHomeArticle()
 	contactEmail = "golang-dev@googlegroups.com"
-	github       = httputil.NewAuthTransportFromEnvironment(nil)
 
 	// used for mocking in tests
 	getPresentation = gosrc.GetPresentation
@@ -120,6 +119,8 @@ func writeTextHeader(w http.ResponseWriter, status int) {
 
 func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
+	github := httputil.NewAuthTransportFromEnvironment(nil)
+
 	return &http.Client{
 		Transport: &httputil.AuthTransport{
 			Token:        github.Token,
