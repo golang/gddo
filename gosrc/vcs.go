@@ -269,9 +269,16 @@ func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (
 		}
 	}
 
+	clonePath, ok := match["clonePath"]
+	if !ok {
+		// clonePath may be unset if we're being called via the generic repo.vcs/dir regexp matcher.
+		// In that case, set it to the repo value.
+		clonePath = match["repo"]
+	}
+
 	// Download and checkout.
 
-	tag, etag, err := cmd.download(schemes, match["clonePath"], match["repo"], etagSaved)
+	tag, etag, err := cmd.download(schemes, clonePath, match["repo"], etagSaved)
 	if err != nil {
 		return nil, err
 	}
