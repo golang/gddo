@@ -109,6 +109,13 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	}
 
 	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}", match), &contents); err != nil {
+		// The GitHub content API returns array values for directories
+		// and object values for files. If there's a type mismatch at
+		// the beginning of the response, then assume that the path is
+		// for a file.
+		if e, ok := err.(*json.UnmarshalTypeError); ok && e.Offset == 1 {
+			return nil, NotFoundError{Message: "Not a directory"}
+		}
 		return nil, err
 	}
 
