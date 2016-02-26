@@ -85,6 +85,7 @@ type texample struct {
 	ID      string
 	Label   string
 	Example *doc.Example
+	Play    bool
 	obj     interface{}
 }
 
@@ -121,7 +122,14 @@ func (pdoc *tdoc) addExamples(obj interface{}, export, method string, examples [
 		id += "-" + method
 	}
 	for _, e := range examples {
-		te := &texample{Label: label, ID: id, Example: e, obj: obj}
+		te := &texample{
+			Label:   label,
+			ID:      id,
+			Example: e,
+			obj:     obj,
+			// Only show play links for packages within the standard library.
+			Play: e.Play != "" && gosrc.IsGoRepoPath(pdoc.ImportPath),
+		}
 		if e.Name != "" {
 			te.Label += " (" + e.Name + ")"
 			if method == "" {
