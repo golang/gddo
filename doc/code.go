@@ -73,7 +73,7 @@ var predeclared = map[string]int{
 type AnnotationKind int16
 
 const (
-	// Link to export in package specifed by Paths[PathIndex] with fragment
+	// Link to export in package specified by Paths[PathIndex] with fragment
 	// Text[strings.LastIndex(Text[Pos:End], ".")+1:End].
 	LinkAnnotation AnnotationKind = iota
 

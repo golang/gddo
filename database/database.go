@@ -467,7 +467,7 @@ func (db *Database) getSubdirs(c redis.Conn, path string, pdoc *doc.Package) ([]
 	return subdirs, err
 }
 
-// Get gets the package documenation and sub-directories for the the given
+// Get gets the package documentation and sub-directories for the the given
 // import path.
 func (db *Database) Get(path string) (*doc.Package, []Package, time.Time, error) {
 	c := db.Pool.Get()
@@ -515,7 +515,7 @@ var deleteScript = redis.NewScript(0, `
     return redis.call('HDEL', 'ids', path)
 `)
 
-// Delete deletes the documenation for the given import path.
+// Delete deletes the documentation for the given import path.
 func (db *Database) Delete(path string) error {
 	c := db.Pool.Get()
 	defer c.Close()
@@ -776,7 +776,7 @@ func (db *Database) Do(f func(*PackageInfo) error) error {
 	c.Send("SCAN", cursor, "MATCH", "pkg:*")
 	c.Flush()
 	for {
-		// Recieve previous SCAN.
+		// Receive previous SCAN.
 		values, err := redis.Values(c.Receive())
 		if err != nil {
 			return err
