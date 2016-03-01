@@ -48,7 +48,7 @@ var testWeb = map[string]string{
 		`<meta name="go-import" content="">` +
 		// go-source with wrong number of fields
 		`<meta name="go-source" content="alice.org/pkg blah">` +
-		// meta tag for a differnt package
+		// meta tag for a different package
 		`<meta name="go-import" content="alice.org/other git https://github.com/alice/other">` +
 		// meta tag for a different package
 		`<meta name="go-import" content="alice.org/other git https://github.com/alice/other">` +

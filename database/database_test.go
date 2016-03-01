@@ -121,7 +121,7 @@ func TestPutGet(t *testing.T) {
 	}
 	actualImporters, err := db.Importers("github.com/user/repo/foo/bar")
 	if err != nil {
-		t.Fatalf("db.Importers() retunred error %v", err)
+		t.Fatalf("db.Importers() returned error %v", err)
 	}
 	expectedImporters := []Package{{"github.com/user/repo/foo/bar", "hello"}}
 	if !reflect.DeepEqual(actualImporters, expectedImporters) {
@@ -129,7 +129,7 @@ func TestPutGet(t *testing.T) {
 	}
 	actualImports, err := db.Packages(pdoc.Imports)
 	if err != nil {
-		t.Fatalf("db.Imports() retunred error %v", err)
+		t.Fatalf("db.Imports() returned error %v", err)
 	}
 	for i := range actualImports {
 		if actualImports[i].Path == "C" {
