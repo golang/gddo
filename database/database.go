@@ -625,7 +625,7 @@ func (db *Database) Packages(paths []string) ([]Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	pkgs, err := packages(reply, false)
+	pkgs, err := packages(reply, true)
 	sort.Sort(byPath(pkgs))
 	return pkgs, err
 }
