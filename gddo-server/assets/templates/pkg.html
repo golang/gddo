@@ -171,7 +171,7 @@
         <div class="panel-heading"><a class="accordion-toggle" data-toggle="collapse" href="#ex-{{.ID}}">Example{{with .Example.Name}} ({{.}}){{end}}</a></div>
         <div id="ex-{{.ID}}" class="panel-collapse collapse"><div class="panel-body">
           {{with .Example.Doc}}<p>{{.|comment}}{{end}}
-          <p>Code:{{if .Example.Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
+          <p>Code:{{if .Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
           {{code .Example.Code nil}}
           {{with .Example.Output}}<p>Output:<pre>{{.}}</pre>{{end}}
         </div></div>
