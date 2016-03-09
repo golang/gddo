@@ -1,5 +1,9 @@
 # Contributing to godoc.org
 
+Contributions to this project are welcome, though please
+[file an issue](https://github.com/golang/gddo/issues/new).
+before starting work on anything major.
+
 **We do not accept GitHub pull requests**
 (we use [an instance](https://go-review.googlesource.com/) of the
 [Gerrit](https://www.gerritcodereview.com/) code review system instead).
