@@ -1,7 +1,8 @@
 # Contributing to godoc.org
 
 **We do not accept GitHub pull requests**
-(we use [Gerrit](https://code.google.com/p/gerrit/) instead for code review).
+(we use [an instance](https://go-review.googlesource.com/) of the
+[Gerrit](https://www.gerritcodereview.com/) code review system instead).
 
 To get started contributing to this project,
 clone the repository from its canonical location
