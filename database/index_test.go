@@ -77,13 +77,13 @@ var indexTests = []struct {
 	},
 		[]string{
 			"all:",
-			"5849", "cly", "defin", "dir", "go",
+			"5849", "cly", "defin", "dir", "github.com", "go",
 			"import:bytes", "import:crypto/hmac", "import:crypto/sha1",
 			"import:encoding/base64", "import:encoding/binary", "import:errors",
 			"import:fmt", "import:io", "import:io/ioutil", "import:net/http",
 			"import:net/url", "import:regexp", "import:sort", "import:strconv",
 			"import:strings", "import:sync", "import:time", "interfac",
-			"oau", "project:github.com/user/repo", "rfc", "subset",
+			"oau", "project:github.com/user/repo", "repo", "rfc", "subset", "us",
 		},
 	},
 }
