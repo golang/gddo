@@ -76,6 +76,7 @@
             {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
             {{if or .Funcs .Methods}}</ul>{{end}}
           {{end}}
+          {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
         </ul>
 
         <!-- Examples -->
