@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/cloud/compute/metadata"
+
 	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
@@ -833,6 +835,17 @@ func main() {
 
 	doc.SetDefaultGOOS(*defaultGOOS)
 	httpClient = newHTTPClient()
+
+	if metadata.OnGCE() {
+		acct, err := metadata.ProjectAttributeValue("ga-account")
+		if err != nil {
+			log.Printf("querying metadata for ga-account: %v", err)
+		} else {
+			gaAccount = acct
+		}
+	} else {
+		gaAccount = os.Getenv("GA_ACCOUNT")
+	}
 
 	if err := parseHTMLTemplates([][]string{
 		{"about.html", "common.html", "layout.html"},
