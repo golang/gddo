@@ -65,11 +65,24 @@ var testWeb = map[string]string{
 		`<meta name="go-import" content="bob.com/pkg git https://vcs.net/bob/pkg.git">` +
 		`<meta name="go-source" content="bob.com/pkg http://bob.com/pkg http://bob.com/pkg{/dir}/ http://bob.com/pkg{/dir}/?f={file}#Line{line}">`,
 	// Meta refresh to godoc.org
-	"http://rsc.io/benchstat": `<head>` +
-		`<!DOCTYPE html><html><head>` +
+	"http://rsc.io/benchstat": `<!DOCTYPE html><html><head>` +
 		`<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>` +
 		`<meta name="go-import" content="rsc.io/benchstat git https://github.com/rsc/benchstat">` +
 		`<meta http-equiv="refresh" content="0; url=https://godoc.org/rsc.io/benchstat">` +
+		`</head>`,
+
+	// Package with go-source meta tag, where {file} appears on the right of '#' in the file field URL template.
+	"https://azul3d.org/examples": `<!DOCTYPE html><html><head>` +
+		`<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>` +
+		`<meta name="go-import" content="azul3d.org/examples git https://github.com/azul3d/examples">` +
+		`<meta name="go-source" content="azul3d.org/examples https://github.com/azul3d/examples https://gotools.org/azul3d.org/examples{/dir} https://gotools.org/azul3d.org/examples{/dir}#{file}-L{line}">` +
+		`<meta http-equiv="refresh" content="0; url=https://godoc.org/azul3d.org/examples">` +
+		`</head>`,
+	"https://azul3d.org/examples/abs": `<!DOCTYPE html><html><head>` +
+		`<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>` +
+		`<meta name="go-import" content="azul3d.org/examples git https://github.com/azul3d/examples">` +
+		`<meta name="go-source" content="azul3d.org/examples https://github.com/azul3d/examples https://gotools.org/azul3d.org/examples{/dir} https://gotools.org/azul3d.org/examples{/dir}#{file}-L{line}">` +
+		`<meta http-equiv="refresh" content="0; url=https://godoc.org/azul3d.org/examples/abs">` +
 		`</head>`,
 }
 
@@ -175,6 +188,17 @@ var getDynamicTests = []struct {
 		ResolvedPath: "github.com/rsc/benchstat",
 		VCS:          "git",
 		Files:        []*File{{Name: "main.go", BrowseURL: "https://github.com/rsc/benchstat/blob/master/main.go"}},
+	}},
+	{"azul3d.org/examples/abs", &Directory{
+		BrowseURL:    "https://gotools.org/azul3d.org/examples/abs",
+		ImportPath:   "azul3d.org/examples/abs",
+		LineFmt:      "%s-L%d",
+		ProjectName:  "examples",
+		ProjectRoot:  "azul3d.org/examples",
+		ProjectURL:   "https://github.com/azul3d/examples",
+		ResolvedPath: "github.com/azul3d/examples/abs",
+		VCS:          "git",
+		Files:        []*File{{Name: "main.go", BrowseURL: "https://gotools.org/azul3d.org/examples/abs#main.go"}},
 	}},
 }
 

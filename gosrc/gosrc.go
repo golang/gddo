@@ -66,7 +66,9 @@ type Directory struct {
 	// Location of directory on version control service website.
 	BrowseURL string
 
-	// Format specifier for link to source line. Example: "%s#L%d"
+	// Format specifier for link to source line. It must contain one %s (file URL)
+	// followed by one %d (source line number), or be empty string if not available.
+	// Example: "%s#L%d".
 	LineFmt string
 }
 
@@ -375,17 +377,26 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 		dir.BrowseURL = replaceDir(sm.dirTemplate, dirName)
 	}
 
+	// TODO: Refactor this to be simpler, implement the go-source meta tag spec fully.
 	if isHTTPURL(sm.fileTemplate) {
 		fileTemplate := replaceDir(sm.fileTemplate, dirName)
-		parts := strings.SplitN(fileTemplate, "#", 2)
-		if strings.Contains(parts[0], "{file}") {
-			for _, f := range dir.Files {
-				f.BrowseURL = strings.Replace(parts[0], "{file}", f.Name, -1)
+		if strings.Contains(fileTemplate, "{file}") {
+			cut := strings.LastIndex(fileTemplate, "{file}") + len("{file}") // Cut point is right after last {file} section.
+			switch hash := strings.Index(fileTemplate, "#"); {
+			case hash == -1: // If there's no '#', place cut at the end.
+				cut = len(fileTemplate)
+			case hash > cut: // If a '#' comes after last {file}, use it as cut point.
+				cut = hash
 			}
-			if len(parts) == 2 && strings.Count(parts[1], "{line}") == 1 {
-				s := strings.Replace(parts[1], "%", "%%", -1)
+			head, tail := fileTemplate[:cut], fileTemplate[cut:]
+			for _, f := range dir.Files {
+				f.BrowseURL = strings.Replace(head, "{file}", f.Name, -1)
+			}
+
+			if strings.Contains(tail, "{line}") {
+				s := strings.Replace(tail, "%", "%%", -1)
 				s = strings.Replace(s, "{line}", "%d", 1)
-				dir.LineFmt = "%s#" + s
+				dir.LineFmt = "%s" + s
 			}
 		}
 	}
