@@ -30,7 +30,11 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/cloud"
 	"google.golang.org/cloud/compute/metadata"
+	"google.golang.org/cloud/logging"
 
 	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/doc"
@@ -811,6 +815,14 @@ func defaultBase(path string) string {
 	return p.Dir
 }
 
+func cloudContext(projID string) context.Context {
+	hc, err := google.DefaultClient(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cloud.NewContext(projID, hc)
+}
+
 var (
 	db                    *database.Database
 	httpClient            *http.Client
@@ -836,12 +848,31 @@ func main() {
 	doc.SetDefaultGOOS(*defaultGOOS)
 	httpClient = newHTTPClient()
 
+	var (
+		gceLogName string
+		projID     string
+		ctx        context.Context
+	)
+
 	if metadata.OnGCE() {
 		acct, err := metadata.ProjectAttributeValue("ga-account")
 		if err != nil {
 			log.Printf("querying metadata for ga-account: %v", err)
 		} else {
 			gaAccount = acct
+		}
+
+		// Get the log name on GCE and setup context for creating a GCE log client.
+		if name, err := metadata.ProjectAttributeValue("gce-log-name"); err != nil {
+			log.Printf("querying metadata for gce-log-name: %v", err)
+		} else {
+			gceLogName = name
+			if id, err := metadata.ProjectID(); err != nil {
+				log.Printf("querying metadata for project ID: %v", err)
+			} else {
+				projID = id
+				ctx = cloudContext(projID)
+			}
 		}
 	} else {
 		gaAccount = os.Getenv("GA_ACCOUNT")
@@ -937,7 +968,17 @@ func main() {
 
 	cacheBusters.Handler = mux
 
-	if err := http.ListenAndServe(*httpAddr, rootHandler{{"api.", apiMux}, {"", mux}}); err != nil {
-		log.Fatal(err)
+	var root http.Handler = rootHandler{{"api.", apiMux}, {"", mux}}
+	if gceLogName != "" {
+		logc, err := logging.NewClient(ctx, projID, gceLogName)
+		if err != nil {
+			log.Fatalf("Failed to create cloud logging client: %v", err)
+		}
+		if err := logc.Ping(); err != nil {
+			log.Fatalf("Failed to ping Google Cloud Logging: %v", err)
+		}
+		root = NewLoggingHandler(root, logc)
 	}
+
+	log.Fatal(http.ListenAndServe(*httpAddr, root))
 }

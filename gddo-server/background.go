@@ -8,9 +8,10 @@ package main
 
 import (
 	"flag"
-	"github.com/golang/gddo/gosrc"
 	"log"
 	"time"
+
+	"github.com/golang/gddo/gosrc"
 )
 
 var backgroundTasks = []*struct {
