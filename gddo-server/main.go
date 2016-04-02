@@ -18,7 +18,6 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -779,23 +778,6 @@ type rootHandler []struct {
 }
 
 func (m rootHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	host := req.Host
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
-	}
-	if host == "godoc.org" {
-		if req.Header.Get("X-Scheme") != "https" {
-			u := *req.URL
-			u.Scheme = "https"
-			u.Host = host
-			http.Redirect(resp, req, u.String(), http.StatusFound)
-			return
-		}
-		// Because https is not used api.godoc.org, the includeSubDomains
-		// parameter is not used here.
-		resp.Header().Add("Strict-Transport-Security", "max-age=631138519; preload")
-	}
-
 	var h http.Handler
 	for _, ph := range m {
 		if strings.HasPrefix(req.Host, ph.prefix) {
