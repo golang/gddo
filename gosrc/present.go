@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"path/filepath"
 	"regexp"
 	"time"
 )
@@ -31,7 +32,7 @@ func (b *presBuilder) build() (*Presentation, error) {
 	var fnames []string
 	i := 0
 	for _, m := range assetPat.FindAllSubmatchIndex(b.data, -1) {
-		name := string(b.data[m[4]:m[5]])
+		name := filepath.Clean(string(b.data[m[4]:m[5]]))
 		switch string(b.data[m[2]:m[3]]) {
 		case "iframe", "image":
 			data = append(data, b.data[i:m[4]]...)
