@@ -587,6 +587,10 @@ func serveBot(resp http.ResponseWriter, req *http.Request) error {
 	return executeTemplate(resp, "bot.html", http.StatusOK, nil, nil)
 }
 
+func serveHealthCheck(resp http.ResponseWriter, req *http.Request) {
+	resp.Write([]byte("Health check: ok\n"))
+}
+
 func logError(req *http.Request, err error, rv interface{}) {
 	if err != nil {
 		var buf bytes.Buffer
@@ -959,6 +963,8 @@ func main() {
 	mux.Handle("/BingSiteAuth.xml", staticServer.FileHandler("BingSiteAuth.xml"))
 	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/code.jquery.com/", http.NotFoundHandler())
+	mux.Handle("/_ah/health", http.HandlerFunc(serveHealthCheck))
+	mux.Handle("/_ah/", http.NotFoundHandler())
 	mux.Handle("/", handler(serveHome))
 
 	cacheBusters.Handler = mux
