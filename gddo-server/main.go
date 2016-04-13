@@ -706,8 +706,10 @@ func runHandler(resp http.ResponseWriter, req *http.Request,
 		}
 	}()
 
-	if s := req.Header.Get("X-Real-Ip"); s != "" && httputil.StripPort(req.RemoteAddr) == "127.0.0.1" {
-		req.RemoteAddr = s
+	if *trustProxy {
+		if s := req.Header.Get("X-Real-Ip"); s != "" {
+			req.RemoteAddr = s
+		}
 	}
 
 	req.Body = http.MaxBytesReader(resp, req.Body, 2048)
@@ -838,6 +840,7 @@ var (
 	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address.")
 	sidebarEnabled  = flag.Bool("sidebar", false, "Enable package page sidebar.")
 	defaultGOOS     = flag.String("default_goos", "", "Default GOOS to use when building package documents.")
+	trustProxy      = flag.Bool("trust_proxy_headers", false, "If enabled, identify the remote address of the request using X-Real-Ip in header.")
 )
 
 func main() {
