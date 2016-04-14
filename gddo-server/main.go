@@ -707,7 +707,10 @@ func runHandler(resp http.ResponseWriter, req *http.Request,
 	}()
 
 	if *trustProxy {
-		if s := req.Header.Get("X-Real-Ip"); s != "" {
+		// If running on GAE, use X-Appengine-User-Ip to identify real ip of requests.
+		if s := req.Header.Get("X-Appengine-User-Ip"); s != "" {
+			req.RemoteAddr = s
+		} else if s := req.Header.Get("X-Real-Ip"); s != "" {
 			req.RemoteAddr = s
 		}
 	}
