@@ -302,6 +302,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
 		}
+		gceLogger.LogEvent(resp, req, nil)
 
 		template := "dir"
 		switch {
@@ -573,6 +574,14 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
+	if gceLogger != nil {
+		// Log up to top 10 packages we served upon a search.
+		logPkgs := pkgs
+		if len(pkgs) > 10 {
+			logPkgs = pkgs[:10]
+		}
+		gceLogger.LogEvent(resp, req, logPkgs)
+	}
 
 	return executeTemplate(resp, "results"+templateExt(req), http.StatusOK, nil,
 		map[string]interface{}{"q": q, "pkgs": pkgs})
@@ -832,6 +841,7 @@ var (
 	httpClient            *http.Client
 	statusImageHandlerPNG http.Handler
 	statusImageHandlerSVG http.Handler
+	gceLogger             *GCELogger
 )
 
 var (
@@ -989,7 +999,7 @@ func main() {
 		if err := logc.Ping(); err != nil {
 			log.Fatalf("Failed to ping Google Cloud Logging: %v", err)
 		}
-		root = NewLoggingHandler(root, logc)
+		gceLogger = newGCELogger(logc)
 	}
 
 	log.Fatal(http.ListenAndServe(*httpAddr, root))

@@ -13,33 +13,31 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang/gddo/database"
 	"google.golang.org/cloud/logging"
 )
 
-// NewLoggingHandler returns a handler that wraps h but logs each request
+// newGCELogger returns a handler that wraps h but logs each request
 // using Google Cloud Logging service.
-func NewLoggingHandler(h http.Handler, cli *logging.Client) http.Handler {
-	return &loggingHandler{h, cli}
+func newGCELogger(cli *logging.Client) *GCELogger {
+	return &GCELogger{cli}
 }
 
-type loggingHandler struct {
-	handler http.Handler
-	cli     *logging.Client
+type GCELogger struct {
+	cli *logging.Client
 }
 
-func (h *loggingHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	t := time.Now().UTC()
-
+// LogEvent creates an entry in Cloud Logging to record user's behavior. We should only
+// use this to log events we are interested in. General request logs are handled by GAE
+// automatically in request_log and stderr.
+func (g *GCELogger) LogEvent(w http.ResponseWriter, r *http.Request, content interface{}) {
 	const sessionCookieName = "GODOC_ORG_SESSION_ID"
-	cookie, err := req.Cookie(sessionCookieName)
+	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
 		// Generates a random session id and sends it in response.
-		r, err := randomString()
+		rs, err := randomString()
 		if err != nil {
-			// If error happens during generating the session id, proceed
-			// without logging.
-			log.Println("generating a random session id:", err)
-			h.handler.ServeHTTP(resp, req)
+			log.Println("error generating a random session id: ", err)
 			return
 		}
 		// This cookie is intentionally short-lived and contains no information
@@ -47,58 +45,34 @@ func (h *loggingHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) 
 		// terms and destination pages together to measure search quality.
 		cookie = &http.Cookie{
 			Name:    sessionCookieName,
-			Value:   r,
+			Value:   rs,
 			Expires: time.Now().Add(time.Hour),
 		}
-		http.SetCookie(resp, cookie)
+		http.SetCookie(w, cookie)
 	}
 
-	w := &countingResponseWriter{
-		ResponseWriter: resp,
-		responseStatus: http.StatusOK,
+	// We must not record the client's IP address, or any other information
+	// that might compromise the user's privacy.
+	payload := map[string]interface{}{
+		sessionCookieName: cookie.Value,
+		"path":            r.URL.RequestURI(),
+		"method":          r.Method,
+		"referer":         r.Referer(),
 	}
-	h.handler.ServeHTTP(w, req)
+	if pkgs, ok := content.([]database.Package); ok {
+		payload["packages"] = pkgs
+	}
 
-	// We must not record the client's IP address, referrer URL, or any other
-	// information that might compromise the user's privacy.
-	entry := logging.Entry{
-		Time: t,
-		Payload: map[string]interface{}{
-			sessionCookieName: cookie.Value,
-			"latency":         time.Since(t),
-			"path":            req.URL.RequestURI(),
-			"method":          req.Method,
-			"responseBytes":   w.responseBytes,
-			"status":          w.responseStatus,
-		},
-	}
 	// Log queues the entry to its internal buffer, or discarding the entry
 	// if the buffer was full.
-	h.cli.Log(entry)
+	g.cli.Log(logging.Entry{
+		Time:    time.Now().UTC(),
+		Payload: payload,
+	})
 }
 
 func randomString() (string, error) {
 	b := make([]byte, 8)
 	_, err := rand.Read(b)
 	return hex.EncodeToString(b), err
-}
-
-// A countingResponseWriter is a wrapper around an http.ResponseWriter that
-// records the number of bytes written and the status of the response.
-type countingResponseWriter struct {
-	http.ResponseWriter
-
-	responseBytes  int64
-	responseStatus int
-}
-
-func (w *countingResponseWriter) Write(p []byte) (int, error) {
-	written, err := w.ResponseWriter.Write(p)
-	w.responseBytes += int64(written)
-	return written, err
-}
-
-func (w *countingResponseWriter) WriteHeader(status int) {
-	w.responseStatus = status
-	w.ResponseWriter.WriteHeader(status)
 }
