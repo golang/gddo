@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -41,7 +42,7 @@ func (p byHash) Swap(i, j int) {
 	copy(p[j*md5.Size:], temp[:])
 }
 
-func getLaunchpadDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getLaunchpadDir(client *http.Client, match map[string]string, savedEtag string, updated time.Time) (*Directory, error) {
 	c := &httpClient{client: client}
 
 	if match["project"] != "" && match["series"] != "" {

@@ -245,7 +245,7 @@ func getSVNRevision(target string) (string, error) {
 	return "", NotFoundError{Message: "Last changed revision not found"}
 }
 
-func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (*Directory, error) {
+func getVCSDir(client *http.Client, match map[string]string, etagSaved string, updated time.Time) (*Directory, error) {
 	cmd := vcsCmds[match["vcs"]]
 	if cmd == nil {
 		return nil, NotFoundError{Message: expand("VCS not supported: {vcs}", match)}

@@ -12,9 +12,10 @@ import (
 	"go/doc"
 	"net/http"
 	"strings"
+	"time"
 )
 
-func Get(client *http.Client, importPath string, etag string) (*Package, error) {
+func Get(client *http.Client, importPath string, etag string, updated time.Time) (*Package, error) {
 
 	const versionPrefix = PackageVersion + "-"
 
@@ -24,7 +25,7 @@ func Get(client *http.Client, importPath string, etag string) (*Package, error) 
 		etag = ""
 	}
 
-	dir, err := gosrc.Get(client, importPath, etag)
+	dir, err := gosrc.Get(client, importPath, etag, updated)
 	if err != nil {
 		return nil, err
 	}

@@ -48,9 +48,17 @@ func gitHubError(resp *http.Response) error {
 	return &RemoteError{resp.Request.URL.Host, fmt.Errorf("%d: (%s)", resp.StatusCode, resp.Request.URL.String())}
 }
 
-func getGitHubDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getGitHubDir(client *http.Client, match map[string]string, savedEtag string, updated time.Time) (*Directory, error) {
 
-	c := &httpClient{client: client, errFn: gitHubError}
+	c := &httpClient{
+		client: client,
+		errFn:  gitHubError,
+	}
+	if !updated.IsZero() {
+		// http.TimeFormat is used since GitHub API will count against our rate limit
+		// if we use any timezone other than "GMT".
+		c.header = http.Header{"If-Modified-Since": {updated.Format(http.TimeFormat)}}
+	}
 
 	type refJSON struct {
 		Object struct {
@@ -65,6 +73,11 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	resp, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs", match), &refs)
 	if err != nil {
+		if resp != nil {
+			if last, err := time.Parse(http.TimeFormat, resp.Header.Get("Last-Modified")); err == nil && last.Before(updated) {
+				return nil, ErrNotModified
+			}
+		}
 		return nil, err
 	}
 
@@ -284,8 +297,14 @@ func getGitHubProject(client *http.Client, match map[string]string) (*Project, e
 	}, nil
 }
 
-func getGistDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
-	c := &httpClient{client: client, errFn: gitHubError}
+func getGistDir(client *http.Client, match map[string]string, savedEtag string, updated time.Time) (*Directory, error) {
+	c := &httpClient{
+		client: client,
+		errFn:  gitHubError,
+	}
+	if !updated.IsZero() {
+		c.header = http.Header{"If-Modified-Since": {updated.Format(http.TimeFormat)}}
+	}
 
 	var gist struct {
 		Files map[string]struct {
