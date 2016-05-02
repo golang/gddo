@@ -53,11 +53,7 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		err = gosrc.NotFoundError{Message: "testdata."}
 	} else {
 		var pdocNew *doc.Package
-		updated := time.Time{}
-		if pdoc != nil {
-			updated = pdoc.Updated
-		}
-		pdocNew, err = doc.Get(httpClient, importPath, etag, updated)
+		pdocNew, err = doc.Get(httpClient, importPath, etag)
 		message = append(message, "fetch:", int64(time.Since(start)/time.Millisecond))
 		if err == nil && pdocNew.Name == "" && !hasSubdirs {
 			for _, e := range pdocNew.Errors {
@@ -88,11 +84,6 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		return pdoc, nil
 	case err == gosrc.ErrNotModified:
 		message = append(message, "touch")
-		// If the package is not modified, set the updated time
-		pdoc.Updated = time.Now().UTC()
-		if err := db.Put(pdoc, nextCrawl, false); err != nil {
-			log.Printf("ERROR db.Put(%q): %v", importPath, err)
-		}
 		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, nextCrawl); err != nil {
 			log.Printf("ERROR db.SetNextCrawlEtag(%q): %v", importPath, err)
 		}

@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
 )
 
 func init() {
@@ -49,7 +48,7 @@ func checkGoogleRedir(c *httpClient, match map[string]string) error {
 	return c.err(resp)
 }
 
-func getGoogleDir(client *http.Client, match map[string]string, savedEtag string, updated time.Time) (*Directory, error) {
+func getGoogleDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	setupGoogleMatch(match)
 	c := &httpClient{client: client}
 

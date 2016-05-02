@@ -41,7 +41,8 @@ func main() {
 	if *local {
 		gosrc.SetLocalDevMode(os.Getenv("GOPATH"))
 	}
-	pdoc, err = doc.Get(http.DefaultClient, path, *etag, pdoc.Updated)
+	pdoc, err = doc.Get(http.DefaultClient, path, *etag)
+	//}
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -302,9 +302,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
 		}
-		if gceLogger != nil {
-			gceLogger.LogEvent(resp, req, nil)
-		}
+		gceLogger.LogEvent(resp, req, nil)
 
 		template := "dir"
 		switch {
@@ -419,13 +417,13 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 
 func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	importPath := req.Form.Get("path")
-	pdoc, pkgs, _, err := db.Get(importPath)
+	_, pkgs, _, err := db.Get(importPath)
 	if err != nil {
 		return err
 	}
 	c := make(chan error, 1)
 	go func() {
-		_, err := crawlDoc("rfrsh", importPath, pdoc, len(pkgs) > 0, time.Time{})
+		_, err := crawlDoc("rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
 		c <- err
 	}()
 	select {

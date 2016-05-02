@@ -16,7 +16,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"time"
 )
 
 // File represents a file.
@@ -115,7 +114,7 @@ var errNoMatch = errors.New("no match")
 type service struct {
 	pattern         *regexp.Regexp
 	prefix          string
-	get             func(*http.Client, map[string]string, string, time.Time) (*Directory, error)
+	get             func(*http.Client, map[string]string, string) (*Directory, error)
 	getPresentation func(*http.Client, map[string]string) (*Presentation, error)
 	getProject      func(*http.Client, map[string]string) (*Project, error)
 }
@@ -305,7 +304,7 @@ metaScan:
 // getVCSDirFn is called by getDynamic to fetch source using VCS commands. The
 // default value here does nothing. If the code is not built for App Engine,
 // then getvCSDirFn is set getVCSDir, the function that actually does the work.
-var getVCSDirFn = func(client *http.Client, m map[string]string, etag string, updated time.Time) (*Directory, error) {
+var getVCSDirFn = func(client *http.Client, m map[string]string, etag string) (*Directory, error) {
 	return nil, errNoMatch
 }
 
@@ -341,7 +340,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 	dirName := importPath[len(im.projectRoot):]
 
 	resolvedPath := repo + dirName
-	dir, err := getStatic(client, resolvedPath, etag, time.Time{})
+	dir, err := getStatic(client, resolvedPath, etag)
 	if err == errNoMatch {
 		resolvedPath = repo + "." + im.vcs + dirName
 		match := map[string]string{
@@ -352,7 +351,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 			"scheme":     proto,
 			"vcs":        im.vcs,
 		}
-		dir, err = getVCSDirFn(client, match, etag, time.Time{})
+		dir, err = getVCSDirFn(client, match, etag)
 	}
 	if err != nil || dir == nil {
 		return nil, err
@@ -407,7 +406,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 
 // getStatic gets a diretory from a statically known service. getStatic
 // returns errNoMatch if the import path is not recognized.
-func getStatic(client *http.Client, importPath, etag string, updated time.Time) (*Directory, error) {
+func getStatic(client *http.Client, importPath, etag string) (*Directory, error) {
 	for _, s := range services {
 		if s.get == nil {
 			continue
@@ -417,7 +416,7 @@ func getStatic(client *http.Client, importPath, etag string, updated time.Time) 
 			return nil, err
 		}
 		if match != nil {
-			dir, err := s.get(client, match, etag, updated)
+			dir, err := s.get(client, match, etag)
 			if dir != nil {
 				dir.ImportPath = importPath
 				dir.ResolvedPath = importPath
@@ -428,14 +427,14 @@ func getStatic(client *http.Client, importPath, etag string, updated time.Time) 
 	return nil, errNoMatch
 }
 
-func Get(client *http.Client, importPath string, etag string, updated time.Time) (dir *Directory, err error) {
+func Get(client *http.Client, importPath string, etag string) (dir *Directory, err error) {
 	switch {
 	case localPath != "":
 		dir, err = getLocal(importPath)
 	case IsGoRepoPath(importPath):
 		dir, err = getStandardDir(client, importPath, etag)
 	case IsValidRemotePath(importPath):
-		dir, err = getStatic(client, importPath, etag, updated)
+		dir, err = getStatic(client, importPath, etag)
 		if err == errNoMatch {
 			dir, err = getDynamic(client, importPath, etag)
 		}

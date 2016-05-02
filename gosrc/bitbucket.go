@@ -32,7 +32,7 @@ type bitbucketRepo struct {
 	} `json:"fork_of"`
 }
 
-func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string, updated time.Time) (*Directory, error) {
+func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	var repo *bitbucketRepo
 	c := &httpClient{client: client}
 
