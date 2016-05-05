@@ -302,7 +302,9 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
 		}
-		gceLogger.LogEvent(resp, req, nil)
+		if gceLogger != nil {
+			gceLogger.LogEvent(resp, req, nil)
+		}
 
 		template := "dir"
 		switch {
