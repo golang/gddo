@@ -2,7 +2,7 @@
 <head profile="http://a9.com/-/spec/opensearch/1.1/">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  {{template "Bootstrap.css"}}
+  <link href="{{staticPath "/-/bootstrap.min.css"}}" rel="stylesheet">
   <link href="{{staticPath "/-/site.css"}}" rel="stylesheet">
   {{template "Head" $}}
 </head>
@@ -64,8 +64,8 @@
     </div>
   </div>
 </div>
-{{template "jQuery"}}
-{{template "Bootstrap.js"}}
+<script src="{{staticPath "/-/bootstrap.min.js"}}"></script>
+<script src="{{staticPath "/-/jquery-2.0.3.min.js"}}"></script>
 <script src="{{staticPath "/-/site.js"}}"></script>
 {{template "Analytics"}}
 </body>
