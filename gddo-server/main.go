@@ -963,9 +963,13 @@ func main() {
 		"third_party/jquery.timeago.js",
 		"site.js"))
 	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
+	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
+	mux.Handle("/-/bootstrap.min.js", staticServer.FilesHandler("bootstrap.min.js"))
+	mux.Handle("/-/jquery-2.0.3.min.js", staticServer.FilesHandler("jquery-2.0.3.min.js"))
 	if *sidebarEnabled {
 		mux.Handle("/-/sidebar.css", staticServer.FilesHandler("sidebar.css"))
 	}
+	mux.Handle("/-/", http.NotFoundHandler())
 
 	mux.Handle("/-/about", handler(serveAbout))
 	mux.Handle("/-/bot", handler(serveBot))
