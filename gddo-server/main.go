@@ -31,6 +31,7 @@ import (
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/appengine"
 	"google.golang.org/cloud"
 	"google.golang.org/cloud/compute/metadata"
 	"google.golang.org/cloud/logging"
@@ -572,7 +573,16 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 		}
 	}
 
-	pkgs, err := db.Query(q)
+	var (
+		pkgs []database.Package
+		err  error
+	)
+	if *database.GAESearch {
+		ctx := appengine.NewContext(req)
+		pkgs, err = database.Search(ctx, q)
+	} else {
+		pkgs, err = db.Query(q)
+	}
 	if err != nil {
 		return err
 	}
@@ -1009,5 +1019,10 @@ func main() {
 		gceLogger = newGCELogger(logc)
 	}
 
-	log.Fatal(http.ListenAndServe(*httpAddr, root))
+	if *database.GAESearch {
+		http.Handle("/", root)
+		appengine.Main()
+	} else {
+		log.Fatal(http.ListenAndServe(*httpAddr, root))
+	}
 }

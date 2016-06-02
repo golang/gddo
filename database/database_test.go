@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine/aetest"
+
 	"github.com/golang/gddo/doc"
 )
 
@@ -35,7 +38,7 @@ func newDB(t *testing.T) *Database {
 	defer c.Close()
 	n, err := redis.Int(c.Do("DBSIZE"))
 	if n != 0 || err != nil {
-		t.Fatalf("DBSIZE returned %d, %v", n, err)
+		t.Errorf("DBSIZE returned %d, %v", n, err)
 	}
 	return &Database{Pool: p}
 }
@@ -48,6 +51,14 @@ func closeDB(db *Database) {
 
 func TestPutGet(t *testing.T) {
 	var nextCrawl = time.Unix(time.Now().Add(time.Hour).Unix(), 0).UTC()
+	ctx, done, err := aetest.NewContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer done()
+	bgCtx = func() context.Context {
+		return ctx
+	}
 
 	db := newDB(t)
 	defer closeDB(db)

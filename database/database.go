@@ -46,9 +46,12 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+	"github.com/golang/snappy"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine"
+
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
-	"github.com/golang/snappy"
 )
 
 type Database struct {
@@ -72,6 +75,7 @@ var (
 	redisServer      = flag.String("db-server", "redis://127.0.0.1:6379", "URI of Redis server.")
 	redisIdleTimeout = flag.Duration("db-idle-timeout", 250*time.Second, "Close Redis connections after remaining idle for this duration.")
 	redisLog         = flag.Bool("db-log", false, "Log database commands")
+	GAESearch        = flag.Bool("gae_search", false, "Use GAE Search API in the search function.")
 )
 
 func dialDb() (c redis.Conn, err error) {
@@ -198,6 +202,8 @@ func (db *Database) AddNewCrawl(importPath string) error {
 	return err
 }
 
+var bgCtx = appengine.BackgroundContext // replaced by tests
+
 // Put adds the package documentation to the database.
 func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error {
 	c := db.Pool.Get()
@@ -246,9 +252,33 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		t = nextCrawl.Unix()
 	}
 
-	_, err := putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
+	// Get old version of the package to extract its imports.
+	// If the package does not exist, both oldDoc and err will be nil.
+	old, _, err := db.getDoc(c, pdoc.ImportPath)
 	if err != nil {
 		return err
+	}
+
+	_, err = putScript.Do(c, pdoc.ImportPath, pdoc.Synopsis, score, gobBytes, strings.Join(terms, " "), pdoc.Etag, kind, t)
+	if err != nil {
+		return err
+	}
+
+	if *GAESearch {
+		id, n, err := pkgIDAndImportCount(c, pdoc.ImportPath)
+		if err != nil {
+			return err
+		}
+		ctx := bgCtx()
+		if err := PutIndex(ctx, pdoc, id, score, n); err != nil {
+			log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
+		}
+
+		if old != nil {
+			if err := updateImportsIndex(c, ctx, old, pdoc); err != nil {
+				return err
+			}
+		}
 	}
 
 	if nextCrawl.IsZero() {
@@ -285,6 +315,48 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 	}
 	_, err = addCrawlScript.Do(c, args...)
 	return err
+}
+
+// pkgIDAndImportCount returns the ID and import count of a specified package.
+func pkgIDAndImportCount(c redis.Conn, path string) (id string, numImported int, err error) {
+	numImported, err = redis.Int(c.Do("SCARD", "index:import:"+path))
+	if err != nil {
+		return
+	}
+	id, err = redis.String(c.Do("HGET", "ids", path))
+	if err == redis.ErrNil {
+		return "", 0, nil
+	}
+	return id, numImported, nil
+}
+
+func updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc, newDoc *doc.Package) error {
+	// Create a map to store any import change since last time we indexed the package.
+	changes := make(map[string]bool)
+	for _, p := range oldDoc.Imports {
+		if gosrc.IsValidRemotePath(p) {
+			changes[p] = true
+		}
+	}
+	for _, p := range newDoc.Imports {
+		if gosrc.IsValidRemotePath(p) {
+			delete(changes, p)
+		}
+	}
+
+	// For each import change, re-index that package with updated NumImported.
+	// In practice this should not happen often and when it does, the changes are
+	// likely to be a small amount.
+	for p, _ := range changes {
+		id, n, err := pkgIDAndImportCount(c, p)
+		if err != nil {
+			return err
+		}
+		if id != "" {
+			PutIndex(ctx, nil, id, -1, n)
+		}
+	}
+	return nil
 }
 
 var setNextCrawlEtagScript = redis.NewScript(0, `

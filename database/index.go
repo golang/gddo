@@ -21,7 +21,9 @@ func isStandardPackage(path string) bool {
 }
 
 func isTermSep(r rune) bool {
-	return unicode.IsSpace(r) || unicode.IsPunct(r) && r != '.' || unicode.IsSymbol(r)
+	return unicode.IsSpace(r) ||
+		r != '.' && unicode.IsPunct(r) ||
+		unicode.IsSymbol(r)
 }
 
 func normalizeProjectRoot(projectRoot string) string {
@@ -45,7 +47,7 @@ func term(s string) string {
 	}
 
 	// Trim the trailing period at the end of any sentence.
-	return stem(strings.Trim(s, "."))
+	return stem(strings.TrimSuffix(s, "."))
 }
 
 var httpPat = regexp.MustCompile(`https?://\S+`)
