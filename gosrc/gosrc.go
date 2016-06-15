@@ -70,6 +70,13 @@ type Directory struct {
 	// followed by one %d (source line number), or be empty string if not available.
 	// Example: "%s#L%d".
 	LineFmt string
+
+	// Whether the repository of this directory is a fork of another one.
+	Fork bool
+
+	// How many stars (for a GitHub project) or followers (for a BitBucket
+	// project) the repository of this directory has.
+	Stars int
 }
 
 // Project represents a repository.

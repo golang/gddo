@@ -162,6 +162,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	var repo = struct {
 		Fork      bool      `json:"fork"`
+		Stars     int       `json:"stars"`
 		CreatedAt time.Time `json:"created_at"`
 		PushedAt  time.Time `json:"pushed_at"`
 	}{}
@@ -183,6 +184,8 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		Subdirectories: subdirs,
 		VCS:            "git",
 		DeadEndFork:    isDeadEndFork,
+		Fork:           repo.Fork,
+		Stars:          repo.Stars,
 	}, nil
 }
 

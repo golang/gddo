@@ -400,6 +400,13 @@ type Package struct {
 	// Version control: belongs to a dead end fork
 	DeadEndFork bool
 
+	// Whether the package is a fork of another one.
+	Fork bool
+
+	// How many stars (for a GitHub project) or followers (for a BitBucket
+	// project) the repository of this package has.
+	Stars int
+
 	// The time this object was created.
 	Updated time.Time
 
@@ -498,6 +505,8 @@ func newPackage(dir *gosrc.Directory) (*Package, error) {
 		VCS:            dir.VCS,
 		DeadEndFork:    dir.DeadEndFork,
 		Subdirectories: dir.Subdirectories,
+		Fork:           dir.Fork,
+		Stars:          dir.Stars,
 	}
 
 	var b builder

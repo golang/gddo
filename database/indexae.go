@@ -27,6 +27,8 @@ type PackageDocument struct {
 	Synopsis    string
 	Score       float64
 	ImportCount float64
+	Stars       float64
+	Fork        search.Atom
 }
 
 // PutIndex creates or updates a package entry in the search index. id identifies the document in the index.
@@ -55,9 +57,15 @@ func PutIndex(c context.Context, pdoc *doc.Package, id string, score float64, im
 
 	// Update document information accordingly.
 	if pdoc != nil {
-		pkg.Name = search.Atom(pdoc.ProjectName)
+		pkg.Name = search.Atom(pdoc.Name)
 		pkg.Path = pdoc.ImportPath
 		pkg.Synopsis = pdoc.Synopsis
+		pkg.Stars = float64(pdoc.Stars)
+		var fork string
+		if forkAvailable(pdoc.ImportPath) {
+			fork = fmt.Sprint(pdoc.Fork) // "true" or "false"
+		}
+		pkg.Fork = search.Atom(fork)
 	}
 	if score >= 0 {
 		pkg.Score = score
@@ -68,6 +76,10 @@ func PutIndex(c context.Context, pdoc *doc.Package, id string, score float64, im
 		return err
 	}
 	return nil
+}
+
+func forkAvailable(p string) bool {
+	return strings.HasPrefix(p, "github.com") || strings.HasPrefix(p, "bitbucket.org")
 }
 
 // Search searches the packages index for a given query. A path-like query string
@@ -86,15 +98,26 @@ func Search(c context.Context, q string) ([]Package, error) {
 		},
 	}
 	for it := index.Search(c, parseQuery2(q), opt); ; {
-		var pkg PackageDocument
-		_, err := it.Next(&pkg)
+		var pd PackageDocument
+		_, err := it.Next(&pd)
 		if err == search.Done {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		pkgs = append(pkgs, Package{pkg.Path, pkg.Synopsis})
+		pkg := Package{
+			Path:        pd.Path,
+			ImportCount: int(pd.ImportCount),
+			Synopsis:    pd.Synopsis,
+		}
+		if pd.Fork == "true" {
+			pkg.Fork = true
+		}
+		if pd.Stars > 0 {
+			pkg.Stars = int(pd.Stars)
+		}
+		pkgs = append(pkgs, pkg)
 	}
 	return pkgs, nil
 }

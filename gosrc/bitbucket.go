@@ -30,6 +30,8 @@ type bitbucketRepo struct {
 	ForkOf      struct {
 		Scm string
 	} `json:"fork_of"`
+	Followers int  `json:"followers"`
+	IsFork    bool `json:"is_fork"`
 }
 
 func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
@@ -115,6 +117,8 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		Subdirectories: contents.Directories,
 		VCS:            match["vcs"],
 		DeadEndFork:    isBitbucketDeadEndFork(repo),
+		Fork:           repo.IsFork,
+		Stars:          repo.Followers,
 	}, nil
 }
 

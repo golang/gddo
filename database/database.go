@@ -60,8 +60,11 @@ type Database struct {
 }
 
 type Package struct {
-	Path     string `json:"path"`
-	Synopsis string `json:"synopsis,omitempty"`
+	Path        string `json:"path"`
+	ImportCount int    `json:"import_count`
+	Synopsis    string `json:"synopsis,omitempty"`
+	Fork        bool   `json:"fork,omitempty"`
+	Stars       int    `json:"stars,omitempty"`
 }
 
 type byPath []Package

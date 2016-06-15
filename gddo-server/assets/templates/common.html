@@ -37,11 +37,30 @@
 </div>{{end}}
 
 {{define "Pkgs"}}
-    <table class="table table-condensed">
+  <table class="table table-condensed">
+  <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+  <tbody>{{range .}}<tr><td>{{if .Path|isValidImportPath}}<a href="/{{.Path}}">{{.Path|importPath}}</a>{{else}}{{.Path|importPath}}{{end}}</td><td>{{.Synopsis|importPath}}</td></tr>
+  {{end}}</tbody>
+  </table>
+{{end}}
+
+{{define "SearchPkgs"}}
+  <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-    <tbody>{{range .}}<tr><td>{{if .Path|isValidImportPath}}<a href="/{{.Path}}">{{.Path|importPath}}</a>{{else}}{{.Path|importPath}}{{end}}</td><td>{{.Synopsis|importPath}}</td></tr>
+    <tbody>{{range .}}
+      <tr><td>
+        {{if .Path|isValidImportPath}}
+        <a href="/{{.Path}}">{{.Path|importPath}}</a>
+          <ul class="list-inline">
+            <li class="additional-info">{{.ImportCount}} imports</li>
+            {{if .Fork}}<li class="additional-info">· fork</li>{{end}}
+            {{if .Stars}}<li class="additional-info">· {{.Stars}} stars</li>{{end}}
+          </ul>
+        {{else}}{{.Path|importPath}}</td>
+        {{end}}
+      <td class="synopsis">{{.Synopsis|importPath}}</td></tr>
     {{end}}</tbody>
-    </table>
+  </table>
 {{end}}
 
 {{define "PkgCmdHeader"}}{{with .pdoc}}
