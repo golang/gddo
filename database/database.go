@@ -33,7 +33,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -71,15 +70,16 @@ func (p byPath) Len() int           { return len(p) }
 func (p byPath) Less(i, j int) bool { return p[i].Path < p[j].Path }
 func (p byPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+// Configuration variables (and default values of flags.
 var (
-	redisServer      = flag.String("db-server", "redis://127.0.0.1:6379", "URI of Redis server.")
-	redisIdleTimeout = flag.Duration("db-idle-timeout", 250*time.Second, "Close Redis connections after remaining idle for this duration.")
-	redisLog         = flag.Bool("db-log", false, "Log database commands")
-	GAESearch        = flag.Bool("gae_search", false, "Use GAE Search API in the search function.")
+	RedisServer      = "redis://127.0.0.1:6379" // URL of Redis server
+	RedisIdleTimeout = 250 * time.Second        // Close Redis connections after remaining idle for this duration.
+	RedisLog         = false                    // Log database commands
+	GAESearch        = false                    // Use GAE Search API in the search function.
 )
 
 func dialDb() (c redis.Conn, err error) {
-	u, err := url.Parse(*redisServer)
+	u, err := url.Parse(RedisServer)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func dialDb() (c redis.Conn, err error) {
 		return
 	}
 
-	if *redisLog {
+	if RedisLog {
 		l := log.New(os.Stderr, "", log.LstdFlags)
 		c = redis.NewLoggingConn(c, l, "")
 	}
@@ -115,7 +115,7 @@ func New() (*Database, error) {
 	pool := &redis.Pool{
 		Dial:        dialDb,
 		MaxIdle:     10,
-		IdleTimeout: *redisIdleTimeout,
+		IdleTimeout: RedisIdleTimeout,
 	}
 
 	c := pool.Get()
@@ -264,7 +264,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		return err
 	}
 
-	if *GAESearch {
+	if GAESearch {
 		id, n, err := pkgIDAndImportCount(c, pdoc.ImportPath)
 		if err != nil {
 			return err

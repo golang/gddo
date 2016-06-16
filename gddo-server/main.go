@@ -577,7 +577,7 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 		pkgs []database.Package
 		err  error
 	)
-	if *database.GAESearch {
+	if database.GAESearch {
 		ctx := appengine.NewContext(req)
 		pkgs, err = database.Search(ctx, q)
 	} else {
@@ -869,6 +869,13 @@ var (
 	sourcegraphURL  = flag.String("sourcegraph_url", "https://sourcegraph.com", "Link to global uses on Sourcegraph based at this URL (no need for trailing slash).")
 )
 
+func init() {
+	flag.StringVar(&database.RedisServer, "db-server", database.RedisServer, "URI of Redis server.")
+	flag.DurationVar(&database.RedisIdleTimeout, "db-idle-timeout", database.RedisIdleTimeout, "Close Redis connections after remaining idle for this duration.")
+	flag.BoolVar(&database.RedisLog, "db-log", database.RedisLog, "Log database commands")
+	flag.BoolVar(&database.GAESearch, "gae_search", database.GAESearch, "Use GAE Search API in the search function.")
+}
+
 func main() {
 	flag.Parse()
 	log.Printf("Starting server, os.Args=%s", strings.Join(os.Args, " "))
@@ -1019,7 +1026,7 @@ func main() {
 		gceLogger = newGCELogger(logc)
 	}
 
-	if *database.GAESearch {
+	if database.GAESearch {
 		http.Handle("/", root)
 		appengine.Main()
 	} else {
