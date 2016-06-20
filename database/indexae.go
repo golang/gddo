@@ -10,6 +10,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
+	"math"
 	"strings"
 	"unicode"
 
@@ -19,16 +21,67 @@ import (
 	"github.com/golang/gddo/doc"
 )
 
-// PackageDocument defines the data structure used to represent a package document
-// in the search index.
-type PackageDocument struct {
-	Name        search.Atom
-	Path        string
-	Synopsis    string
-	Score       float64
-	ImportCount float64
-	Stars       float64
-	Fork        search.Atom
+func (p *Package) Load(fields []search.Field, meta *search.DocumentMetadata) error {
+	for _, f := range fields {
+		switch f.Name {
+		case "Name":
+			if v, ok := f.Value.(search.Atom); ok {
+				p.Name = string(v)
+			}
+		case "Path":
+			if v, ok := f.Value.(string); ok {
+				p.Path = v
+			}
+		case "Synopsis":
+			if v, ok := f.Value.(string); ok {
+				p.Synopsis = v
+			}
+		case "ImportCount":
+			if v, ok := f.Value.(float64); ok {
+				p.ImportCount = int(v)
+			}
+		case "Stars":
+			if v, ok := f.Value.(float64); ok {
+				p.Stars = int(v)
+			}
+		case "Score":
+			if v, ok := f.Value.(float64); ok {
+				p.Score = v
+			}
+		}
+	}
+	if p.Path == "" {
+		return errors.New("Invalid document: missing Path field")
+	}
+	for _, f := range meta.Facets {
+		if f.Name == "Fork" {
+			p.Fork = f.Value.(search.Atom) == "true"
+		}
+	}
+	return nil
+}
+
+func (p *Package) Save() ([]search.Field, *search.DocumentMetadata, error) {
+	fields := []search.Field{
+		{Name: "Name", Value: search.Atom(p.Name)},
+		{Name: "Path", Value: p.Path},
+		{Name: "Synopsis", Value: p.Synopsis},
+		{Name: "Score", Value: p.Score},
+		{Name: "ImportCount", Value: float64(p.ImportCount)},
+		{Name: "Stars", Value: float64(p.Stars)},
+	}
+	fork := fmt.Sprint(p.Fork) // "true" or "false"
+	meta := &search.DocumentMetadata{
+		// Customize the rank property by the product of the package score and
+		// natural logarithm of the import count. Rank must be a positive integer.
+		// Use 1 as minimum rank and keep 3 digits of precision to distinguish
+		// close ranks.
+		Rank: int(math.Max(1, 1000*p.Score*math.Log(math.E+float64(p.ImportCount)))),
+		Facets: []search.Facet{
+			{Name: "Fork", Value: search.Atom(fork)},
+		},
+	}
+	return fields, meta, nil
 }
 
 // PutIndex creates or updates a package entry in the search index. id identifies the document in the index.
@@ -44,7 +97,7 @@ func PutIndex(c context.Context, pdoc *doc.Package, id string, score float64, im
 		return err
 	}
 
-	var pkg PackageDocument
+	var pkg Package
 	if err := idx.Get(c, id, &pkg); err != nil {
 		if err != search.ErrNoSuchDocument {
 			return err
@@ -57,29 +110,21 @@ func PutIndex(c context.Context, pdoc *doc.Package, id string, score float64, im
 
 	// Update document information accordingly.
 	if pdoc != nil {
-		pkg.Name = search.Atom(pdoc.Name)
+		pkg.Name = pdoc.Name
 		pkg.Path = pdoc.ImportPath
 		pkg.Synopsis = pdoc.Synopsis
-		pkg.Stars = float64(pdoc.Stars)
-		var fork string
-		if forkAvailable(pdoc.ImportPath) {
-			fork = fmt.Sprint(pdoc.Fork) // "true" or "false"
-		}
-		pkg.Fork = search.Atom(fork)
+		pkg.Stars = pdoc.Stars
+		pkg.Fork = pdoc.Fork
 	}
 	if score >= 0 {
 		pkg.Score = score
 	}
-	pkg.ImportCount = float64(importCount)
+	pkg.ImportCount = importCount
 
 	if _, err := idx.Put(c, id, &pkg); err != nil {
 		return err
 	}
 	return nil
-}
-
-func forkAvailable(p string) bool {
-	return strings.HasPrefix(p, "github.com") || strings.HasPrefix(p, "bitbucket.org")
 }
 
 // Search searches the packages index for a given query. A path-like query string
@@ -91,33 +136,18 @@ func Search(c context.Context, q string) ([]Package, error) {
 	}
 	var pkgs []Package
 	opt := &search.SearchOptions{
-		Sort: &search.SortOptions{
-			Expressions: []search.SortExpression{
-				{Expr: "Score * log(10 + ImportCount)"},
-			},
-		},
+		Limit: 100,
 	}
 	for it := index.Search(c, parseQuery2(q), opt); ; {
-		var pd PackageDocument
-		_, err := it.Next(&pd)
+		var p Package
+		_, err := it.Next(&p)
 		if err == search.Done {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		pkg := Package{
-			Path:        pd.Path,
-			ImportCount: int(pd.ImportCount),
-			Synopsis:    pd.Synopsis,
-		}
-		if pd.Fork == "true" {
-			pkg.Fork = true
-		}
-		if pd.Stars > 0 {
-			pkg.Stars = int(pd.Stars)
-		}
-		pkgs = append(pkgs, pkg)
+		pkgs = append(pkgs, p)
 	}
 	return pkgs, nil
 }
@@ -140,4 +170,30 @@ func isTermSep2(r rune) bool {
 	return unicode.IsSpace(r) ||
 		r != '.' && r != '/' && unicode.IsPunct(r) ||
 		unicode.IsSymbol(r)
+}
+
+// PurgeIndex deletes all the packages from the search index.
+func PurgeIndex(c context.Context) error {
+	idx, err := search.Open("packages")
+	if err != nil {
+		return err
+	}
+	n := 0
+
+	for it := idx.List(c, &search.ListOptions{IDsOnly: true}); ; n++ {
+		var pkg Package
+		id, err := it.Next(&pkg)
+		if err == search.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if err := idx.Delete(c, id); err != nil {
+			log.Printf("Failed to delete package %s: %v", id, err)
+			continue
+		}
+	}
+	log.Printf("Purged %d packages from the search index.", n)
+	return nil
 }

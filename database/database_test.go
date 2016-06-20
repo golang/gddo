@@ -134,7 +134,7 @@ func TestPutGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("db.Importers() returned error %v", err)
 	}
-	expectedImporters := []Package{{"github.com/user/repo/foo/bar", "hello"}}
+	expectedImporters := []Package{{Path: "github.com/user/repo/foo/bar", Synopsis: "hello"}}
 	if !reflect.DeepEqual(actualImporters, expectedImporters) {
 		t.Errorf("db.Importers() = %v, want %v", actualImporters, expectedImporters)
 	}
@@ -147,7 +147,11 @@ func TestPutGet(t *testing.T) {
 			actualImports[i].Synopsis = ""
 		}
 	}
-	expectedImports := []Package{{"C", ""}, {"errors", ""}, {"github.com/user/repo/foo/bar", "hello"}}
+	expectedImports := []Package{
+		{Path: "C", Synopsis: ""},
+		{Path: "errors", Synopsis: ""},
+		{Path: "github.com/user/repo/foo/bar", Synopsis: "hello"},
+	}
 	if !reflect.DeepEqual(actualImports, expectedImports) {
 		t.Errorf("db.Imports() = %v, want %v", actualImports, expectedImports)
 	}

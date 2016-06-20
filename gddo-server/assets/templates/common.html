@@ -51,11 +51,11 @@
       <tr><td>
         {{if .Path|isValidImportPath}}
         <a href="/{{.Path}}">{{.Path|importPath}}</a>
-          <ul class="list-inline">
+          {{if gaeSearch}}<ul class="list-inline">
             <li class="additional-info">{{.ImportCount}} imports</li>
             {{if .Fork}}<li class="additional-info">· fork</li>{{end}}
             {{if .Stars}}<li class="additional-info">· {{.Stars}} stars</li>{{end}}
-          </ul>
+          </ul>{{end}}
         {{else}}{{.Path|importPath}}</td>
         {{end}}
       <td class="synopsis">{{.Synopsis|importPath}}</td></tr>

@@ -25,6 +25,7 @@ import (
 	ttemp "text/template"
 	"time"
 
+	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
@@ -463,6 +464,10 @@ func gaAccountFn() string {
 	return gaAccount
 }
 
+func gaeSearchFn() bool {
+	return database.GAESearch
+}
+
 func noteTitleFn(s string) string {
 	return strings.Title(strings.ToLower(s))
 }
@@ -517,6 +522,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"comment":           commentFn,
 			"equal":             reflect.DeepEqual,
 			"gaAccount":         gaAccountFn,
+			"gaeSearch":         gaeSearchFn,
 			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
 			"importPath":        importPathFn,

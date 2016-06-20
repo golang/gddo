@@ -18,9 +18,11 @@ import (
 )
 
 var pdoc = &doc.Package{
-	ImportPath:  "github.com/golang/test",
-	ProjectName: "test",
-	Synopsis:    "This is a test package.",
+	ImportPath: "github.com/golang/test",
+	Name:       "test",
+	Synopsis:   "This is a test package.",
+	Fork:       true,
+	Stars:      10,
 }
 
 func TestPutIndexWithEmptyId(t *testing.T) {
@@ -64,16 +66,17 @@ func TestPutIndexNewPackageAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got PackageDocument
+	var got Package
 	if err = idx.Get(c, "12345", &got); err != nil && err != search.ErrNoSuchDocument {
 		t.Fatal(err)
 	}
-	wanted := PackageDocument{
-		Name:        search.Atom(pdoc.ProjectName),
+	wanted := Package{
+		Name:        pdoc.Name,
 		Path:        pdoc.ImportPath,
 		Synopsis:    pdoc.Synopsis,
-		Score:       0.99,
 		ImportCount: 1,
+		Fork:        true,
+		Stars:       10,
 	}
 	if got != wanted {
 		t.Errorf("PutIndex got %v, want %v", got, wanted)
@@ -105,7 +108,7 @@ func TestSearchResultSorted(t *testing.T) {
 	for i := 2; i < 6; i++ {
 		id += strconv.Itoa(i)
 		pdoc.Synopsis = id
-		if err := PutIndex(c, pdoc, id, math.Pow(0.95, float64(i)), 10*i); err != nil {
+		if err := PutIndex(c, pdoc, id, math.Pow(0.9, float64(i)), 10*i); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -113,10 +116,10 @@ func TestSearchResultSorted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wanted := []string{"1234", "12345", "123", "12"}
+	wanted := []string{"123", "12", "1234", "12345"}
 	for i, p := range got {
 		if p.Synopsis != wanted[i] {
-			t.Errorf("PutIndex got %v, want %v", p, wanted[i])
+			t.Errorf("Search got %v, want %v", p.Synopsis, wanted[i])
 		}
 	}
 }
