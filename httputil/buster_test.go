@@ -12,7 +12,7 @@ import (
 )
 
 func TestCacheBusters(t *testing.T) {
-	cbs := CacheBusters{Handler: http.FileServer(http.Dir("."))}
+	cbs := &CacheBusters{Handler: http.FileServer(http.Dir("."))}
 
 	token := cbs.Get("/buster_test.go")
 	if token == "" {
@@ -20,7 +20,7 @@ func TestCacheBusters(t *testing.T) {
 	}
 
 	var ss StaticServer
-	cbs = CacheBusters{Handler: ss.FileHandler("buster_test.go")}
+	cbs = &CacheBusters{Handler: ss.FileHandler("buster_test.go")}
 
 	token = cbs.Get("/xxx")
 	if token == "" {
