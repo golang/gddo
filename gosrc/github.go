@@ -162,7 +162,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	var repo = struct {
 		Fork      bool      `json:"fork"`
-		Stars     int       `json:"stars"`
+		Stars     int       `json:"stargazers_count"`
 		CreatedAt time.Time `json:"created_at"`
 		PushedAt  time.Time `json:"pushed_at"`
 	}{}

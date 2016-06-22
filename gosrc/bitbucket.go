@@ -30,7 +30,7 @@ type bitbucketRepo struct {
 	ForkOf      struct {
 		Scm string
 	} `json:"fork_of"`
-	Followers int  `json:"followers"`
+	Followers int  `json:"followers_count"`
 	IsFork    bool `json:"is_fork"`
 }
 
