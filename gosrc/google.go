@@ -75,7 +75,7 @@ func getGoogleDir(client *http.Client, match map[string]string, savedEtag string
 	}
 	etag = expand("{vcs}-{0}", match, string(m[1]))
 	if etag == savedEtag {
-		return nil, ErrNotModified
+		return nil, NotModifiedError{}
 	}
 
 	var subdirs []string

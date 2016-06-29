@@ -119,7 +119,7 @@ func getLaunchpadDir(client *http.Client, match map[string]string, savedEtag str
 	hash = m.Sum(hash[:0])
 	etag := hex.EncodeToString(hash)
 	if etag == savedEtag {
-		return nil, ErrNotModified
+		return nil, NotModifiedError{}
 	}
 
 	return &Directory{

@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"log"
 	"net/http"
 	"path"
 	"regexp"
@@ -34,6 +35,11 @@ type bitbucketRepo struct {
 	IsFork    bool `json:"is_fork"`
 }
 
+type bitbucketNode struct {
+	Node      string `json:"node"`
+	Timestamp string `json:"utctimestamp"`
+}
+
 func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	var repo *bitbucketRepo
 	c := &httpClient{client: client}
@@ -50,27 +56,35 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 	}
 
 	tags := make(map[string]string)
+	timestamps := make(map[string]time.Time)
+
 	for _, nodeType := range []string{"branches", "tags"} {
-		var nodes map[string]struct {
-			Node string
-		}
+		var nodes map[string]bitbucketNode
 		if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/{0}", match, nodeType), &nodes); err != nil {
 			return nil, err
 		}
 		for t, n := range nodes {
 			tags[t] = n.Node
+			const timeFormat = "2006-01-02 15:04:05Z07:00"
+			committed, err := time.Parse(timeFormat, n.Timestamp)
+			if err != nil {
+				log.Println("error parsing timestamp:", n.Timestamp)
+				continue
+			}
+			timestamps[t] = committed
 		}
 	}
 
 	var err error
-	match["tag"], match["commit"], err = bestTag(tags, defaultTags[match["vcs"]])
+	tag, commit, err := bestTag(tags, defaultTags[match["vcs"]])
 	if err != nil {
 		return nil, err
 	}
-
+	match["tag"] = tag
+	match["commit"] = commit
 	etag := expand("{vcs}-{commit}", match)
 	if etag == savedEtag {
-		return nil, ErrNotModified
+		return nil, NotModifiedError{Since: timestamps[tag]}
 	}
 
 	if repo == nil {

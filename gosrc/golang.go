@@ -23,12 +23,6 @@ func getStandardDir(client *http.Client, importPath string, savedEtag string) (*
 
 	browseURL := "https://golang.org/src/" + importPath + "/"
 	p, err := c.getBytes(browseURL)
-	if IsNotFound(err) {
-		// Fallback to Go 1.3 directory structure.
-		// TODO(garyburd): Delete fallback after 1.4 is pushed to golang.org.
-		browseURL = "https://golang.org/src/pkg/" + importPath + "/"
-		p, err = c.getBytes(browseURL)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +34,7 @@ func getStandardDir(client *http.Client, importPath string, savedEtag string) (*
 	}
 	etag = strings.Trim(string(m[1]), ". ")
 	if etag == savedEtag {
-		return nil, ErrNotModified
+		return nil, NotModifiedError{}
 	}
 
 	var files []*File

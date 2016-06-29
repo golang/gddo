@@ -148,7 +148,7 @@ func downloadGit(schemes []string, clonePath, repo, savedEtag string) (string, s
 	etag := scheme + "-" + commit
 
 	if etag == savedEtag {
-		return "", "", ErrNotModified
+		return "", "", NotModifiedError{}
 	}
 
 	dir := filepath.Join(TempDir, repo+".git")
@@ -201,7 +201,7 @@ func downloadSVN(schemes []string, clonePath, repo, savedEtag string) (string, s
 
 	etag := scheme + "-" + revno
 	if etag == savedEtag {
-		return "", "", ErrNotModified
+		return "", "", NotModifiedError{}
 	}
 
 	dir := filepath.Join(TempDir, repo+".svn")

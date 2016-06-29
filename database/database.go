@@ -601,6 +601,21 @@ var deleteScript = redis.NewScript(0, `
 func (db *Database) Delete(path string) error {
 	c := db.Pool.Get()
 	defer c.Close()
+
+	if GAESearch {
+		ctx := bgCtx()
+		id, err := redis.String(c.Do("HGET", "ids", path))
+		if err == redis.ErrNil {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := deleteIndex(ctx, id); err != nil {
+			return err
+		}
+	}
+
 	_, err := deleteScript.Do(c, path)
 	return err
 }

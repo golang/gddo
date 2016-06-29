@@ -172,6 +172,14 @@ func isTermSep2(r rune) bool {
 		unicode.IsSymbol(r)
 }
 
+func deleteIndex(c context.Context, id string) error {
+	idx, err := search.Open("packages")
+	if err != nil {
+		return err
+	}
+	return idx.Delete(c, id)
+}
+
 // PurgeIndex deletes all the packages from the search index.
 func PurgeIndex(c context.Context) error {
 	idx, err := search.Open("packages")

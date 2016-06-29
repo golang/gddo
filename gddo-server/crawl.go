@@ -61,7 +61,7 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 			}
 			pdoc = nil
 			err = gosrc.NotFoundError{Message: "no Go files or subdirs"}
-		} else if err != gosrc.ErrNotModified {
+		} else if _, ok := err.(gosrc.NotModifiedError); !ok {
 			pdoc = pdocNew
 		}
 	}
@@ -75,27 +75,54 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		nextCrawl = start.Add(*maxAge * 30)
 	}
 
-	switch {
-	case err == nil:
+	if err == nil {
 		message = append(message, "put:", pdoc.Etag)
 		if err := db.Put(pdoc, nextCrawl, false); err != nil {
 			log.Printf("ERROR db.Put(%q): %v", importPath, err)
 		}
 		return pdoc, nil
-	case err == gosrc.ErrNotModified:
+	} else if e, ok := err.(gosrc.NotModifiedError); ok {
+		if !pdoc.IsCmd && isInactivePkg(importPath, e.Since) {
+			message = append(message, "delete inactive")
+			if err := db.Delete(importPath); err != nil {
+				log.Printf("ERROR db.Delete(%q): %v", importPath, err)
+			}
+			return nil, e
+		}
+		// Touch the package without updating and move on to next one.
 		message = append(message, "touch")
 		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, nextCrawl); err != nil {
 			log.Printf("ERROR db.SetNextCrawlEtag(%q): %v", importPath, err)
 		}
 		return pdoc, nil
-	case gosrc.IsNotFound(err):
-		message = append(message, "notfound:", err)
+	} else if err == gosrc.ErrQuickFork {
+		message = append(message, "delete", err)
 		if err := db.Delete(importPath); err != nil {
 			log.Printf("ERROR db.Delete(%q): %v", importPath, err)
 		}
 		return nil, err
-	default:
+	} else if e, ok := err.(gosrc.NotFoundError); ok {
+		message = append(message, "notfound:", e)
+		if err := db.Delete(importPath); err != nil {
+			log.Printf("ERROR db.Delete(%q): %v", importPath, err)
+		}
+		return nil, e
+	} else {
 		message = append(message, "ERROR:", err)
 		return nil, err
 	}
+}
+
+// isInactivePkg reports whether the specified package is not imported
+// and has not been modified in 2 years.
+func isInactivePkg(pkg string, lastCommitted time.Time) bool {
+	if lastCommitted.IsZero() ||
+		time.Now().Before(lastCommitted.Add(2*365*24*time.Hour)) {
+		return false
+	}
+	n, err := db.ImporterCount(pkg)
+	if err != nil {
+		log.Printf("ERROR db.ImporterCount(%q): %v", pkg, err)
+	}
+	return n == 0
 }

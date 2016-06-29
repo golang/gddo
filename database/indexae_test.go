@@ -77,6 +77,7 @@ func TestPutIndexNewPackageAndUpdate(t *testing.T) {
 		ImportCount: 1,
 		Fork:        true,
 		Stars:       10,
+		Score:       0.99,
 	}
 	if got != wanted {
 		t.Errorf("PutIndex got %v, want %v", got, wanted)

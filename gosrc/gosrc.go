@@ -16,6 +16,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // File represents a file.
@@ -112,8 +113,15 @@ func (e *RemoteError) Error() string {
 	return e.err.Error()
 }
 
-// ErrNotModified indicates that the directory matches the specified etag.
-var ErrNotModified = errors.New("package not modified")
+type NotModifiedError struct {
+	Since time.Time
+}
+
+func (e NotModifiedError) Error() string {
+	return fmt.Sprintf("package not modified since %s", e.Since.Format(time.RFC1123))
+}
+
+var ErrQuickFork = errors.New("package is a quick bug-fix fork")
 
 var errNoMatch = errors.New("no match")
 

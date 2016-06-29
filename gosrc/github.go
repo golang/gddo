@@ -38,6 +38,15 @@ var (
 	ownerRepoPat        = regexp.MustCompile(`^https://api.github.com/repos/([^/]+)/([^/]+)/`)
 )
 
+type githubCommit struct {
+	ID     string `json:"sha"`
+	Commit struct {
+		Committer struct {
+			Date time.Time `json:"date"`
+		} `json:"committer"`
+	} `json:"commit"`
+}
+
 func gitHubError(resp *http.Response) error {
 	var e struct {
 		Message string `json:"message"`
@@ -52,53 +61,34 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	c := &httpClient{client: client, errFn: gitHubError}
 
-	type refJSON struct {
-		Object struct {
-			Type string
-			Sha  string
-			URL  string
-		}
-		Ref string
-		URL string
+	var repo struct {
+		Fork      bool      `json:"fork"`
+		Stars     int       `json:"stargazers_count"`
+		CreatedAt time.Time `json:"created_at"`
+		PushedAt  time.Time `json:"pushed_at"`
 	}
-	var refs []*refJSON
 
-	resp, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs", match), &refs)
-	if err != nil {
+	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 
-	// If the response contains a Link header, then fallback to requesting "master" and "go1" by name.
-	if resp.Header.Get("Link") != "" {
-		var masterRef refJSON
-		if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs/heads/master", match), &masterRef); err == nil {
-			refs = append(refs, &masterRef)
-		}
-
-		var go1Ref refJSON
-		if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/git/refs/tags/go1", match), &go1Ref); err == nil {
-			refs = append(refs, &go1Ref)
-		}
+	var commits []*githubCommit
+	url := expand("https://api.github.com/repos/{owner}/{repo}/commits", match)
+	url += fmt.Sprintf("?since=%s", repo.CreatedAt.Format(time.RFC3339))
+	if match["dir"] != "" {
+		url += fmt.Sprintf("&path=%s", match["dir"])
 	}
-
-	tags := make(map[string]string)
-	for _, ref := range refs {
-		switch {
-		case strings.HasPrefix(ref.Ref, "refs/heads/"):
-			tags[ref.Ref[len("refs/heads/"):]] = ref.Object.Sha
-		case strings.HasPrefix(ref.Ref, "refs/tags/"):
-			tags[ref.Ref[len("refs/tags/"):]] = ref.Object.Sha
-		}
-	}
-
-	var commit string
-	match["tag"], commit, err = bestTag(tags, "master")
-	if err != nil {
+	if _, err := c.getJSON(url, &commits); err != nil {
 		return nil, err
 	}
-
-	if commit == savedEtag {
-		return nil, ErrNotModified
+	if repo.Fork && isQuickFork(commits, repo.CreatedAt) {
+		return nil, ErrQuickFork
+	}
+	if len(commits) == 0 {
+		return nil, NotFoundError{Message: "package directory changed or removed"}
+	}
+	if commits[0].ID == savedEtag {
+		return nil, NotModifiedError{Since: commits[0].Commit.Committer.Date}
 	}
 
 	var contents []*struct {
@@ -108,7 +98,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		HTMLURL string `json:"html_url"`
 	}
 
-	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}?ref={tag}", match), &contents); err != nil {
+	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}", match), &contents); err != nil {
 		// The GitHub content API returns array values for directories
 		// and object values for files. If there's a type mismatch at
 		// the beginning of the response, then assume that the path is
@@ -157,25 +147,14 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	browseURL := expand("https://github.com/{owner}/{repo}", match)
 	if match["dir"] != "" {
-		browseURL = expand("https://github.com/{owner}/{repo}/tree/{tag}{dir}", match)
-	}
-
-	var repo = struct {
-		Fork      bool      `json:"fork"`
-		Stars     int       `json:"stargazers_count"`
-		CreatedAt time.Time `json:"created_at"`
-		PushedAt  time.Time `json:"pushed_at"`
-	}{}
-
-	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
-		return nil, err
+		browseURL = expand("https://github.com/{owner}/{repo}/tree{dir}", match)
 	}
 
 	isDeadEndFork := repo.Fork && repo.PushedAt.Before(repo.CreatedAt)
 
 	return &Directory{
 		BrowseURL:      browseURL,
-		Etag:           commit,
+		Etag:           commits[0].ID,
 		Files:          files,
 		LineFmt:        "%s#L%d",
 		ProjectName:    match["repo"],
@@ -187,6 +166,24 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		Fork:           repo.Fork,
 		Stars:          repo.Stars,
 	}, nil
+}
+
+// isQuickFork reports whether the repository is a "quick fork":
+// it has fewer than 3 commits, all within a week of the repo creation, createdAt.
+func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
+	if len(commits) > 2 {
+		return false
+	}
+	oneWeekOld := createdAt.Add(7 * 24 * time.Hour)
+	if oneWeekOld.After(time.Now()) {
+		return false // a newborn baby of a repository
+	}
+	for _, commit := range commits {
+		if commit.Commit.Committer.Date.After(oneWeekOld) {
+			return false
+		}
+	}
+	return true
 }
 
 func getGitHubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {
@@ -310,7 +307,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 	commit := gist.History[0].Version
 
 	if commit == savedEtag {
-		return nil, ErrNotModified
+		return nil, NotModifiedError{}
 	}
 
 	var files []*File
