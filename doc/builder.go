@@ -373,7 +373,7 @@ type source struct {
 }
 
 // PackageVersion is modified when previously stored packages are invalid.
-const PackageVersion = "6"
+const PackageVersion = "7"
 
 type Package struct {
 	// The import path for this package.
