@@ -72,23 +72,34 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		return nil, err
 	}
 
+	status := Active
 	var commits []*githubCommit
 	url := expand("https://api.github.com/repos/{owner}/{repo}/commits", match)
-	url += fmt.Sprintf("?since=%s", repo.CreatedAt.Format(time.RFC3339))
 	if match["dir"] != "" {
-		url += fmt.Sprintf("&path=%s", match["dir"])
+		url += fmt.Sprintf("?path=%s", match["dir"])
 	}
 	if _, err := c.getJSON(url, &commits); err != nil {
 		return nil, err
 	}
-	if repo.Fork && isQuickFork(commits, repo.CreatedAt) {
-		return nil, ErrQuickFork
-	}
 	if len(commits) == 0 {
 		return nil, NotFoundError{Message: "package directory changed or removed"}
 	}
+
+	lastCommitted := commits[0].Commit.Committer.Date
+	if lastCommitted.Add(ExpiresAfter).Before(time.Now()) {
+		status = NoRecentCommits
+	} else if repo.Fork {
+		if repo.PushedAt.Before(repo.CreatedAt) {
+			status = DeadEndFork
+		} else if isQuickFork(commits, repo.CreatedAt) {
+			status = QuickFork
+		}
+	}
 	if commits[0].ID == savedEtag {
-		return nil, NotModifiedError{Since: commits[0].Commit.Committer.Date}
+		return nil, NotModifiedError{
+			Since:  lastCommitted,
+			Status: status,
+		}
 	}
 
 	var contents []*struct {
@@ -150,8 +161,6 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		browseURL = expand("https://github.com/{owner}/{repo}/tree{dir}", match)
 	}
 
-	isDeadEndFork := repo.Fork && repo.PushedAt.Before(repo.CreatedAt)
-
 	return &Directory{
 		BrowseURL:      browseURL,
 		Etag:           commits[0].ID,
@@ -162,7 +171,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		ProjectURL:     expand("https://github.com/{owner}/{repo}", match),
 		Subdirectories: subdirs,
 		VCS:            "git",
-		DeadEndFork:    isDeadEndFork,
+		Status:         status,
 		Fork:           repo.Fork,
 		Stars:          repo.Stars,
 	}, nil
@@ -171,19 +180,18 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 // isQuickFork reports whether the repository is a "quick fork":
 // it has fewer than 3 commits, all within a week of the repo creation, createdAt.
 func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
-	if len(commits) > 2 {
-		return false
-	}
 	oneWeekOld := createdAt.Add(7 * 24 * time.Hour)
 	if oneWeekOld.After(time.Now()) {
 		return false // a newborn baby of a repository
 	}
+	n := 0
 	for _, commit := range commits {
 		if commit.Commit.Committer.Date.After(oneWeekOld) {
 			return false
 		}
+		n++
 	}
-	return true
+	return n < 3
 }
 
 func getGitHubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {

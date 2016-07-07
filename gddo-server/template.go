@@ -270,6 +270,19 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 	return htemp.HTML(buf.String())
 }
 
+func (pdoc *tdoc) StatusDescription() htemp.HTML {
+	desc := ""
+	switch pdoc.Package.Status {
+	case gosrc.DeadEndFork:
+		desc = "This is a dead-end fork (no commits since the fork)."
+	case gosrc.QuickFork:
+		desc = "This is a quick bug-fix fork (has fewer than three commits, and only during the week it was created)."
+	case gosrc.Inactive:
+		desc = "This is an inactive package (no imports and no commits in at least two years)."
+	}
+	return htemp.HTML(desc)
+}
+
 func formatPathFrag(path, fragment string) string {
 	if len(path) > 0 && path[0] != '/' {
 		path = "/" + path

@@ -280,12 +280,19 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 			return err
 		}
 		ctx := bgCtx()
-		if err := PutIndex(ctx, pdoc, id, score, n); err != nil {
-			log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
-		}
 
-		if old != nil {
-			if err := updateImportsIndex(c, ctx, old, pdoc); err != nil {
+		if score > 0 {
+			if err := PutIndex(ctx, pdoc, id, score, n); err != nil {
+				log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
+			}
+
+			if old != nil {
+				if err := updateImportsIndex(c, ctx, old, pdoc); err != nil {
+					return err
+				}
+			}
+		} else {
+			if err := deleteIndex(ctx, id); err != nil {
 				return err
 			}
 		}
@@ -369,26 +376,24 @@ func updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc, newDoc *doc.P
 	return nil
 }
 
-var setNextCrawlEtagScript = redis.NewScript(0, `
-    local root = ARGV[1]
-    local etag = ARGV[2]
-    local nextCrawl = ARGV[3]
+var setNextCrawlScript = redis.NewScript(0, `
+    local path = ARGV[1]
+    local nextCrawl = ARGV[2]
 
-    local pkgs = redis.call('SORT', 'index:project:' .. root, 'GET', '#',  'GET', 'pkg:*->etag')
-
-    for i=1,#pkgs,2 do
-        if pkgs[i+1] == etag then
-            redis.call('ZADD', 'nextCrawl', nextCrawl, pkgs[i])
-            redis.call('HSET', 'pkg:' .. pkgs[i], 'crawl', nextCrawl)
-        end
+    local id = redis.call('HGET', 'ids', path)
+    if not id then
+        return false
     end
+
+    redis.call('ZADD', 'nextCrawl', nextCrawl, id)
+    redis.call('HSET', 'pkg:' .. id, 'crawl', nextCrawl)
 `)
 
-// SetNextCrawlEtag sets the next crawl time for all packages in the project with the given etag.
-func (db *Database) SetNextCrawlEtag(projectRoot string, etag string, t time.Time) error {
+// SetNextCrawl sets the next crawl time for a package.
+func (db *Database) SetNextCrawl(path string, t time.Time) error {
 	c := db.Pool.Get()
 	defer c.Close()
-	_, err := setNextCrawlEtagScript.Do(c, normalizeProjectRoot(projectRoot), etag, t.Unix())
+	_, err := setNextCrawlScript.Do(c, path, t.Unix())
 	return err
 }
 

@@ -160,7 +160,7 @@ var vendorPat = regexp.MustCompile(
 
 func documentScore(pdoc *doc.Package) float64 {
 	if pdoc.Name == "" ||
-		pdoc.DeadEndFork ||
+		pdoc.Status != gosrc.Active ||
 		len(pdoc.Errors) > 0 ||
 		strings.HasSuffix(pdoc.ImportPath, ".go") ||
 		strings.HasPrefix(pdoc.ImportPath, "gist.github.com/") ||

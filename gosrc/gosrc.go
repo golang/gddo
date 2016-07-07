@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+const ExpiresAfter = 2 * 365 * 24 * time.Hour // Package with no commits and imports expires.
+
 // File represents a file.
 type File struct {
 	// File name with no directory.
@@ -30,6 +32,19 @@ type File struct {
 	// Location of file on version control service website.
 	BrowseURL string
 }
+
+type DirectoryStatus int
+
+const (
+	Active          DirectoryStatus = iota
+	DeadEndFork                     // Forks with no commits
+	QuickFork                       // Forks with less than 3 commits, all within a week from creation
+	NoRecentCommits                 // No commits for ExpiresAfter
+
+	// No commits for ExpiresAfter and no imports.
+	// This is a status derived from NoRecentCommits and the imports count information in the db.
+	Inactive
+)
 
 // Directory describes a directory on a version control service.
 type Directory struct {
@@ -51,8 +66,8 @@ type Directory struct {
 	// Version control system: git, hg, bzr, ...
 	VCS string
 
-	// Version control: belongs to a dead end fork
-	DeadEndFork bool
+	// Version control: active or should be suppressed.
+	Status DirectoryStatus
 
 	// Cache validation tag. This tag is not necessarily an HTTP entity tag.
 	// The tag is "" if there is no meaningful cache validation for the VCS.
@@ -114,14 +129,20 @@ func (e *RemoteError) Error() string {
 }
 
 type NotModifiedError struct {
-	Since time.Time
+	Since  time.Time
+	Status DirectoryStatus
 }
 
 func (e NotModifiedError) Error() string {
-	return fmt.Sprintf("package not modified since %s", e.Since.Format(time.RFC1123))
+	msg := "package not modified"
+	if !e.Since.IsZero() {
+		msg += fmt.Sprintf(" since %s", e.Since.Format(time.RFC1123))
+	}
+	if e.Status == QuickFork {
+		msg += " (package is a quick fork)"
+	}
+	return msg
 }
-
-var ErrQuickFork = errors.New("package is a quick bug-fix fork")
 
 var errNoMatch = errors.New("no match")
 

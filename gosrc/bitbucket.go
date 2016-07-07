@@ -120,6 +120,11 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		return nil, err
 	}
 
+	status := Active
+	if isBitbucketDeadEndFork(repo) {
+		status = DeadEndFork
+	}
+
 	return &Directory{
 		BrowseURL:      expand("https://bitbucket.org/{owner}/{repo}/src/{tag}{dir}", match),
 		Etag:           etag,
@@ -130,7 +135,7 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		ProjectURL:     expand("https://bitbucket.org/{owner}/{repo}/", match),
 		Subdirectories: contents.Directories,
 		VCS:            match["vcs"],
-		DeadEndFork:    isBitbucketDeadEndFork(repo),
+		Status:         status,
 		Fork:           repo.IsFork,
 		Stars:          repo.Followers,
 	}, nil

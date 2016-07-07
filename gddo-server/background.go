@@ -86,8 +86,8 @@ func doCrawl() error {
 	}
 	if _, err = crawlDoc("crawl", pdoc.ImportPath, pdoc, len(pkgs) > 0, nextCrawl); err != nil {
 		// Touch package so that crawl advances to next package.
-		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, time.Now().Add(*maxAge/3)); err != nil {
-			log.Printf("ERROR db.TouchLastCrawl(%q): %v", pdoc.ImportPath, err)
+		if err := db.SetNextCrawl(pdoc.ImportPath, time.Now().Add(*maxAge/3)); err != nil {
+			log.Printf("ERROR db.SetNextCrawl(%q): %v", pdoc.ImportPath, err)
 		}
 	}
 	return nil

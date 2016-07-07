@@ -373,7 +373,7 @@ type source struct {
 }
 
 // PackageVersion is modified when previously stored packages are invalid.
-const PackageVersion = "7"
+const PackageVersion = "8"
 
 type Package struct {
 	// The import path for this package.
@@ -397,8 +397,8 @@ type Package struct {
 	// Version control system: git, hg, bzr, ...
 	VCS string
 
-	// Version control: belongs to a dead end fork
-	DeadEndFork bool
+	// Version control: active or suppressed.
+	Status gosrc.DirectoryStatus
 
 	// Whether the package is a fork of another one.
 	Fork bool
@@ -503,7 +503,7 @@ func newPackage(dir *gosrc.Directory) (*Package, error) {
 		BrowseURL:      dir.BrowseURL,
 		Etag:           PackageVersion + "-" + dir.Etag,
 		VCS:            dir.VCS,
-		DeadEndFork:    dir.DeadEndFork,
+		Status:         dir.Status,
 		Subdirectories: dir.Subdirectories,
 		Fork:           dir.Fork,
 		Stars:          dir.Stars,

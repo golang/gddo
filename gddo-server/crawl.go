@@ -7,6 +7,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -77,30 +78,28 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 
 	if err == nil {
 		message = append(message, "put:", pdoc.Etag)
-		if err := db.Put(pdoc, nextCrawl, false); err != nil {
-			log.Printf("ERROR db.Put(%q): %v", importPath, err)
+		if err := put(pdoc, nextCrawl); err != nil {
+			log.Println(err)
 		}
 		return pdoc, nil
 	} else if e, ok := err.(gosrc.NotModifiedError); ok {
-		if !pdoc.IsCmd && isInactivePkg(importPath, e.Since) {
-			message = append(message, "delete inactive")
-			if err := db.Delete(importPath); err != nil {
-				log.Printf("ERROR db.Delete(%q): %v", importPath, err)
+		if pdoc.Status == gosrc.Active && !isActivePkg(importPath, e.Status) {
+			if e.Status == gosrc.NoRecentCommits {
+				e.Status = gosrc.Inactive
 			}
-			return nil, e
-		}
-		// Touch the package without updating and move on to next one.
-		message = append(message, "touch")
-		if err := db.SetNextCrawlEtag(pdoc.ProjectRoot, pdoc.Etag, nextCrawl); err != nil {
-			log.Printf("ERROR db.SetNextCrawlEtag(%q): %v", importPath, err)
+			message = append(message, "archive", e)
+			pdoc.Status = e.Status
+			if err := db.Put(pdoc, nextCrawl, false); err != nil {
+				log.Printf("ERROR db.Put(%q): %v", importPath, err)
+			}
+		} else {
+			// Touch the package without updating and move on to next one.
+			message = append(message, "touch")
+			if err := db.SetNextCrawl(importPath, nextCrawl); err != nil {
+				log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
+			}
 		}
 		return pdoc, nil
-	} else if err == gosrc.ErrQuickFork {
-		message = append(message, "delete", err)
-		if err := db.Delete(importPath); err != nil {
-			log.Printf("ERROR db.Delete(%q): %v", importPath, err)
-		}
-		return nil, err
 	} else if e, ok := err.(gosrc.NotFoundError); ok {
 		message = append(message, "notfound:", e)
 		if err := db.Delete(importPath); err != nil {
@@ -113,16 +112,30 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 	}
 }
 
-// isInactivePkg reports whether the specified package is not imported
-// and has not been modified in 2 years.
-func isInactivePkg(pkg string, lastCommitted time.Time) bool {
-	if lastCommitted.IsZero() ||
-		time.Now().Before(lastCommitted.Add(2*365*24*time.Hour)) {
-		return false
+func put(pdoc *doc.Package, nextCrawl time.Time) error {
+	if pdoc.Status == gosrc.NoRecentCommits &&
+		isActivePkg(pdoc.ImportPath, gosrc.NoRecentCommits) {
+		pdoc.Status = gosrc.Active
 	}
-	n, err := db.ImporterCount(pkg)
-	if err != nil {
-		log.Printf("ERROR db.ImporterCount(%q): %v", pkg, err)
+	if err := db.Put(pdoc, nextCrawl, false); err != nil {
+		return fmt.Errorf("ERROR db.Put(%q): %v", pdoc.ImportPath, err)
 	}
-	return n == 0
+	return nil
+}
+
+// isActivePkg reports whether a package is considered active,
+// either because its directory is active or because it is imported by another package.
+func isActivePkg(pkg string, status gosrc.DirectoryStatus) bool {
+	switch status {
+	case gosrc.Active:
+		return true
+	case gosrc.NoRecentCommits:
+		// It should be inactive only if it has no imports as well.
+		n, err := db.ImporterCount(pkg)
+		if err != nil {
+			log.Printf("ERROR db.ImporterCount(%q): %v", pkg, err)
+		}
+		return n > 0
+	}
+	return false
 }
