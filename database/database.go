@@ -85,7 +85,6 @@ var (
 	RedisServer      = "redis://127.0.0.1:6379" // URL of Redis server
 	RedisIdleTimeout = 250 * time.Second        // Close Redis connections after remaining idle for this duration.
 	RedisLog         = false                    // Log database commands
-	GAESearch        = false                    // Use GAE Search API in the search function.
 )
 
 func dialDb() (c redis.Conn, err error) {
@@ -274,27 +273,25 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 		return err
 	}
 
-	if GAESearch {
-		id, n, err := pkgIDAndImportCount(c, pdoc.ImportPath)
-		if err != nil {
-			return err
+	id, n, err := pkgIDAndImportCount(c, pdoc.ImportPath)
+	if err != nil {
+		return err
+	}
+	ctx := bgCtx()
+
+	if score > 0 {
+		if err := PutIndex(ctx, pdoc, id, score, n); err != nil {
+			log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
 		}
-		ctx := bgCtx()
 
-		if score > 0 {
-			if err := PutIndex(ctx, pdoc, id, score, n); err != nil {
-				log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
-			}
-
-			if old != nil {
-				if err := updateImportsIndex(c, ctx, old, pdoc); err != nil {
-					return err
-				}
-			}
-		} else {
-			if err := deleteIndex(ctx, id); err != nil {
+		if old != nil {
+			if err := updateImportsIndex(c, ctx, old, pdoc); err != nil {
 				return err
 			}
+		}
+	} else {
+		if err := deleteIndex(ctx, id); err != nil {
+			return err
 		}
 	}
 
@@ -607,21 +604,19 @@ func (db *Database) Delete(path string) error {
 	c := db.Pool.Get()
 	defer c.Close()
 
-	if GAESearch {
-		ctx := bgCtx()
-		id, err := redis.String(c.Do("HGET", "ids", path))
-		if err == redis.ErrNil {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if err := deleteIndex(ctx, id); err != nil {
-			return err
-		}
+	ctx := bgCtx()
+	id, err := redis.String(c.Do("HGET", "ids", path))
+	if err == redis.ErrNil {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := deleteIndex(ctx, id); err != nil {
+		return err
 	}
 
-	_, err := deleteScript.Do(c, path)
+	_, err = deleteScript.Do(c, path)
 	return err
 }
 
