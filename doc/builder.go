@@ -469,7 +469,8 @@ var goEnvs = []struct{ GOOS, GOARCH string }{
 }
 
 // SetDefaultGOOS sets given GOOS value as default one to use when building
-// package documents.
+// package documents. SetDefaultGOOS has no effect on some windows-only
+// packages.
 func SetDefaultGOOS(goos string) {
 	if goos == "" {
 		return
@@ -489,6 +490,15 @@ func SetDefaultGOOS(goos string) {
 		goEnvs = append(goEnvs, env)
 	}
 	goEnvs[0], goEnvs[i] = goEnvs[i], goEnvs[0]
+}
+
+var windowsOnlyPackages = map[string]bool{
+	"internal/syscall/windows":                     true,
+	"internal/syscall/windows/registry":            true,
+	"golang.org/x/exp/shiny/driver/internal/win32": true,
+	"golang.org/x/exp/shiny/driver/windriver":      true,
+	"golang.org/x/sys/windows":                     true,
+	"golang.org/x/sys/windows/registry":            true,
 }
 
 func newPackage(dir *gosrc.Directory) (*Package, error) {
@@ -546,6 +556,12 @@ func newPackage(dir *gosrc.Directory) (*Package, error) {
 	var bpkg *build.Package
 
 	for _, env := range goEnvs {
+		// Some packages should be always displayed as GOOS=windows (see issue #16509 for details).
+		// TODO: remove this once issue #16509 is resolved.
+		if windowsOnlyPackages[dir.ImportPath] && env.GOOS != "windows" {
+			continue
+		}
+
 		ctxt.GOOS = env.GOOS
 		ctxt.GOARCH = env.GOARCH
 		bpkg, err = dir.Import(&ctxt, build.ImportComment)
