@@ -364,6 +364,9 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			"pdoc":          newTDoc(pdoc),
 		})
 	case isView(req, "import-graph"):
+		if requestType == robotRequest {
+			return &httpError{status: http.StatusForbidden}
+		}
 		if pdoc.Name == "" {
 			break
 		}
