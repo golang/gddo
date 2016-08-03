@@ -30,9 +30,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/appengine"
-	"google.golang.org/cloud"
 	"google.golang.org/cloud/compute/metadata"
 	"google.golang.org/cloud/logging"
 
@@ -846,14 +844,6 @@ func defaultBase(path string) string {
 	return p.Dir
 }
 
-func cloudContext(projID string) context.Context {
-	hc, err := google.DefaultClient(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-	return cloud.NewContext(projID, hc)
-}
-
 var (
 	db                    *database.Database
 	httpClient            *http.Client
@@ -891,7 +881,6 @@ func main() {
 	var (
 		gceLogName string
 		projID     string
-		ctx        context.Context
 	)
 
 	if metadata.OnGCE() {
@@ -911,7 +900,6 @@ func main() {
 				log.Printf("querying metadata for project ID: %v", err)
 			} else {
 				projID = id
-				ctx = cloudContext(projID)
 			}
 		}
 	} else {
@@ -1023,6 +1011,7 @@ func main() {
 		{"", mux},
 	}
 	if gceLogName != "" {
+		ctx := context.Background()
 		logc, err := logging.NewClient(ctx, projID, gceLogName)
 		if err != nil {
 			log.Fatalf("Failed to create cloud logging client: %v", err)
