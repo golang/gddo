@@ -29,10 +29,10 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
+	"cloud.google.com/go/logging"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
-	"google.golang.org/cloud/compute/metadata"
-	"google.golang.org/cloud/logging"
 
 	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/doc"

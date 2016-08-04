@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"time"
 
+	"cloud.google.com/go/logging"
 	"github.com/golang/gddo/database"
-	"google.golang.org/cloud/logging"
 )
 
 // newGCELogger returns a handler that wraps h but logs each request

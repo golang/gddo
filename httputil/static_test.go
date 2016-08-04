@@ -9,7 +9,6 @@ package httputil_test
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"github.com/golang/gddo/httputil"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +18,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/golang/gddo/httputil"
 )
 
 var (

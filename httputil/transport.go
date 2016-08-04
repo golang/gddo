@@ -15,7 +15,7 @@ import (
 	"net/url"
 	"os"
 
-	"google.golang.org/cloud/compute/metadata"
+	"cloud.google.com/go/compute/metadata"
 )
 
 // AuthTransport is an implementation of http.RoundTripper that authenticates
