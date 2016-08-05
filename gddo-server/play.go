@@ -57,10 +57,18 @@ func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
 
 var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
-func playURL(pdoc *doc.Package, id string) (string, error) {
+func playURL(pdoc *doc.Package, id, countryHeader string) (string, error) {
 	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
 		if e := findExample(pdoc, m[1], m[2], m[3]); e != nil && e.Play != "" {
-			resp, err := httpClient.Post("http://play.golang.org/share", "text/plain", strings.NewReader(e.Play))
+			req, err := http.NewRequest("POST", "https://play.golang.org/share", "text/plain", strings.NewReader(e.Play))
+			if err != nil {
+				return "", err
+			}
+			if countryHeader != "" {
+				// Forward the App Engine country header.
+				req.Header.Set("X-AppEngine-Country", countryHeader)
+			}
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				return "", err
 			}
@@ -68,6 +76,12 @@ func playURL(pdoc *doc.Package, id string) (string, error) {
 			p, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				return "", err
+			}
+			if resp.StatusCode > 399 {
+				return "", &httpError{
+					status: resp.StatusCode,
+					err:    fmt.Errorf("Error from play.golang.org: %s", p),
+				}
 			}
 			return fmt.Sprintf("http://play.golang.org/p/%s", p), nil
 		}

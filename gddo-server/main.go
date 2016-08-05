@@ -390,7 +390,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			"hide":          hide,
 		})
 	case isView(req, "play"):
-		u, err := playURL(pdoc, req.Form.Get("play"))
+		u, err := playURL(pdoc, req.Form.Get("play"), r.Header.Get("X-AppEngine-Country"))
 		if err != nil {
 			return err
 		}
