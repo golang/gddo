@@ -38,7 +38,7 @@ var (
 
 	// used for mocking in tests
 	getPresentation = gosrc.GetPresentation
-	playCompileURL  = "http://play.golang.org/compile"
+	playCompileURL  = "https://play.golang.org/compile"
 )
 
 func init() {
