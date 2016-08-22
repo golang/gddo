@@ -1,6 +1,6 @@
 This project is the source for http://godoc.org/
 
-[![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/golang/gddo)
+[![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/golang/gddo) [![Build Status](https://travis-ci.org/golang/gddo.svg?branch=master)](https://travis-ci.org/golang/gddo)
 
 The code in this project is designed to be used by godoc.org. Send mail to
 golang-dev@googlegroups.com if you want to discuss other uses of the code.
