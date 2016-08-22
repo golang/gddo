@@ -93,13 +93,10 @@ func renderPresentation(w io.Writer, fname string, doc *present.Doc) error {
 	}
 	data := struct {
 		*present.Doc
-		Template    *template.Template
-		PlayEnabled bool
-	}{
-		doc,
-		t,
-		true,
-	}
+		Template     *template.Template
+		PlayEnabled  bool
+		NotesEnabled bool
+	}{doc, t, true, true}
 	return t.Execute(w, &data)
 }
 
