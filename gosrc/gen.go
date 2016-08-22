@@ -57,7 +57,7 @@ func main() {
 
 	// Build map of standard repository path flags.
 
-	cmd := exec.Command("go", "list", "std")
+	cmd := exec.Command("go", "list", "std", "cmd")
 	p, err := cmd.Output()
 	if err != nil {
 		log.Fatal(err)
@@ -67,9 +67,6 @@ func main() {
 		"C":       packagePath,
 	}
 	for _, path := range strings.Fields(string(p)) {
-		if strings.HasPrefix(path, "cmd/") {
-			continue
-		}
 		pathFlags[path] |= packagePath | goRepoPath
 		for {
 			i := strings.LastIndex(path, "/")
