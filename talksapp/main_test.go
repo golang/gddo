@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/gddo/gosrc"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/aetest"
+	"google.golang.org/appengine/memcache"
 
-	"appengine"
-	"appengine/aetest"
-	"appengine/memcache"
+	"github.com/golang/gddo/gosrc"
 )
 
 const importPath = "github.com/user/repo/path/to/presentation.slide"

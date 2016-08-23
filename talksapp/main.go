@@ -18,13 +18,15 @@ import (
 	"path"
 	"time"
 
-	"appengine"
-	"appengine/memcache"
-	"appengine/urlfetch"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/memcache"
+	"google.golang.org/appengine/urlfetch"
 
 	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
 
+	"golang.org/x/net/context"
 	"golang.org/x/tools/present"
 )
 
@@ -115,7 +117,7 @@ func writeTextHeader(w http.ResponseWriter, status int) {
 }
 
 func httpClient(r *http.Request) *http.Client {
-	c := appengine.NewContext(r)
+	ctx, _ := context.WithTimeout(appengine.NewContext(r), 10*time.Second)
 	github := httputil.NewAuthTransportFromEnvironment(nil)
 
 	return &http.Client{
@@ -123,8 +125,8 @@ func httpClient(r *http.Request) *http.Client {
 			Token:        github.Token,
 			ClientID:     github.ClientID,
 			ClientSecret: github.ClientSecret,
-			Base:         &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
-			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
+			Base:         &urlfetch.Transport{Context: ctx},
+			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(ctx), r.Host),
 		},
 	}
 }
@@ -132,7 +134,7 @@ func httpClient(r *http.Request) *http.Client {
 type handlerFunc func(http.ResponseWriter, *http.Request) error
 
 func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
+	ctx := appengine.NewContext(r)
 	err := f(w, r)
 	if err == nil {
 		return
@@ -142,14 +144,14 @@ func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if e, ok := err.(*gosrc.RemoteError); ok {
 		writeTextHeader(w, 500)
 		fmt.Fprintf(w, "Error accessing %s.\n%v", e.Host, e)
-		c.Infof("Remote error %s: %v", e.Host, e)
+		log.Infof(ctx, "Remote error %s: %v", e.Host, e)
 	} else if e, ok := err.(presFileNotFoundError); ok {
 		writeTextHeader(w, 200)
 		io.WriteString(w, e.Error())
 	} else if err != nil {
 		writeTextHeader(w, 500)
 		io.WriteString(w, "Internal server error.")
-		c.Errorf("Internal error %v", err)
+		log.Errorf(ctx, "Internal error %v", err)
 	}
 }
 
@@ -169,10 +171,10 @@ func serveRoot(w http.ResponseWriter, r *http.Request) error {
 }
 
 func servePresentation(w http.ResponseWriter, r *http.Request) error {
-	c := appengine.NewContext(r)
+	ctx := appengine.NewContext(r)
 	importPath := r.URL.Path[1:]
 
-	item, err := memcache.Get(c, importPath)
+	item, err := memcache.Get(ctx, importPath)
 	if err == nil {
 		writeHTMLHeader(w, 200)
 		w.Write(item.Value)
@@ -181,13 +183,13 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	c.Infof("Fetching presentation %s.", importPath)
+	log.Infof(ctx, "Fetching presentation %s.", importPath)
 	pres, err := getPresentation(httpClient(r), importPath)
 	if err != nil {
 		return err
 	}
 
-	ctx := &present.Context{
+	parser := &present.Context{
 		ReadFile: func(name string) ([]byte, error) {
 			if p, ok := pres.Files[name]; ok {
 				return p, nil
@@ -196,7 +198,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 		},
 	}
 
-	doc, err := ctx.Parse(bytes.NewReader(pres.Files[pres.Filename]), pres.Filename, 0)
+	doc, err := parser.Parse(bytes.NewReader(pres.Files[pres.Filename]), pres.Filename, 0)
 	if err != nil {
 		return err
 	}
@@ -206,7 +208,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := memcache.Add(c, &memcache.Item{
+	if err := memcache.Add(ctx, &memcache.Item{
 		Key:        importPath,
 		Value:      buf.Bytes(),
 		Expiration: time.Hour,
@@ -235,8 +237,8 @@ func serveCompile(w http.ResponseWriter, r *http.Request) error {
 }
 
 func serveBot(w http.ResponseWriter, r *http.Request) error {
-	c := appengine.NewContext(r)
+	ctx := appengine.NewContext(r)
 	writeTextHeader(w, 200)
-	_, err := fmt.Fprintf(w, "Contact %s for help with the %s bot.", contactEmail, appengine.AppID(c))
+	_, err := fmt.Fprintf(w, "Contact %s for help with the %s bot.", contactEmail, appengine.AppID(ctx))
 	return err
 }
