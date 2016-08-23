@@ -213,7 +213,8 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 		Value:      buf.Bytes(),
 		Expiration: time.Hour,
 	}); err != nil {
-		return err
+		log.Errorf(ctx, "Could not cache presentation %s: %v", importPath, err)
+		return nil
 	}
 
 	writeHTMLHeader(w, 200)
