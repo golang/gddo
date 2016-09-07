@@ -44,6 +44,11 @@ var (
 )
 
 func init() {
+	github := httputil.NewAuthTransportFromEnvironment(nil)
+	if github.Token == "" || github.ClientID == "" || github.ClientSecret == "" {
+		panic("missing GitHub metadata, follow the instructions on README.md")
+	}
+
 	http.Handle("/", handlerFunc(serveRoot))
 	http.Handle("/compile", handlerFunc(serveCompile))
 	http.Handle("/bot.html", handlerFunc(serveBot))
@@ -135,6 +140,7 @@ type handlerFunc func(http.ResponseWriter, *http.Request) error
 
 func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
+
 	err := f(w, r)
 	if err == nil {
 		return
@@ -186,9 +192,8 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	log.Infof(ctx, "Fetching presentation %s.", importPath)
 	pres, err := getPresentation(httpClient(r), importPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not get presentation: %v", err)
 	}
-
 	parser := &present.Context{
 		ReadFile: func(name string) ([]byte, error) {
 			if p, ok := pres.Files[name]; ok {
@@ -197,15 +202,14 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 			return nil, presFileNotFoundError(name)
 		},
 	}
-
 	doc, err := parser.Parse(bytes.NewReader(pres.Files[pres.Filename]), pres.Filename, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not parse presentation: %v", err)
 	}
 
 	var buf bytes.Buffer
 	if err := renderPresentation(&buf, importPath, doc); err != nil {
-		return err
+		return fmt.Errorf("Could not render presentation: %v", err)
 	}
 
 	if err := memcache.Add(ctx, &memcache.Item{
