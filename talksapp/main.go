@@ -44,17 +44,20 @@ var (
 )
 
 func init() {
-	github := httputil.NewAuthTransportFromEnvironment(nil)
-	if github.Token == "" || github.ClientID == "" || github.ClientSecret == "" {
-		panic("missing GitHub metadata, follow the instructions on README.md")
-	}
-
 	http.Handle("/", handlerFunc(serveRoot))
 	http.Handle("/compile", handlerFunc(serveCompile))
 	http.Handle("/bot.html", handlerFunc(serveBot))
 	present.PlayEnabled = true
 	if s := os.Getenv("CONTACT_EMAIL"); s != "" {
 		contactEmail = s
+	}
+
+	if appengine.IsDevAppServer() {
+		return
+	}
+	github := httputil.NewAuthTransportFromEnvironment(nil)
+	if github.Token == "" || github.ClientID == "" || github.ClientSecret == "" {
+		panic("missing GitHub metadata, follow the instructions on README.md")
 	}
 }
 
