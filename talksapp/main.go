@@ -195,7 +195,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	log.Infof(ctx, "Fetching presentation %s.", importPath)
 	pres, err := getPresentation(httpClient(r), importPath)
 	if err != nil {
-		return fmt.Errorf("Could not get presentation: %v", err)
+		return err
 	}
 	parser := &present.Context{
 		ReadFile: func(name string) ([]byte, error) {
@@ -207,12 +207,12 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	}
 	doc, err := parser.Parse(bytes.NewReader(pres.Files[pres.Filename]), pres.Filename, 0)
 	if err != nil {
-		return fmt.Errorf("Could not parse presentation: %v", err)
+		return err
 	}
 
 	var buf bytes.Buffer
 	if err := renderPresentation(&buf, importPath, doc); err != nil {
-		return fmt.Errorf("Could not render presentation: %v", err)
+		return err
 	}
 
 	if err := memcache.Add(ctx, &memcache.Item{
