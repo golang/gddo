@@ -189,7 +189,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 		w.Write(item.Value)
 		return nil
 	} else if err != memcache.ErrCacheMiss {
-		return err
+		log.Errorf(ctx, "Could not get item from Memcache: %v", err)
 	}
 
 	log.Infof(ctx, "Fetching presentation %s.", importPath)
