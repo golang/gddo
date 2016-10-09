@@ -1012,14 +1012,18 @@ func main() {
 	}
 	if gceLogName != "" {
 		ctx := context.Background()
-		logc, err := logging.NewClient(ctx, projID, gceLogName)
+
+		logc, err := logging.NewClient(ctx, projID)
 		if err != nil {
 			log.Fatalf("Failed to create cloud logging client: %v", err)
 		}
-		if err := logc.Ping(); err != nil {
+		logger := logc.Logger(gceLogName)
+
+		if err := logc.Ping(nil); err != nil {
 			log.Fatalf("Failed to ping Google Cloud Logging: %v", err)
 		}
-		gceLogger = newGCELogger(logc)
+
+		gceLogger = newGCELogger(logger)
 	}
 
 	http.Handle("/", root)

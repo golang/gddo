@@ -19,12 +19,12 @@ import (
 
 // newGCELogger returns a handler that wraps h but logs each request
 // using Google Cloud Logging service.
-func newGCELogger(cli *logging.Client) *GCELogger {
+func newGCELogger(cli *logging.Logger) *GCELogger {
 	return &GCELogger{cli}
 }
 
 type GCELogger struct {
-	cli *logging.Client
+	cli *logging.Logger
 }
 
 // LogEvent creates an entry in Cloud Logging to record user's behavior. We should only
@@ -66,7 +66,6 @@ func (g *GCELogger) LogEvent(w http.ResponseWriter, r *http.Request, content int
 	// Log queues the entry to its internal buffer, or discarding the entry
 	// if the buffer was full.
 	g.cli.Log(logging.Entry{
-		Time:    time.Now().UTC(),
 		Payload: payload,
 	})
 }
