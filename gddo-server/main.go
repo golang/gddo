@@ -1019,7 +1019,7 @@ func main() {
 		}
 		logger := logc.Logger(gceLogName)
 
-		if err := logc.Ping(nil); err != nil {
+		if err := logc.Ping(ctx); err != nil {
 			log.Fatalf("Failed to ping Google Cloud Logging: %v", err)
 		}
 
