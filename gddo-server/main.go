@@ -466,16 +466,6 @@ func serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request) error {
 	})
 }
 
-func serveIndex(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := db.Index()
-	if err != nil {
-		return err
-	}
-	return executeTemplate(resp, "index.html", http.StatusOK, nil, map[string]interface{}{
-		"pkgs": pkgs,
-	})
-}
-
 func runReindex(resp http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(resp, "Reindexing...")
 	go reindex()
@@ -915,7 +905,6 @@ func main() {
 		{"importers.html", "common.html", "layout.html"},
 		{"importers_robot.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
-		{"index.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
 		{"results.html", "common.html", "layout.html"},
@@ -985,11 +974,9 @@ func main() {
 	mux.Handle("/-/bot", handler(serveBot))
 	mux.Handle("/-/go", handler(serveGoIndex))
 	mux.Handle("/-/subrepo", handler(serveGoSubrepoIndex))
-	mux.Handle("/-/index", handler(serveIndex))
 	mux.Handle("/-/refresh", handler(serveRefresh))
 	mux.Handle("/-/admin/reindex", http.HandlerFunc(runReindex))
 	mux.Handle("/-/admin/purgeindex", http.HandlerFunc(runPurgeIndex))
-	mux.Handle("/a/index", http.RedirectHandler("/-/index", http.StatusMovedPermanently))
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	mux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
