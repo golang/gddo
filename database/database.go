@@ -67,7 +67,7 @@ type Database struct {
 type Package struct {
 	Name        string  `json:"name,omitempty"`
 	Path        string  `json:"path"`
-	ImportCount int     `json:"import_count`
+	ImportCount int     `json:"import_count"`
 	Synopsis    string  `json:"synopsis,omitempty"`
 	Fork        bool    `json:"fork,omitempty"`
 	Stars       int     `json:"stars,omitempty"`
