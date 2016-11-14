@@ -19,9 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"appengine"
-	"appengine/datastore"
-	"appengine/urlfetch"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/urlfetch"
 
 	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
@@ -150,7 +152,7 @@ type lintProblem struct {
 	Link       string
 }
 
-func putPackage(c appengine.Context, importPath string, pkg *lintPackage) error {
+func putPackage(c context.Context, importPath string, pkg *lintPackage) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(pkg); err != nil {
 		return err
@@ -161,7 +163,7 @@ func putPackage(c appengine.Context, importPath string, pkg *lintPackage) error 
 	return err
 }
 
-func getPackage(c appengine.Context, importPath string) (*lintPackage, error) {
+func getPackage(c context.Context, importPath string) (*lintPackage, error) {
 	var spkg storePackage
 	if err := datastore.Get(c, datastore.NewKey(c, "Package", importPath, 0, nil), &spkg); err != nil {
 		if err == datastore.ErrNoSuchEntity {
@@ -253,10 +255,10 @@ func (f handlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if gosrc.IsNotFound(err) {
 		writeErrorResponse(w, 404)
 	} else if e, ok := err.(*gosrc.RemoteError); ok {
-		c.Infof("Remote error %s: %v", e.Host, e)
+		log.Infof(c, "Remote error %s: %v", e.Host, e)
 		writeResponse(w, 500, errorTemplate, fmt.Sprintf("Error accessing %s.", e.Host))
 	} else if err != nil {
-		c.Errorf("Internal error %v", err)
+		log.Errorf(c, "Internal error %v", err)
 		writeErrorResponse(w, 500)
 	}
 }
