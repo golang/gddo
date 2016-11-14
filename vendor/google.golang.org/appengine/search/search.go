@@ -863,8 +863,9 @@ func saveDoc(src interface{}) (*pb.Document, error) {
 		return nil, err
 	}
 	d := &pb.Document{
-		Field:   fieldsProto,
-		OrderId: proto.Int32(int32(time.Since(orderIDEpoch).Seconds())),
+		Field:         fieldsProto,
+		OrderId:       proto.Int32(int32(time.Since(orderIDEpoch).Seconds())),
+		OrderIdSource: pb.Document_DEFAULTED.Enum(),
 	}
 	if meta != nil {
 		if meta.Rank != 0 {
@@ -872,6 +873,7 @@ func saveDoc(src interface{}) (*pb.Document, error) {
 				return nil, fmt.Errorf("search: invalid rank %d, must be [0, 2^31)", meta.Rank)
 			}
 			*d.OrderId = int32(meta.Rank)
+			d.OrderIdSource = pb.Document_SUPPLIED.Enum()
 		}
 		if len(meta.Facets) > 0 {
 			facets, err := facetsToProto(meta.Facets)
