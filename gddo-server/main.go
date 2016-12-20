@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors. All rights reserved.
+// Copyright 2017 The Go Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file or at
@@ -12,7 +12,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"go/build"
 	"html/template"
@@ -21,7 +20,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"sort"
@@ -31,6 +29,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 
@@ -108,9 +107,9 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 		c <- crawlResult{pdoc, err}
 	}()
 
-	timeout := *getTimeout
+	timeout := viper.GetDuration(ConfigGetTimeout)
 	if pdoc == nil {
-		timeout = *firstGetTimeout
+		timeout = viper.GetDuration(ConfigFirstGetTimeout)
 	}
 
 	select {
@@ -160,7 +159,7 @@ func isRobot(req *http.Request) bool {
 		log.Printf("error incrementing counter for %s, %v", host, err)
 		return false
 	}
-	if n > *robot {
+	if n > viper.GetFloat64(ConfigRobotThreshold) {
 		log.Printf("robot %.2f %s %s", n, host, req.Header.Get("User-Agent"))
 		return true
 	}
@@ -194,7 +193,7 @@ func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, fla
 		b = append(b, 0)
 		b = append(b, pkg.Synopsis...)
 	}
-	if *sidebarEnabled {
+	if viper.GetBool(ConfigSidebar) {
 		b = append(b, "\000xsb"...)
 	}
 	for _, m := range flashMessages {
@@ -432,7 +431,7 @@ func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	}()
 	select {
 	case err = <-c:
-	case <-time.After(*getTimeout):
+	case <-time.After(viper.GetDuration(ConfigGetTimeout)):
 		err = errUpdateTimeout
 	}
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
@@ -721,7 +720,8 @@ func runHandler(resp http.ResponseWriter, req *http.Request,
 		}
 	}()
 
-	if *trustProxy {
+	// TODO(stephenmw): choose headers based on if we are on App Engine
+	if viper.GetBool(ConfigTrustProxyHeaders) {
 		// If running on GAE, use X-Appengine-User-Ip to identify real ip of requests.
 		if s := req.Header.Get("X-Appengine-User-Ip"); s != "" {
 			req.RemoteAddr = s
@@ -842,30 +842,8 @@ var (
 	gceLogger             *GCELogger
 )
 
-var (
-	robot           = flag.Float64("robot", 100, "Request counter threshold for robots.")
-	assetsDir       = flag.String("assets", filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
-	getTimeout      = flag.Duration("get_timeout", 8*time.Second, "Time to wait for package update from the VCS.")
-	firstGetTimeout = flag.Duration("first_get_timeout", 5*time.Second, "Time to wait for first fetch of package from the VCS.")
-	maxAge          = flag.Duration("max_age", 24*time.Hour, "Update package documents older than this age.")
-	httpAddr        = flag.String("http", ":8080", "Listen for HTTP connections on this address.")
-	sidebarEnabled  = flag.Bool("sidebar", false, "Enable package page sidebar.")
-	defaultGOOS     = flag.String("default_goos", "", "Default GOOS to use when building package documents.")
-	trustProxy      = flag.Bool("trust_proxy_headers", false, "If enabled, identify the remote address of the request using X-Real-Ip in header.")
-	sourcegraphURL  = flag.String("sourcegraph_url", "https://sourcegraph.com", "Link to global uses on Sourcegraph based at this URL (no need for trailing slash).")
-)
-
-func init() {
-	flag.StringVar(&database.RedisServer, "db-server", database.RedisServer, "URI of Redis server.")
-	flag.DurationVar(&database.RedisIdleTimeout, "db-idle-timeout", database.RedisIdleTimeout, "Close Redis connections after remaining idle for this duration.")
-	flag.BoolVar(&database.RedisLog, "db-log", database.RedisLog, "Log database commands")
-}
-
 func main() {
-	flag.Parse()
-	log.Printf("Starting server, os.Args=%s", strings.Join(os.Args, " "))
-
-	doc.SetDefaultGOOS(*defaultGOOS)
+	doc.SetDefaultGOOS(viper.GetString(ConfigDefaultGOOS))
 	httpClient = newHTTPClient()
 
 	var (
@@ -873,6 +851,7 @@ func main() {
 		projID     string
 	)
 
+	// TODO(stephenmw): merge into viper config infrastructure.
 	if metadata.OnGCE() {
 		acct, err := metadata.ProjectAttributeValue("ga-account")
 		if err != nil {
@@ -936,7 +915,7 @@ func main() {
 	go runBackgroundTasks()
 
 	staticServer := httputil.StaticServer{
-		Dir:    *assetsDir,
+		Dir:    viper.GetString(ConfigAssetsDir),
 		MaxAge: time.Hour,
 		MIMETypes: map[string]string{
 			".css": "text/css; charset=utf-8",
@@ -965,7 +944,7 @@ func main() {
 	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
 	mux.Handle("/-/bootstrap.min.js", staticServer.FilesHandler("bootstrap.min.js"))
 	mux.Handle("/-/jquery-2.0.3.min.js", staticServer.FilesHandler("jquery-2.0.3.min.js"))
-	if *sidebarEnabled {
+	if viper.GetBool(ConfigSidebar) {
 		mux.Handle("/-/sidebar.css", staticServer.FilesHandler("sidebar.css"))
 	}
 	mux.Handle("/-/", http.NotFoundHandler())

@@ -25,6 +25,8 @@ import (
 	ttemp "text/template"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
@@ -108,7 +110,7 @@ func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HT
 // UsesLink generates a link to uses of a symbol definition.
 // title is used as the tooltip. defParts are parts of the symbol definition name.
 func (pdoc *tdoc) UsesLink(title string, defParts ...string) htemp.HTML {
-	if *sourcegraphURL == "" {
+	if viper.GetString(ConfigSourcegraphURL) == "" {
 		return ""
 	}
 
@@ -144,7 +146,7 @@ func (pdoc *tdoc) UsesLink(title string, defParts ...string) htemp.HTML {
 		"pkg":  {pdoc.ImportPath},
 		"def":  {def},
 	}
-	u := *sourcegraphURL + "/-/godoc/refs?" + q.Encode()
+	u := viper.GetString(ConfigSourcegraphURL) + "/-/godoc/refs?" + q.Encode()
 	return htemp.HTML(fmt.Sprintf(`<a class="uses" title="%s" href="%s">Uses</a>`, htemp.HTMLEscapeString(title), htemp.HTMLEscapeString(u)))
 }
 
@@ -538,11 +540,11 @@ func parseHTMLTemplates(sets [][]string) error {
 			"map":               mapFn,
 			"noteTitle":         noteTitleFn,
 			"relativePath":      relativePathFn,
-			"sidebarEnabled":    func() bool { return *sidebarEnabled },
+			"sidebarEnabled":    func() bool { return viper.GetBool(ConfigSidebar) },
 			"staticPath":        func(p string) string { return cacheBusters.AppendQueryParam(p, "v") },
 			"templateName":      func() string { return templateName },
 		})
-		if _, err := t.ParseFiles(joinTemplateDir(*assetsDir, set)...); err != nil {
+		if _, err := t.ParseFiles(joinTemplateDir(viper.GetString(ConfigAssetsDir), set)...); err != nil {
 			return err
 		}
 		t = t.Lookup("ROOT")
@@ -560,7 +562,7 @@ func parseTextTemplates(sets [][]string) error {
 		t.Funcs(ttemp.FuncMap{
 			"comment": commentTextFn,
 		})
-		if _, err := t.ParseFiles(joinTemplateDir(*assetsDir, set)...); err != nil {
+		if _, err := t.ParseFiles(joinTemplateDir(viper.GetString(ConfigAssetsDir), set)...); err != nil {
 			return err
 		}
 		t = t.Lookup("ROOT")

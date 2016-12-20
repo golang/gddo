@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors. All rights reserved.
+// Copyright 2017 The Go Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file or at
@@ -7,52 +7,54 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"time"
 
+	"github.com/spf13/viper"
 	"google.golang.org/appengine"
 
 	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/gosrc"
 )
 
-var backgroundTasks = []*struct {
+type BackgroundTask struct {
 	name     string
 	fn       func() error
-	interval *time.Duration
+	interval time.Duration
 	next     time.Time
-}{
-	{
-		name:     "GitHub updates",
-		fn:       readGitHubUpdates,
-		interval: flag.Duration("github_interval", 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler."),
-	},
-	{
-		name:     "Crawl",
-		fn:       doCrawl,
-		interval: flag.Duration("crawl_interval", 0, "Package updater sleeps for this duration between package updates. Zero disables updates."),
-	},
 }
 
 func runBackgroundTasks() {
 	defer log.Println("ERROR: Background exiting!")
 
+	var backgroundTasks = []BackgroundTask{
+		{
+			name:     "GitHub updates",
+			fn:       readGitHubUpdates,
+			interval: viper.GetDuration(ConfigGithubInterval),
+		},
+		{
+			name:     "Crawl",
+			fn:       doCrawl,
+			interval: viper.GetDuration(ConfigCrawlInterval),
+		},
+	}
+
 	sleep := time.Minute
 	for _, task := range backgroundTasks {
-		if *task.interval > 0 && sleep > *task.interval {
-			sleep = *task.interval
+		if task.interval > 0 && sleep > task.interval {
+			sleep = task.interval
 		}
 	}
 
 	for {
 		for _, task := range backgroundTasks {
 			start := time.Now()
-			if *task.interval > 0 && start.After(task.next) {
+			if task.interval > 0 && start.After(task.next) {
 				if err := task.fn(); err != nil {
 					log.Printf("Task %s: %v", task.name, err)
 				}
-				task.next = time.Now().Add(*task.interval)
+				task.next = time.Now().Add(task.interval)
 			}
 		}
 		time.Sleep(sleep)
@@ -86,7 +88,7 @@ func doCrawl() error {
 	}
 	if _, err = crawlDoc("crawl", pdoc.ImportPath, pdoc, len(pkgs) > 0, nextCrawl); err != nil {
 		// Touch package so that crawl advances to next package.
-		if err := db.SetNextCrawl(pdoc.ImportPath, time.Now().Add(*maxAge/3)); err != nil {
+		if err := db.SetNextCrawl(pdoc.ImportPath, time.Now().Add(viper.GetDuration(ConfigMaxAge)/3)); err != nil {
 			log.Printf("ERROR db.SetNextCrawl(%q): %v", pdoc.ImportPath, err)
 		}
 	}

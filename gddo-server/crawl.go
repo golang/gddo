@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 )
@@ -67,13 +69,14 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 		}
 	}
 
-	nextCrawl = start.Add(*maxAge)
+	maxAge := viper.GetDuration(ConfigMaxAge)
+	nextCrawl = start.Add(maxAge)
 	switch {
 	case strings.HasPrefix(importPath, "github.com/") || (pdoc != nil && len(pdoc.Errors) > 0):
-		nextCrawl = start.Add(*maxAge * 7)
+		nextCrawl = start.Add(maxAge * 7)
 	case strings.HasPrefix(importPath, "gist.github.com/"):
 		// Don't spend time on gists. It's silly thing to do.
-		nextCrawl = start.Add(*maxAge * 30)
+		nextCrawl = start.Add(maxAge * 30)
 	}
 
 	if err == nil {
