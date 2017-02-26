@@ -113,11 +113,11 @@ func writeErrorResponse(w http.ResponseWriter, status int) error {
 func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
 	return &http.Client{
-		Transport: &httputil.Transport{
+		Transport: &httputil.AuthTransport{
 			Token:        github.Token,
 			ClientID:     github.ClientID,
 			ClientSecret: github.ClientSecret,
-			Base:         &urlfetch.Transport{Context: c, Deadline: 10 * time.Second},
+			Base:         &urlfetch.Transport{Context: c},
 			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
 		},
 	}
