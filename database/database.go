@@ -80,51 +80,49 @@ func (p byPath) Len() int           { return len(p) }
 func (p byPath) Less(i, j int) bool { return p[i].Path < p[j].Path }
 func (p byPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-// Configuration variables (and default values of flags.
-var (
-	RedisServer      = "redis://127.0.0.1:6379" // URL of Redis server
-	RedisIdleTimeout = 250 * time.Second        // Close Redis connections after remaining idle for this duration.
-	RedisLog         = false                    // Log database commands
-)
-
-func dialDb() (c redis.Conn, err error) {
-	u, err := url.Parse(RedisServer)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err != nil && c != nil {
-			c.Close()
+// newDBDialer returns a function which returns connections to a redis
+// database at the given server uri. The server uri should be in the form of:
+// redis://user:pass@host:port
+func newDBDialer(server string, logConn bool) func() (c redis.Conn, err error) {
+	return func() (c redis.Conn, err error) {
+		u, err := url.Parse(server)
+		if err != nil {
+			return nil, err
 		}
-	}()
 
-	c, err = redis.Dial("tcp", u.Host)
-	if err != nil {
-		return
-	}
+		defer func() {
+			if err != nil && c != nil {
+				c.Close()
+			}
+		}()
 
-	if RedisLog {
-		l := log.New(os.Stderr, "", log.LstdFlags)
-		c = redis.NewLoggingConn(c, l, "")
-	}
+		c, err = redis.Dial("tcp", u.Host)
+		if err != nil {
+			return c, err
+		}
 
-	if u.User != nil {
-		if pw, ok := u.User.Password(); ok {
-			if _, err = c.Do("AUTH", pw); err != nil {
-				return
+		if logConn {
+			l := log.New(os.Stderr, "", log.LstdFlags)
+			c = redis.NewLoggingConn(c, l, "")
+		}
+
+		if u.User != nil {
+			if pw, ok := u.User.Password(); ok {
+				if _, err = c.Do("AUTH", pw); err != nil {
+					return c, err
+				}
 			}
 		}
+		return c, err
 	}
-	return
 }
 
-// New creates a database configured from command line flags.
-func New() (*Database, error) {
+// New creates a gddo database
+func New(serverUri string, idleTimeout time.Duration, logConn bool) (*Database, error) {
 	pool := &redis.Pool{
-		Dial:        dialDb,
+		Dial:        newDBDialer(serverUri, logConn),
 		MaxIdle:     10,
-		IdleTimeout: RedisIdleTimeout,
+		IdleTimeout: idleTimeout,
 	}
 
 	c := pool.Get()

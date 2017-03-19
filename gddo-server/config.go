@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/log"
 
 	"github.com/spf13/pflag"
@@ -19,21 +18,31 @@ const (
 )
 
 const (
-	ConfigMaxAge            = "max_age"
-	ConfigGetTimeout        = "get_timeout"
-	ConfigRobotThreshold    = "robot"
-	ConfigAssetsDir         = "assets"
-	ConfigFirstGetTimeout   = "first_get_timeout"
-	ConfigBindAddress       = "http"
+	// Server Config
 	ConfigProject           = "project"
 	ConfigTrustProxyHeaders = "trust_proxy_headers"
-	ConfigSidebar           = "sidebar"
-	ConfigDefaultGOOS       = "default_goos"
-	ConfigSourcegraphURL    = "sourcegraph_url"
-	ConfigGithubInterval    = "github_interval"
-	ConfigCrawlInterval     = "crawl_interval"
-	ConfigDialTimeout       = "dial_timeout"
-	ConfigRequestTimeout    = "request_timeout"
+	ConfigBindAddress       = "http"
+	ConfigAssetsDir         = "assets"
+	ConfigRobotThreshold    = "robot"
+
+	// Database Config
+	ConfigDBServer      = "db-server"
+	ConfigDBIdleTimeout = "db-idle-timeout"
+	ConfigDBLog         = "db-log"
+
+	// Display Config
+	ConfigSidebar        = "sidebar"
+	ConfigSourcegraphURL = "sourcegraph_url"
+	ConfigDefaultGOOS    = "default_goos"
+
+	// Crawl Config
+	ConfigMaxAge          = "max_age"
+	ConfigGetTimeout      = "get_timeout"
+	ConfigFirstGetTimeout = "first_get_timeout"
+	ConfigGithubInterval  = "github_interval"
+	ConfigCrawlInterval   = "crawl_interval"
+	ConfigDialTimeout     = "dial_timeout"
+	ConfigRequestTimeout  = "request_timeout"
 )
 
 // Initialize configuration
@@ -88,11 +97,9 @@ func buildFlags() *pflag.FlagSet {
 	flags.Duration(ConfigCrawlInterval, 0, "Package updater sleeps for this duration between package updates. Zero disables updates.")
 	flags.Duration(ConfigDialTimeout, 5*time.Second, "Timeout for dialing an HTTP connection.")
 	flags.Duration(ConfigRequestTimeout, 20*time.Second, "Time out for roundtripping an HTTP request.")
-
-	// TODO(stephenmw): pass these variables at database creation time.
-	flags.StringVar(&database.RedisServer, "db-server", database.RedisServer, "URI of Redis server.")
-	flags.DurationVar(&database.RedisIdleTimeout, "db-idle-timeout", database.RedisIdleTimeout, "Close Redis connections after remaining idle for this duration.")
-	flags.BoolVar(&database.RedisLog, "db-log", database.RedisLog, "Log database commands")
+	flags.String(ConfigDBServer, "redis://127.0.0.1:6379", "URI of Redis server.")
+	flags.Duration(ConfigDBIdleTimeout, 250*time.Second, "Close Redis connections after remaining idle for this duration.")
+	flags.Bool(ConfigDBLog, false, "Log database commands")
 
 	return flags
 }

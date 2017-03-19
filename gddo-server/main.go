@@ -907,7 +907,11 @@ func main() {
 	}
 
 	var err error
-	db, err = database.New()
+	db, err = database.New(
+		viper.GetString(ConfigDBServer),
+		viper.GetDuration(ConfigDBIdleTimeout),
+		viper.GetBool(ConfigDBLog),
+	)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
