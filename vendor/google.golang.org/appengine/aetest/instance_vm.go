@@ -79,8 +79,7 @@ func (i *instance) Close() (err error) {
 		rel()
 	}
 	i.relFuncs = nil
-	child := i.child
-	if child == nil {
+	if i.child == nil {
 		return nil
 	}
 	defer func() {
@@ -91,10 +90,10 @@ func (i *instance) Close() (err error) {
 		}
 	}()
 
-	if p := child.Process; p != nil {
+	if p := i.child.Process; p != nil {
 		errc := make(chan error, 1)
 		go func() {
-			errc <- child.Wait()
+			errc <- i.child.Wait()
 		}()
 
 		// Call the quit handler on the admin server.

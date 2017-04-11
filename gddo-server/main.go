@@ -844,6 +844,13 @@ var (
 
 func main() {
 	doc.SetDefaultGOOS(viper.GetString(ConfigDefaultGOOS))
+
+	var err error
+	db, err = database.New()
+	if err != nil {
+		log.Fatalf("Error opening database: %v", err)
+	}
+
 	httpClient = newHTTPClient()
 
 	var (
@@ -904,12 +911,6 @@ func main() {
 		{"results.txt", "common.txt"},
 	}); err != nil {
 		log.Fatal(err)
-	}
-
-	var err error
-	db, err = database.New()
-	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
 	}
 
 	go runBackgroundTasks()

@@ -1,10 +1,10 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2017, Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,11 +17,10 @@
 package logging
 
 import (
-	"fmt"
 	"math"
-	"runtime"
 	"time"
 
+	"cloud.google.com/go/internal/version"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -31,12 +30,11 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 )
 
 var (
-	loggingParentPathTemplate = gax.MustCompilePathTemplate("projects/{project}")
-	loggingLogPathTemplate    = gax.MustCompilePathTemplate("projects/{project}/logs/{log}")
+	loggingProjectPathTemplate = gax.MustCompilePathTemplate("projects/{project}")
+	loggingLogPathTemplate     = gax.MustCompilePathTemplate("projects/{project}/logs/{log}")
 )
 
 // CallOptions contains the retry settings for each method of Client.
@@ -45,6 +43,7 @@ type CallOptions struct {
 	WriteLogEntries                  []gax.CallOption
 	ListLogEntries                   []gax.CallOption
 	ListMonitoredResourceDescriptors []gax.CallOption
+	ListLogs                         []gax.CallOption
 }
 
 func defaultClientOptions() []option.ClientOption {
@@ -74,6 +73,17 @@ func defaultCallOptions() *CallOptions {
 				})
 			}),
 		},
+		{"default", "non_idempotent"}: {
+			gax.WithRetry(func() gax.Retryer {
+				return gax.OnCodes([]codes.Code{
+					codes.Unavailable,
+				}, gax.Backoff{
+					Initial:    100 * time.Millisecond,
+					Max:        1000 * time.Millisecond,
+					Multiplier: 1.2,
+				})
+			}),
+		},
 		{"list", "idempotent"}: {
 			gax.WithRetry(func() gax.Retryer {
 				return gax.OnCodes([]codes.Code{
@@ -92,6 +102,7 @@ func defaultCallOptions() *CallOptions {
 		WriteLogEntries:                  retry[[2]string{"default", "non_idempotent"}],
 		ListLogEntries:                   retry[[2]string{"list", "idempotent"}],
 		ListMonitoredResourceDescriptors: retry[[2]string{"default", "idempotent"}],
+		ListLogs: retry[[2]string{"default", "idempotent"}],
 	}
 }
 
@@ -107,7 +118,7 @@ type Client struct {
 	CallOptions *CallOptions
 
 	// The metadata to be sent with each request.
-	metadata map[string][]string
+	xGoogHeader string
 }
 
 // NewClient creates a new logging service v2 client.
@@ -124,7 +135,7 @@ func NewClient(ctx context.Context, opts ...option.ClientOption) (*Client, error
 
 		client: loggingpb.NewLoggingServiceV2Client(conn),
 	}
-	c.SetGoogleClientInfo("gax", gax.Version)
+	c.SetGoogleClientInfo()
 	return c, nil
 }
 
@@ -142,15 +153,15 @@ func (c *Client) Close() error {
 // SetGoogleClientInfo sets the name and version of the application in
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
-func (c *Client) SetGoogleClientInfo(name, version string) {
-	c.metadata = map[string][]string{
-		"x-goog-api-client": {fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())},
-	}
+func (c *Client) SetGoogleClientInfo(keyval ...string) {
+	kv := append([]string{"gl-go", version.Go()}, keyval...)
+	kv = append(kv, "gapic", version.Repo, "gax", gax.Version, "grpc", grpc.Version)
+	c.xGoogHeader = gax.XGoogHeader(kv...)
 }
 
-// LoggingParentPath returns the path for the parent resource.
-func LoggingParentPath(project string) string {
-	path, err := loggingParentPathTemplate.Render(map[string]string{
+// LoggingProjectPath returns the path for the project resource.
+func LoggingProjectPath(project string) string {
+	path, err := loggingProjectPathTemplate.Render(map[string]string{
 		"project": project,
 	})
 	if err != nil {
@@ -171,45 +182,45 @@ func LoggingLogPath(project, log string) string {
 	return path
 }
 
-// DeleteLog deletes a log and all its log entries.
-// The log will reappear if it receives new entries.
-func (c *Client) DeleteLog(ctx context.Context, req *loggingpb.DeleteLogRequest) error {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
-	err := gax.Invoke(ctx, func(ctx context.Context) error {
+// DeleteLog deletes all the log entries in a log.
+// The log reappears if it receives new entries.
+// Log entries written shortly before the delete operation might not be
+// deleted.
+func (c *Client) DeleteLog(ctx context.Context, req *loggingpb.DeleteLogRequest, opts ...gax.CallOption) error {
+	ctx = insertXGoog(ctx, c.xGoogHeader)
+	opts = append(c.CallOptions.DeleteLog[0:len(c.CallOptions.DeleteLog):len(c.CallOptions.DeleteLog)], opts...)
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 		var err error
-		_, err = c.client.DeleteLog(ctx, req)
+		_, err = c.client.DeleteLog(ctx, req, settings.GRPC...)
 		return err
-	}, c.CallOptions.DeleteLog...)
+	}, opts...)
 	return err
 }
 
-// WriteLogEntries writes log entries to Stackdriver Logging.  All log entries are
-// written by this method.
-func (c *Client) WriteLogEntries(ctx context.Context, req *loggingpb.WriteLogEntriesRequest) (*loggingpb.WriteLogEntriesResponse, error) {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+// WriteLogEntries writes log entries to Stackdriver Logging.
+func (c *Client) WriteLogEntries(ctx context.Context, req *loggingpb.WriteLogEntriesRequest, opts ...gax.CallOption) (*loggingpb.WriteLogEntriesResponse, error) {
+	ctx = insertXGoog(ctx, c.xGoogHeader)
+	opts = append(c.CallOptions.WriteLogEntries[0:len(c.CallOptions.WriteLogEntries):len(c.CallOptions.WriteLogEntries)], opts...)
 	var resp *loggingpb.WriteLogEntriesResponse
-	err := gax.Invoke(ctx, func(ctx context.Context) error {
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 		var err error
-		resp, err = c.client.WriteLogEntries(ctx, req)
+		resp, err = c.client.WriteLogEntries(ctx, req, settings.GRPC...)
 		return err
-	}, c.CallOptions.WriteLogEntries...)
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-// ListLogEntries lists log entries.  Use this method to retrieve log entries from Cloud
-// Logging.  For ways to export log entries, see
+// ListLogEntries lists log entries.  Use this method to retrieve log entries from
+// Stackdriver Logging.  For ways to export log entries, see
 // [Exporting Logs](/logging/docs/export).
-func (c *Client) ListLogEntries(ctx context.Context, req *loggingpb.ListLogEntriesRequest) *LogEntryIterator {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+func (c *Client) ListLogEntries(ctx context.Context, req *loggingpb.ListLogEntriesRequest, opts ...gax.CallOption) *LogEntryIterator {
+	ctx = insertXGoog(ctx, c.xGoogHeader)
+	opts = append(c.CallOptions.ListLogEntries[0:len(c.CallOptions.ListLogEntries):len(c.CallOptions.ListLogEntries)], opts...)
 	it := &LogEntryIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*loggingpb.LogEntry, string, error) {
 		var resp *loggingpb.ListLogEntriesResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -217,35 +228,35 @@ func (c *Client) ListLogEntries(ctx context.Context, req *loggingpb.ListLogEntri
 		} else {
 			req.PageSize = int32(pageSize)
 		}
-		err := gax.Invoke(ctx, func(ctx context.Context) error {
+		err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 			var err error
-			resp, err = c.client.ListLogEntries(ctx, req)
+			resp, err = c.client.ListLogEntries(ctx, req, settings.GRPC...)
 			return err
-		}, c.CallOptions.ListLogEntries...)
+		}, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		return resp.Entries, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
 		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Entries...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
-// ListMonitoredResourceDescriptors lists the monitored resource descriptors used by Stackdriver Logging.
-func (c *Client) ListMonitoredResourceDescriptors(ctx context.Context, req *loggingpb.ListMonitoredResourceDescriptorsRequest) *MonitoredResourceDescriptorIterator {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+// ListMonitoredResourceDescriptors lists the descriptors for monitored resource types used by Stackdriver
+// Logging.
+func (c *Client) ListMonitoredResourceDescriptors(ctx context.Context, req *loggingpb.ListMonitoredResourceDescriptorsRequest, opts ...gax.CallOption) *MonitoredResourceDescriptorIterator {
+	ctx = insertXGoog(ctx, c.xGoogHeader)
+	opts = append(c.CallOptions.ListMonitoredResourceDescriptors[0:len(c.CallOptions.ListMonitoredResourceDescriptors):len(c.CallOptions.ListMonitoredResourceDescriptors)], opts...)
 	it := &MonitoredResourceDescriptorIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*monitoredrespb.MonitoredResourceDescriptor, string, error) {
 		var resp *loggingpb.ListMonitoredResourceDescriptorsResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -253,25 +264,61 @@ func (c *Client) ListMonitoredResourceDescriptors(ctx context.Context, req *logg
 		} else {
 			req.PageSize = int32(pageSize)
 		}
-		err := gax.Invoke(ctx, func(ctx context.Context) error {
+		err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 			var err error
-			resp, err = c.client.ListMonitoredResourceDescriptors(ctx, req)
+			resp, err = c.client.ListMonitoredResourceDescriptors(ctx, req, settings.GRPC...)
 			return err
-		}, c.CallOptions.ListMonitoredResourceDescriptors...)
+		}, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		return resp.ResourceDescriptors, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
 		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.ResourceDescriptors...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	return it
+}
 
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+// ListLogs lists the logs in projects, organizations, folders, or billing accounts.
+// Only logs that have entries are listed.
+func (c *Client) ListLogs(ctx context.Context, req *loggingpb.ListLogsRequest, opts ...gax.CallOption) *StringIterator {
+	ctx = insertXGoog(ctx, c.xGoogHeader)
+	opts = append(c.CallOptions.ListLogs[0:len(c.CallOptions.ListLogs):len(c.CallOptions.ListLogs)], opts...)
+	it := &StringIterator{}
+	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
+		var resp *loggingpb.ListLogsResponse
+		req.PageToken = pageToken
+		if pageSize > math.MaxInt32 {
+			req.PageSize = math.MaxInt32
+		} else {
+			req.PageSize = int32(pageSize)
+		}
+		err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+			var err error
+			resp, err = c.client.ListLogs(ctx, req, settings.GRPC...)
+			return err
+		}, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		return resp.LogNames, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
+			return "", err
+		}
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
+	}
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -280,6 +327,14 @@ type LogEntryIterator struct {
 	items    []*loggingpb.LogEntry
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*loggingpb.LogEntry, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -290,12 +345,23 @@ func (it *LogEntryIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *LogEntryIterator) Next() (*loggingpb.LogEntry, error) {
+	var item *loggingpb.LogEntry
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *LogEntryIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *LogEntryIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }
 
 // MonitoredResourceDescriptorIterator manages a stream of *monitoredrespb.MonitoredResourceDescriptor.
@@ -303,6 +369,14 @@ type MonitoredResourceDescriptorIterator struct {
 	items    []*monitoredrespb.MonitoredResourceDescriptor
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*monitoredrespb.MonitoredResourceDescriptor, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -313,10 +387,63 @@ func (it *MonitoredResourceDescriptorIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *MonitoredResourceDescriptorIterator) Next() (*monitoredrespb.MonitoredResourceDescriptor, error) {
+	var item *monitoredrespb.MonitoredResourceDescriptor
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *MonitoredResourceDescriptorIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *MonitoredResourceDescriptorIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
+}
+
+// StringIterator manages a stream of string.
+type StringIterator struct {
+	items    []string
+	pageInfo *iterator.PageInfo
+	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []string, nextPageToken string, err error)
+}
+
+// PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
+func (it *StringIterator) PageInfo() *iterator.PageInfo {
+	return it.pageInfo
+}
+
+// Next returns the next result. Its second return value is iterator.Done if there are no more
+// results. Once Next returns Done, all subsequent calls will return Done.
+func (it *StringIterator) Next() (string, error) {
+	var item string
+	if err := it.nextFunc(); err != nil {
+		return item, err
+	}
+	item = it.items[0]
+	it.items = it.items[1:]
+	return item, nil
+}
+
+func (it *StringIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *StringIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }
