@@ -62,10 +62,11 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	c := &httpClient{client: client, errFn: gitHubError}
 
 	var repo struct {
-		Fork      bool      `json:"fork"`
-		Stars     int       `json:"stargazers_count"`
-		CreatedAt time.Time `json:"created_at"`
-		PushedAt  time.Time `json:"pushed_at"`
+		Fork          bool      `json:"fork"`
+		Stars         int       `json:"stargazers_count"`
+		CreatedAt     time.Time `json:"created_at"`
+		PushedAt      time.Time `json:"pushed_at"`
+		DefaultBranch string    `json:"default_branch"`
 	}
 
 	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
@@ -158,7 +159,8 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	browseURL := expand("https://github.com/{owner}/{repo}", match)
 	if match["dir"] != "" {
-		browseURL = expand("https://github.com/{owner}/{repo}/tree{dir}", match)
+		match["tag"] = repo.DefaultBranch // TODO: This doesn't respect "go1" tag/branch special case.
+		browseURL = expand("https://github.com/{owner}/{repo}/tree/{tag}{dir}", match)
 	}
 
 	return &Directory{
