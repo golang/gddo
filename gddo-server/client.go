@@ -10,11 +10,13 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/gregjones/httpcache"
-	"github.com/gregjones/httpcache/redis"
+	"github.com/gregjones/httpcache/memcache"
 	"github.com/spf13/viper"
 
 	"github.com/golang/gddo/httputil"
@@ -40,8 +42,19 @@ func newHTTPClient() *http.Client {
 	}
 }
 
-// newCacheTransport returns a transport that uses Redis to cache HTTP responses.
-// The db must be initialized before calling this.
 func newCacheTransport() *httpcache.Transport {
-	return httpcache.NewTransport(redis.NewWithClient(db.Pool.Get()))
+	// host and port are set by GAE Flex runtime, can be left blank locally.
+	host := os.Getenv("MEMCACHE_PORT_11211_TCP_ADDR")
+	if host == "" {
+		host = "localhost"
+	}
+	port := os.Getenv("MEMCACHE_PORT_11211_TCP_PORT")
+	if port == "" {
+		port = "11211"
+	}
+	addr := fmt.Sprintf("%s:%s", host, port)
+
+	return httpcache.NewTransport(
+		memcache.New(addr),
+	)
 }

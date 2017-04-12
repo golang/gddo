@@ -4,7 +4,6 @@ package toml
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"unicode"
 )
@@ -48,7 +47,7 @@ func parseKey(key string) ([]string, error) {
 			} else {
 				if !wasInQuotes {
 					if buffer.Len() == 0 {
-						return nil, errors.New("empty table key")
+						return nil, fmt.Errorf("empty key group")
 					}
 					groups = append(groups, buffer.String())
 					buffer.Reset()
@@ -68,23 +67,23 @@ func parseKey(key string) ([]string, error) {
 				return nil, fmt.Errorf("invalid bare character: %c", char)
 			}
 			if !inQuotes && expectDot {
-				return nil, errors.New("what?")
+				return nil, fmt.Errorf("what?")
 			}
 			buffer.WriteRune(char)
 			expectDot = false
 		}
 	}
 	if inQuotes {
-		return nil, errors.New("mismatched quotes")
+		return nil, fmt.Errorf("mismatched quotes")
 	}
 	if escapeNext {
-		return nil, errors.New("unfinished escape sequence")
+		return nil, fmt.Errorf("unfinished escape sequence")
 	}
 	if buffer.Len() > 0 {
 		groups = append(groups, buffer.String())
 	}
 	if len(groups) == 0 {
-		return nil, errors.New("empty key")
+		return nil, fmt.Errorf("empty key")
 	}
 	return groups, nil
 }

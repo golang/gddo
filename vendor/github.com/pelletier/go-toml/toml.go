@@ -10,13 +10,13 @@ import (
 )
 
 type tomlValue struct {
-	value    interface{} // string, int64, uint64, float64, bool, time.Time, [] of any of this list
+	value    interface{}
 	position Position
 }
 
 // TomlTree is the result of the parsing of a TOML file.
 type TomlTree struct {
-	values   map[string]interface{} // string -> *tomlValue, *TomlTree, []*TomlTree
+	values   map[string]interface{}
 	position Position
 }
 
@@ -28,12 +28,10 @@ func newTomlTree() *TomlTree {
 }
 
 // TreeFromMap initializes a new TomlTree object using the given map.
-func TreeFromMap(m map[string]interface{}) (*TomlTree, error) {
-	result, err := toTree(m)
-	if err != nil {
-		return nil, err
+func TreeFromMap(m map[string]interface{}) *TomlTree {
+	return &TomlTree{
+		values: m,
 	}
-	return result.(*TomlTree), nil
 }
 
 // Has returns a boolean indicating if the given key exists.

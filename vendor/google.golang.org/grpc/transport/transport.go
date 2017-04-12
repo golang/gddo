@@ -45,11 +45,10 @@ import (
 	"sync"
 
 	"golang.org/x/net/context"
+	"golang.org/x/net/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/stats"
-	"google.golang.org/grpc/tap"
 )
 
 // recvMsg represents the received msg from the transport. All transport
@@ -168,11 +167,6 @@ type Stream struct {
 	id uint32
 	// nil for client side Stream.
 	st ServerTransport
-	// clientStatsCtx keeps the user context for stats handling.
-	// It's only valid on client side. Server side stats context is same as s.ctx.
-	// All client side stats collection should use the clientStatsCtx (instead of the stream context)
-	// so that all the generated stats for a particular RPC can be associated in the processing phase.
-	clientStatsCtx context.Context
 	// ctx is the associated context of the stream.
 	ctx context.Context
 	// cancel is always nil for client side Stream.
@@ -272,6 +266,11 @@ func (s *Stream) Context() context.Context {
 	return s.ctx
 }
 
+// TraceContext recreates the context of s with a trace.Trace.
+func (s *Stream) TraceContext(tr trace.Trace) {
+	s.ctx = trace.NewContext(s.ctx, tr)
+}
+
 // Method returns the method for the stream.
 func (s *Stream) Method() string {
 	return s.method
@@ -287,27 +286,9 @@ func (s *Stream) StatusDesc() string {
 	return s.statusDesc
 }
 
-// SetHeader sets the header metadata. This can be called multiple times.
-// Server side only.
-func (s *Stream) SetHeader(md metadata.MD) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.headerOk || s.state == streamDone {
-		return ErrIllegalHeaderWrite
-	}
-	if md.Len() == 0 {
-		return nil
-	}
-	s.header = metadata.Join(s.header, md)
-	return nil
-}
-
 // SetTrailer sets the trailer metadata which will be sent with the RPC status
 // by the server. This can be called multiple times. Server side only.
 func (s *Stream) SetTrailer(md metadata.MD) error {
-	if md.Len() == 0 {
-		return nil
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.trailer = metadata.Join(s.trailer, md)
@@ -356,48 +337,27 @@ const (
 	draining
 )
 
-// ServerConfig consists of all the configurations to establish a server transport.
-type ServerConfig struct {
-	MaxStreams   uint32
-	AuthInfo     credentials.AuthInfo
-	InTapHandle  tap.ServerInHandle
-	StatsHandler stats.Handler
-}
-
 // NewServerTransport creates a ServerTransport with conn or non-nil error
 // if it fails.
-func NewServerTransport(protocol string, conn net.Conn, config *ServerConfig) (ServerTransport, error) {
-	return newHTTP2Server(conn, config)
+func NewServerTransport(protocol string, conn net.Conn, maxStreams uint32, authInfo credentials.AuthInfo) (ServerTransport, error) {
+	return newHTTP2Server(conn, maxStreams, authInfo)
 }
 
-// ConnectOptions covers all relevant options for communicating with the server.
+// ConnectOptions covers all relevant options for dialing a server.
 type ConnectOptions struct {
 	// UserAgent is the application user agent.
 	UserAgent string
-	// Authority is the :authority pseudo-header to use. This field has no effect if
-	// TransportCredentials is set.
-	Authority string
 	// Dialer specifies how to dial a network address.
 	Dialer func(context.Context, string) (net.Conn, error)
-	// FailOnNonTempDialError specifies if gRPC fails on non-temporary dial errors.
-	FailOnNonTempDialError bool
 	// PerRPCCredentials stores the PerRPCCredentials required to issue RPCs.
 	PerRPCCredentials []credentials.PerRPCCredentials
 	// TransportCredentials stores the Authenticator required to setup a client connection.
 	TransportCredentials credentials.TransportCredentials
-	// StatsHandler stores the handler for stats.
-	StatsHandler stats.Handler
-}
-
-// TargetInfo contains the information of the target such as network address and metadata.
-type TargetInfo struct {
-	Addr     string
-	Metadata interface{}
 }
 
 // NewClientTransport establishes the transport with the required ConnectOptions
 // and returns it to the caller.
-func NewClientTransport(ctx context.Context, target TargetInfo, opts ConnectOptions) (ClientTransport, error) {
+func NewClientTransport(ctx context.Context, target string, opts ConnectOptions) (ClientTransport, error) {
 	return newHTTP2Client(ctx, target, opts)
 }
 
@@ -482,7 +442,7 @@ type ClientTransport interface {
 // Write methods for a given Stream will be called serially.
 type ServerTransport interface {
 	// HandleStreams receives incoming streams using the given handler.
-	HandleStreams(func(*Stream), func(context.Context, string) context.Context)
+	HandleStreams(func(*Stream))
 
 	// WriteHeader sends the header metadata for the given stream.
 	// WriteHeader may not be called on all streams.

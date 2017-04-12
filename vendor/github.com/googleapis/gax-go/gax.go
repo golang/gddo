@@ -27,14 +27,6 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Package gax contains a set of modules which aid the development of APIs
-// for clients and servers based on gRPC and Google API conventions.
-//
-// Application code will rarely need to use this library directly.
-// However, code generated automatically from API definition files can use it
-// to simplify code generation and to provide more convenient and idiomatic API surfaces.
-//
-// This project is currently experimental and not supported.
 package gax
 
 const Version = "0.1.0"

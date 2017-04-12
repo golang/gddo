@@ -36,7 +36,7 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/internal/version"
+	"cloud.google.com/go/internal/bundler"
 	vkit "cloud.google.com/go/logging/apiv2"
 	"cloud.google.com/go/logging/internal"
 	"github.com/golang/protobuf/proto"
@@ -45,7 +45,6 @@ import (
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
-	"google.golang.org/api/support/bundler"
 	mrpb "google.golang.org/genproto/googleapis/api/monitoredres"
 	logtypepb "google.golang.org/genproto/googleapis/logging/type"
 	logpb "google.golang.org/genproto/googleapis/logging/v2"
@@ -71,7 +70,7 @@ const (
 	DefaultDelayThreshold = time.Second
 
 	// DefaultEntryCountThreshold is the default value for the EntryCountThreshold LoggerOption.
-	DefaultEntryCountThreshold = 1000
+	DefaultEntryCountThreshold = 10
 
 	// DefaultEntryByteThreshold is the default value for the EntryByteThreshold LoggerOption.
 	DefaultEntryByteThreshold = 1 << 20 // 1MiB
@@ -126,7 +125,7 @@ func NewClient(ctx context.Context, projectID string, opts ...option.ClientOptio
 	if err != nil {
 		return nil, err
 	}
-	c.SetGoogleClientInfo("gccl", version.Repo)
+	c.SetGoogleClientInfo("logging", internal.Version)
 	client := &Client{
 		client:    c,
 		projectID: projectID,
@@ -314,7 +313,7 @@ func (c *Client) Logger(logID string, opts ...LoggerOption) *Logger {
 	go func() {
 		defer c.loggers.Done()
 		<-c.donec
-		l.bundler.Flush()
+		l.bundler.Close()
 	}()
 	return l
 }
@@ -453,11 +452,6 @@ type Entry struct {
 	// by the client when reading entries. It is an error to set it when
 	// writing entries.
 	Resource *mrpb.MonitoredResource
-
-	// Trace is the resource name of the trace associated with the log entry,
-	// if any. If it contains a relative resource name, the name is assumed to
-	// be relative to //tracing.googleapis.com.
-	Trace string
 }
 
 // HTTPRequest contains an http.Request as well as additional
@@ -477,10 +471,6 @@ type HTTPRequest struct {
 	// ResponseSize is the size of the HTTP response message sent back to the client, in bytes,
 	// including the response headers and the response body.
 	ResponseSize int64
-
-	// Latency is the request processing latency on the server, from the time the request was
-	// received until the response was sent.
-	Latency time.Duration
 
 	// RemoteIP is the IP address (IPv4 or IPv6) of the client that issued the
 	// HTTP request. Examples: "192.168.1.1", "FE80::0202:B3FF:FE1E:8329".
@@ -505,7 +495,7 @@ func fromHTTPRequest(r *HTTPRequest) *logtypepb.HttpRequest {
 	}
 	u := *r.Request.URL
 	u.Fragment = ""
-	pb := &logtypepb.HttpRequest{
+	return &logtypepb.HttpRequest{
 		RequestMethod:                  r.Request.Method,
 		RequestUrl:                     u.String(),
 		RequestSize:                    r.RequestSize,
@@ -517,19 +507,11 @@ func fromHTTPRequest(r *HTTPRequest) *logtypepb.HttpRequest {
 		CacheHit:                       r.CacheHit,
 		CacheValidatedWithOriginServer: r.CacheValidatedWithOriginServer,
 	}
-	if r.Latency != 0 {
-		pb.Latency = ptypes.DurationProto(r.Latency)
-	}
-	return pb
 }
 
 // toProtoStruct converts v, which must marshal into a JSON object,
 // into a Google Struct proto.
 func toProtoStruct(v interface{}) (*structpb.Struct, error) {
-	// Fast path: if v is already a *structpb.Struct, nothing to do.
-	if s, ok := v.(*structpb.Struct); ok {
-		return s, nil
-	}
 	// v is a Go struct that supports JSON marshalling. We want a Struct
 	// protobuf. Some day we may have a more direct way to get there, but right
 	// now the only way is to marshal the Go struct to JSON, unmarshal into a
@@ -667,7 +649,6 @@ func toLogEntry(e Entry) (*logpb.LogEntry, error) {
 		HttpRequest: fromHTTPRequest(e.HTTPRequest),
 		Operation:   e.Operation,
 		Labels:      e.Labels,
-		Trace:       e.Trace,
 	}
 
 	switch p := e.Payload.(type) {
