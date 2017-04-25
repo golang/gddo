@@ -75,11 +75,11 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 	status := Active
 	var commits []*githubCommit
-	url := expand("https://api.github.com/repos/{owner}/{repo}/commits", match)
+	u := expand("https://api.github.com/repos/{owner}/{repo}/commits", match)
 	if match["dir"] != "" {
-		url += fmt.Sprintf("?path=%s", match["dir"])
+		u += fmt.Sprintf("?path=%s", url.QueryEscape(match["dir"]))
 	}
-	if _, err := c.getJSON(url, &commits); err != nil {
+	if _, err := c.getJSON(u, &commits); err != nil {
 		return nil, err
 	}
 	if len(commits) == 0 {
