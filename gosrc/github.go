@@ -203,6 +203,14 @@ func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
 func getGitHubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {
 	c := &httpClient{client: client, header: gitHubRawHeader}
 
+	var repo struct {
+		DefaultBranch string `json:"default_branch"`
+	}
+	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
+		return nil, err
+	}
+	branch := repo.DefaultBranch
+
 	p, err := c.getBytes(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}", match))
 	if err != nil {
 		return nil, err
@@ -212,7 +220,7 @@ func getGitHubPresentation(client *http.Client, match map[string]string) (*Prese
 	if err != nil {
 		return nil, err
 	}
-	rawBase, err := url.Parse(expand("https://raw.github.com/{owner}/{repo}/master{dir}/", match))
+	rawBase, err := url.Parse(expand("https://raw.githubusercontent.com/{owner}/{repo}/{0}{dir}/", match, branch))
 	if err != nil {
 		return nil, err
 	}
