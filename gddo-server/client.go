@@ -10,10 +10,8 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"net/http"
-	"os"
 
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/memcache"
@@ -23,10 +21,8 @@ import (
 )
 
 func newHTTPClient() *http.Client {
-	t := newCacheTransport()
-
 	requestTimeout := viper.GetDuration(ConfigRequestTimeout)
-	t.Transport = &http.Transport{
+	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
 			Timeout:   viper.GetDuration(ConfigDialTimeout),
@@ -35,26 +31,18 @@ func newHTTPClient() *http.Client {
 		ResponseHeaderTimeout: requestTimeout / 2,
 		TLSHandshakeTimeout:   requestTimeout / 2,
 	}
+
+	var rt http.RoundTripper
+	if addr := viper.GetString(ConfigMemcacheAddr); addr != "" {
+		ct := httpcache.NewTransport(memcache.New(addr))
+		ct.Transport = t
+		rt = httputil.NewAuthTransport(ct)
+	} else {
+		rt = httputil.NewAuthTransport(t)
+	}
 	return &http.Client{
 		// Wrap the cached transport with GitHub authentication.
-		Transport: httputil.NewAuthTransport(t),
+		Transport: rt,
 		Timeout:   requestTimeout,
 	}
-}
-
-func newCacheTransport() *httpcache.Transport {
-	// host and port are set by GAE Flex runtime, can be left blank locally.
-	host := os.Getenv("MEMCACHE_PORT_11211_TCP_ADDR")
-	if host == "" {
-		host = "localhost"
-	}
-	port := os.Getenv("MEMCACHE_PORT_11211_TCP_PORT")
-	if port == "" {
-		port = "11211"
-	}
-	addr := fmt.Sprintf("%s:%s", host, port)
-
-	return httpcache.NewTransport(
-		memcache.New(addr),
-	)
 }

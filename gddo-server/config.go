@@ -43,6 +43,7 @@ const (
 	ConfigCrawlInterval   = "crawl_interval"
 	ConfigDialTimeout     = "dial_timeout"
 	ConfigRequestTimeout  = "request_timeout"
+	ConfigMemcacheAddr    = "memcache_addr"
 )
 
 // Initialize configuration
@@ -100,6 +101,7 @@ func buildFlags() *pflag.FlagSet {
 	flags.String(ConfigDBServer, "redis://127.0.0.1:6379", "URI of Redis server.")
 	flags.Duration(ConfigDBIdleTimeout, 250*time.Second, "Close Redis connections after remaining idle for this duration.")
 	flags.Bool(ConfigDBLog, false, "Log database commands")
+	flags.String(ConfigMemcacheAddr, "", "Address in the format host:port gddo uses to point to the memcache backend.")
 
 	return flags
 }
