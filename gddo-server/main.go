@@ -573,8 +573,7 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 		}
 	}
 
-	ctx := appengine.NewContext(req)
-	pkgs, err := database.Search(ctx, q)
+	pkgs, err := db.Search(req.Context(), q)
 	if err != nil {
 		return err
 	}
@@ -633,8 +632,7 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 
 	if pkgs == nil {
 		var err error
-		ctx := appengine.NewContext(req)
-		pkgs, err = database.Search(ctx, q)
+		pkgs, err = db.Search(req.Context(), q)
 		if err != nil {
 			return err
 		}
@@ -911,6 +909,7 @@ func main() {
 		viper.GetString(ConfigDBServer),
 		viper.GetDuration(ConfigDBIdleTimeout),
 		viper.GetBool(ConfigDBLog),
+		viper.GetString(ConfigGAERemoteAPI),
 	)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +30,7 @@ const (
 	ConfigDBServer      = "db-server"
 	ConfigDBIdleTimeout = "db-idle-timeout"
 	ConfigDBLog         = "db-log"
+	ConfigGAERemoteAPI  = "remoteapi-endpoint"
 
 	// Display Config
 	ConfigSidebar        = "sidebar"
@@ -75,7 +77,20 @@ func init() {
 	// Read from config.
 	readViperConfig(ctx)
 
+	// Set defaults based on other configs
+	setDefaults()
+
 	log.Info(ctx, "config values loaded", "values", viper.AllSettings())
+}
+
+// setDefaults sets defaults for configuration options that depend on other
+// configuration options. This allows for smart defaults but allows for
+// overrides.
+func setDefaults() {
+	// ConfigGAERemoteAPI is based on project.
+	project := viper.GetString(ConfigProject)
+	defaultEndpoint := fmt.Sprintf("serviceproxy-dot-%s.appspot.com", project)
+	viper.SetDefault(ConfigGAERemoteAPI, defaultEndpoint)
 }
 
 func buildFlags() *pflag.FlagSet {
@@ -102,6 +117,7 @@ func buildFlags() *pflag.FlagSet {
 	flags.Duration(ConfigDBIdleTimeout, 250*time.Second, "Close Redis connections after remaining idle for this duration.")
 	flags.Bool(ConfigDBLog, false, "Log database commands")
 	flags.String(ConfigMemcacheAddr, "", "Address in the format host:port gddo uses to point to the memcache backend.")
+	flags.String(ConfigGAERemoteAPI, "", "Remoteapi endpoint for App Engine Search. Defaults to serviceproxy-dot-${project}.appspot.com.")
 
 	return flags
 }

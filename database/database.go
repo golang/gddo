@@ -48,7 +48,9 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/snappy"
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/appengine"
+	"google.golang.org/appengine/remote_api"
 	"google.golang.org/appengine/search"
 
 	"github.com/golang/gddo/doc"
@@ -59,6 +61,8 @@ type Database struct {
 	Pool interface {
 		Get() redis.Conn
 	}
+
+	AppEngineContext context.Context
 }
 
 // Package represents the content of a package both for the search index and
@@ -117,8 +121,21 @@ func newDBDialer(server string, logConn bool) func() (c redis.Conn, err error) {
 	}
 }
 
-// New creates a gddo database
-func New(serverUri string, idleTimeout time.Duration, logConn bool) (*Database, error) {
+func newAppEngineContext(host string) (context.Context, error) {
+	client, err := google.DefaultClient(context.TODO(),
+		"https://www.googleapis.com/auth/appengine.apis",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return remote_api.NewRemoteContext(host, client)
+}
+
+// New creates a gddo database. serverUri, idleTimeout, and logConn configure
+// the use of redis. gaeEndpoint is the target of the App Engine remoteapi
+// endpoint.
+func New(serverUri string, idleTimeout time.Duration, logConn bool, gaeEndpoint string) (*Database, error) {
 	pool := &redis.Pool{
 		Dial:        newDBDialer(serverUri, logConn),
 		MaxIdle:     10,
@@ -131,7 +148,12 @@ func New(serverUri string, idleTimeout time.Duration, logConn bool) (*Database, 
 	}
 	c.Close()
 
-	return &Database{Pool: pool}, nil
+	gaeCtx, err := newAppEngineContext(gaeEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Database{Pool: pool, AppEngineContext: gaeCtx}, nil
 }
 
 // Exists returns true if package with import path exists in the database.
@@ -174,7 +196,7 @@ var putScript = redis.NewScript(0, `
     for term, x in pairs(update) do
         if x == 1 then
             redis.call('SREM', 'index:' .. term, id)
-        elseif x == 2 then 
+        elseif x == 2 then
             redis.call('SADD', 'index:' .. term, id)
         end
     end
@@ -209,7 +231,8 @@ func (db *Database) AddNewCrawl(importPath string) error {
 	return err
 }
 
-var bgCtx = appengine.BackgroundContext // replaced by tests
+// TODO(stephenmw): bgCtx is not necessary anymore.
+var bgCtx = context.Background // replaced by tests
 
 // Put adds the package documentation to the database.
 func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error {
@@ -278,12 +301,12 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 	ctx := bgCtx()
 
 	if score > 0 {
-		if err := PutIndex(ctx, pdoc, id, score, n); err != nil {
+		if err := db.PutIndex(ctx, pdoc, id, score, n); err != nil {
 			log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
 		}
 
 		if old != nil {
-			if err := updateImportsIndex(c, ctx, old, pdoc); err != nil {
+			if err := db.updateImportsIndex(c, ctx, old, pdoc); err != nil {
 				return err
 			}
 		}
@@ -342,7 +365,7 @@ func pkgIDAndImportCount(c redis.Conn, path string) (id string, numImported int,
 	return id, numImported, nil
 }
 
-func updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc, newDoc *doc.Package) error {
+func (db *Database) updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc, newDoc *doc.Package) error {
 	// Create a map to store any import change since last time we indexed the package.
 	changes := make(map[string]bool)
 	for _, p := range oldDoc.Imports {
@@ -365,7 +388,7 @@ func updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc, newDoc *doc.P
 			return err
 		}
 		if id != "" {
-			PutIndex(ctx, nil, id, -1, n)
+			db.PutIndex(ctx, nil, id, -1, n)
 		}
 	}
 	return nil
@@ -449,13 +472,13 @@ var getDocScript = redis.NewScript(0, `
     end
 
     local nextCrawl = redis.call('HGET', 'pkg:' .. id, 'crawl')
-    if not nextCrawl then 
+    if not nextCrawl then
         nextCrawl = redis.call('ZSCORE', 'nextCrawl', id)
         if not nextCrawl then
             nextCrawl = 0
         end
     end
-    
+
     return {gob, nextCrawl}
 `)
 
@@ -1237,4 +1260,14 @@ func (db *Database) Reindex(ctx context.Context) error {
 	}
 	log.Printf("%d packages are reindexed", npkgs)
 	return nil
+}
+
+func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
+	// TODO(stephenmw): merge ctx with AppEngineContext
+	return searchAE(db.AppEngineContext, q)
+}
+
+func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
+	// TODO(stephenmw): merge ctx with AppEngineContext
+	return putIndex(db.AppEngineContext, pdoc, id, score, importCount)
 }

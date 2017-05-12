@@ -84,11 +84,11 @@ func (p *Package) Save() ([]search.Field, *search.DocumentMetadata, error) {
 	return fields, meta, nil
 }
 
-// PutIndex creates or updates a package entry in the search index. id identifies the document in the index.
-// If pdoc is non-nil, PutIndex will update the package's name, path and synopsis supplied by pdoc.
-// pdoc must be non-nil for a package's first call to PutIndex.
-// PutIndex updates the Score to score, if non-negative.
-func PutIndex(c context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
+// putIndex creates or updates a package entry in the search index. id identifies the document in the index.
+// If pdoc is non-nil, putIndex will update the package's name, path and synopsis supplied by pdoc.
+// pdoc must be non-nil for a package's first call to putIndex.
+// putIndex updates the Score to score, if non-negative.
+func putIndex(c context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
 	if id == "" {
 		return errors.New("indexae: no id assigned")
 	}
@@ -127,9 +127,9 @@ func PutIndex(c context.Context, pdoc *doc.Package, id string, score float64, im
 	return nil
 }
 
-// Search searches the packages index for a given query. A path-like query string
+// searchAE searches the packages index for a given query. A path-like query string
 // will be passed in unchanged, whereas single words will be stemmed.
-func Search(c context.Context, q string) ([]Package, error) {
+func searchAE(c context.Context, q string) ([]Package, error) {
 	index, err := search.Open("packages")
 	if err != nil {
 		return nil, err
