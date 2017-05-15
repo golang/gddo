@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/golang/gddo/gosrc"
+	"github.com/golang/gddo/httputil"
 )
 
 var (
@@ -43,7 +44,10 @@ func printDir(path string) {
 	if *local != "" {
 		gosrc.SetLocalDevMode(*local)
 	}
-	dir, err := gosrc.Get(http.DefaultClient, path, *etag)
+	c := &http.Client{
+		Transport: httputil.NewAuthTransport(&http.Transport{}),
+	}
+	dir, err := gosrc.Get(c, path, *etag)
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
 		log.Fatalf("redirect to %s", e.Redirect)
 	} else if err != nil {
