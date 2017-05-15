@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	gaeProjectEnvVar = "GAE_LONG_APP_ID"
+	gaeProjectEnvVar = "GCLOUD_PROJECT"
 )
 
 const (
