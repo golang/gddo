@@ -45,15 +45,25 @@ func Invoke(ctx context.Context, call APICall, opts ...CallOption) error {
 	for _, opt := range opts {
 		opt.Resolve(&settings)
 	}
-	return invoke(ctx, call, settings, timeSleeper{})
+	return invoke(ctx, call, settings, Sleep)
 }
 
-type sleeper interface {
-	// Sleep sleeps for duration d or until ctx.Done() closes, whichever happens first.
-	// If ctx.Done() closes, Sleep returns ctx.Err(), otherwise it returns nil.
-	Sleep(ctx context.Context, d time.Duration) error
+// Sleep is similar to time.Sleep, but it can be interrupted by ctx.Done() closing.
+// If interrupted, Sleep returns ctx.Err().
+func Sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	select {
+	case <-ctx.Done():
+		t.Stop()
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
+type sleeper func(ctx context.Context, d time.Duration) error
+
+// invoke implements Invoke, taking an additional sleeper argument for testing.
 func invoke(ctx context.Context, call APICall, settings CallSettings, sp sleeper) error {
 	var retryer Retryer
 	for {
@@ -73,19 +83,8 @@ func invoke(ctx context.Context, call APICall, settings CallSettings, sp sleeper
 		}
 		if d, ok := retryer.Retry(err); !ok {
 			return err
-		} else if err = sp.Sleep(ctx, d); err != nil {
+		} else if err = sp(ctx, d); err != nil {
 			return err
 		}
-	}
-}
-
-type timeSleeper struct{}
-
-func (s timeSleeper) Sleep(ctx context.Context, d time.Duration) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(d):
-		return nil
 	}
 }

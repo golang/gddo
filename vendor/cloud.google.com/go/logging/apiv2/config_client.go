@@ -1,10 +1,10 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2016, Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strings"
 	"time"
 
 	gax "github.com/googleapis/gax-go"
@@ -34,8 +35,8 @@ import (
 )
 
 var (
-	configParentPathTemplate = gax.MustCompilePathTemplate("projects/{project}")
-	configSinkPathTemplate   = gax.MustCompilePathTemplate("projects/{project}/sinks/{sink}")
+	configProjectPathTemplate = gax.MustCompilePathTemplate("projects/{project}")
+	configSinkPathTemplate    = gax.MustCompilePathTemplate("projects/{project}/sinks/{sink}")
 )
 
 // ConfigCallOptions contains the retry settings for each method of ConfigClient.
@@ -96,13 +97,13 @@ type ConfigClient struct {
 	CallOptions *ConfigCallOptions
 
 	// The metadata to be sent with each request.
-	metadata map[string][]string
+	metadata metadata.MD
 }
 
 // NewConfigClient creates a new config service v2 client.
 //
-// Service for configuring sinks used to export log entries outside Stackdriver
-// Logging.
+// Service for configuring sinks used to export log entries outside of
+// Stackdriver Logging.
 func NewConfigClient(ctx context.Context, opts ...option.ClientOption) (*ConfigClient, error) {
 	conn, err := transport.DialGRPC(ctx, append(defaultConfigClientOptions(), opts...)...)
 	if err != nil {
@@ -133,14 +134,14 @@ func (c *ConfigClient) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *ConfigClient) SetGoogleClientInfo(name, version string) {
-	c.metadata = map[string][]string{
-		"x-goog-api-client": {fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())},
-	}
+	goVersion := strings.Replace(runtime.Version(), " ", "_", -1)
+	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, goVersion)
+	c.metadata = metadata.Pairs("x-goog-api-client", v)
 }
 
-// ConfigParentPath returns the path for the parent resource.
-func ConfigParentPath(project string) string {
-	path, err := configParentPathTemplate.Render(map[string]string{
+// ConfigProjectPath returns the path for the project resource.
+func ConfigProjectPath(project string) string {
+	path, err := configProjectPathTemplate.Render(map[string]string{
 		"project": project,
 	})
 	if err != nil {
@@ -166,8 +167,7 @@ func (c *ConfigClient) ListSinks(ctx context.Context, req *loggingpb.ListSinksRe
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	it := &LogSinkIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*loggingpb.LogSink, string, error) {
 		var resp *loggingpb.ListSinksResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -181,19 +181,19 @@ func (c *ConfigClient) ListSinks(ctx context.Context, req *loggingpb.ListSinksRe
 			return err
 		}, c.CallOptions.ListSinks...)
 		if err != nil {
+			return nil, "", err
+		}
+		return resp.Sinks, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Sinks...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -213,7 +213,11 @@ func (c *ConfigClient) GetSink(ctx context.Context, req *loggingpb.GetSinkReques
 	return resp, nil
 }
 
-// CreateSink creates a sink.
+// CreateSink creates a sink that exports specified log entries to a destination.  The
+// export of newly-ingested log entries begins immediately, unless the current
+// time is outside the sink's start and end times or the sink's
+// `writer_identity` is not permitted to write to the destination.  A sink can
+// export log entries only from the resource owning the sink.
 func (c *ConfigClient) CreateSink(ctx context.Context, req *loggingpb.CreateSinkRequest) (*loggingpb.LogSink, error) {
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
@@ -229,7 +233,14 @@ func (c *ConfigClient) CreateSink(ctx context.Context, req *loggingpb.CreateSink
 	return resp, nil
 }
 
-// UpdateSink updates or creates a sink.
+// UpdateSink updates a sink. If the named sink doesn't exist, then this method is
+// identical to
+// [sinks.create](/logging/docs/api/reference/rest/v2/projects.sinks/create).
+// If the named sink does exist, then this method replaces the following
+// fields in the existing sink with values from the new sink: `destination`,
+// `filter`, `output_version_format`, `start_time`, and `end_time`.
+// The updated filter might also have a new `writer_identity`; see the
+// `unique_writer_identity` field.
 func (c *ConfigClient) UpdateSink(ctx context.Context, req *loggingpb.UpdateSinkRequest) (*loggingpb.LogSink, error) {
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
@@ -245,7 +256,8 @@ func (c *ConfigClient) UpdateSink(ctx context.Context, req *loggingpb.UpdateSink
 	return resp, nil
 }
 
-// DeleteSink deletes a sink.
+// DeleteSink deletes a sink. If the sink has a unique `writer_identity`, then that
+// service account is also deleted.
 func (c *ConfigClient) DeleteSink(ctx context.Context, req *loggingpb.DeleteSinkRequest) error {
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
@@ -262,6 +274,14 @@ type LogSinkIterator struct {
 	items    []*loggingpb.LogSink
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*loggingpb.LogSink, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -272,10 +292,21 @@ func (it *LogSinkIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *LogSinkIterator) Next() (*loggingpb.LogSink, error) {
+	var item *loggingpb.LogSink
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *LogSinkIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *LogSinkIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }
