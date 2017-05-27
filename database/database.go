@@ -231,9 +231,6 @@ func (db *Database) AddNewCrawl(importPath string) error {
 	return err
 }
 
-// TODO(stephenmw): bgCtx is not necessary anymore.
-var bgCtx = context.Background // replaced by tests
-
 // Put adds the package documentation to the database.
 func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error {
 	c := db.Pool.Get()
@@ -298,20 +295,19 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 	if err != nil {
 		return err
 	}
-	ctx := bgCtx()
 
 	if score > 0 {
-		if err := db.PutIndex(ctx, pdoc, id, score, n); err != nil {
+		if err := db.PutIndex(db.AppEngineContext, pdoc, id, score, n); err != nil {
 			log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
 		}
 
 		if old != nil {
-			if err := db.updateImportsIndex(c, ctx, old, pdoc); err != nil {
+			if err := db.updateImportsIndex(c, db.AppEngineContext, old, pdoc); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := deleteIndex(ctx, id); err != nil {
+		if err := deleteIndex(db.AppEngineContext, id); err != nil {
 			return err
 		}
 	}
@@ -382,13 +378,13 @@ func (db *Database) updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc
 	// For each import change, re-index that package with updated NumImported.
 	// In practice this should not happen often and when it does, the changes are
 	// likely to be a small amount.
-	for p, _ := range changes {
+	for p := range changes {
 		id, n, err := pkgIDAndImportCount(c, p)
 		if err != nil {
 			return err
 		}
 		if id != "" {
-			db.PutIndex(ctx, nil, id, -1, n)
+			db.PutIndex(db.AppEngineContext, nil, id, -1, n)
 		}
 	}
 	return nil
@@ -625,7 +621,6 @@ func (db *Database) Delete(path string) error {
 	c := db.Pool.Get()
 	defer c.Close()
 
-	ctx := bgCtx()
 	id, err := redis.String(c.Do("HGET", "ids", path))
 	if err == redis.ErrNil {
 		return nil
@@ -633,7 +628,7 @@ func (db *Database) Delete(path string) error {
 	if err != nil {
 		return err
 	}
-	if err := deleteIndex(ctx, id); err != nil {
+	if err := deleteIndex(db.AppEngineContext, id); err != nil {
 		return err
 	}
 
@@ -1263,11 +1258,9 @@ func (db *Database) Reindex(ctx context.Context) error {
 }
 
 func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
-	// TODO(stephenmw): merge ctx with AppEngineContext
 	return searchAE(db.AppEngineContext, q)
 }
 
 func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
-	// TODO(stephenmw): merge ctx with AppEngineContext
 	return putIndex(db.AppEngineContext, pdoc, id, score, importCount)
 }

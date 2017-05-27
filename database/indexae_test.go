@@ -32,7 +32,7 @@ func TestPutIndexWithEmptyId(t *testing.T) {
 	}
 	defer done()
 
-	if err := PutIndex(c, nil, "", 0, 0); err == nil {
+	if err := putIndex(c, nil, "", 0, 0); err == nil {
 		t.Errorf("PutIndex succeeded unexpectedly")
 	}
 }
@@ -44,7 +44,7 @@ func TestPutIndexCreateNilDoc(t *testing.T) {
 	}
 	defer done()
 
-	if err := PutIndex(c, nil, "12345", -1, 2); err == nil {
+	if err := putIndex(c, nil, "12345", -1, 2); err == nil {
 		t.Errorf("PutIndex succeeded unexpectedly")
 	}
 }
@@ -57,7 +57,7 @@ func TestPutIndexNewPackageAndUpdate(t *testing.T) {
 	defer done()
 
 	// Put a new package into search index.
-	if err := PutIndex(c, pdoc, "12345", 0.99, 1); err != nil {
+	if err := putIndex(c, pdoc, "12345", 0.99, 1); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,7 +84,7 @@ func TestPutIndexNewPackageAndUpdate(t *testing.T) {
 	}
 
 	// Update the import count of the package.
-	if err := PutIndex(c, nil, "12345", -1, 2); err != nil {
+	if err := putIndex(c, nil, "12345", -1, 2); err != nil {
 		t.Fatal(err)
 	}
 	if err := idx.Get(c, "12345", &got); err != nil && err != search.ErrNoSuchDocument {
@@ -109,11 +109,11 @@ func TestSearchResultSorted(t *testing.T) {
 	for i := 2; i < 6; i++ {
 		id += strconv.Itoa(i)
 		pdoc.Synopsis = id
-		if err := PutIndex(c, pdoc, id, math.Pow(0.9, float64(i)), 10*i); err != nil {
+		if err := putIndex(c, pdoc, id, math.Pow(0.9, float64(i)), 10*i); err != nil {
 			t.Fatal(err)
 		}
 	}
-	got, err := Search(c, "test")
+	got, err := searchAE(c, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
