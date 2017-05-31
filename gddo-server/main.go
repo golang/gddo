@@ -720,10 +720,8 @@ func runHandler(resp http.ResponseWriter, req *http.Request,
 
 	// TODO(stephenmw): choose headers based on if we are on App Engine
 	if viper.GetBool(ConfigTrustProxyHeaders) {
-		// If running on GAE, use X-Appengine-User-Ip to identify real ip of requests.
-		if s := req.Header.Get("X-Appengine-User-Ip"); s != "" {
-			req.RemoteAddr = s
-		} else if s := req.Header.Get("X-Real-Ip"); s != "" {
+		// If running on GAE flexible, use X-Forwarded-For to identify real ip of requests.
+		if s := req.Header.Get("X-Forwarded-For"); s != "" {
 			req.RemoteAddr = s
 		}
 	}
