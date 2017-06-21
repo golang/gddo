@@ -250,7 +250,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 	gobBytes := snappy.Encode(nil, gobBuf.Bytes())
 
 	// Truncate large documents.
-	if len(gobBytes) > 400000 {
+	if len(gobBytes) > 800000 {
 		pdocNew := *pdoc
 		pdoc = &pdocNew
 		pdoc.Truncated = true
