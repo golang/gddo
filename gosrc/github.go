@@ -181,6 +181,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 
 // isQuickFork reports whether the repository is a "quick fork":
 // it has fewer than 3 commits, all within a week of the repo creation, createdAt.
+// Commits must be in reverse chronological order by Commit.Committer.Date.
 func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
 	oneWeekOld := createdAt.Add(7 * 24 * time.Hour)
 	if oneWeekOld.After(time.Now()) {
@@ -190,6 +191,9 @@ func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
 	for _, commit := range commits {
 		if commit.Commit.Committer.Date.After(oneWeekOld) {
 			return false
+		}
+		if commit.Commit.Committer.Date.Before(createdAt) {
+			break
 		}
 		n++
 	}
