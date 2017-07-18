@@ -792,6 +792,23 @@ func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err
 	json.NewEncoder(resp).Encode(&data)
 }
 
+// httpsRedirectHandler redirects all requests with an X-Forwarded-Proto: http
+// handler to their https equivalent.
+type httpsRedirectHandler struct {
+	h http.Handler
+}
+
+func (h httpsRedirectHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	if req.Header.Get("X-Forwarded-Proto") == "http" {
+		u := *req.URL
+		u.Scheme = "https"
+		u.Host = req.Host
+		http.Redirect(resp, req, u.String(), http.StatusFound)
+		return
+	}
+	h.h.ServeHTTP(resp, req)
+}
+
 type rootHandler []struct {
 	prefix string
 	h      http.Handler
@@ -972,10 +989,9 @@ func main() {
 	cacheBusters.Handler = mux
 
 	var root http.Handler = rootHandler{
-		{"api.", apiMux},
+		{"api.", httpsRedirectHandler{apiMux}},
 		{"talks.godoc.org", otherDomainHandler{"https", "go-talks.appspot.com"}},
-		{"www.godoc.org", otherDomainHandler{"https", "godoc.org"}},
-		{"", mux},
+		{"", httpsRedirectHandler{mux}},
 	}
 	if gceLogName != "" {
 		ctx := context.Background()
