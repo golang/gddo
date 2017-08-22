@@ -20,8 +20,7 @@ import (
 )
 
 var (
-	testdataPat      = regexp.MustCompile(`/testdata(?:/|$)`)
-	blockedDomainPat = regexp.MustCompile(`^zxq\.co/`)
+	testdataPat = regexp.MustCompile(`/testdata(?:/|$)`)
 )
 
 // crawlDoc fetches the package documentation from the VCS and updates the database.
@@ -54,9 +53,6 @@ func crawlDoc(source string, importPath string, pdoc *doc.Package, hasSubdirs bo
 	} else if blocked, e := db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "blocked."}
-	} else if blockedDomainPat.MatchString(importPath) {
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "blocked domain."}
 	} else if testdataPat.MatchString(importPath) {
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "testdata."}

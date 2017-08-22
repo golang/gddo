@@ -339,7 +339,7 @@ metaScan:
 
 // getVCSDirFn is called by getDynamic to fetch source using VCS commands. The
 // default value here does nothing. If the code is not built for App Engine,
-// then getvCSDirFn is set getVCSDir, the function that actually does the work.
+// then getVCSDirFn is set getVCSDir, the function that actually does the work.
 var getVCSDirFn = func(client *http.Client, m map[string]string, etag string) (*Directory, error) {
 	return nil, errNoMatch
 }

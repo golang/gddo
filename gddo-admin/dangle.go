@@ -26,7 +26,7 @@ func dangle(c *command) {
 		c.printUsage()
 		os.Exit(1)
 	}
-	db, err := database.New()
+	db, err := database.New(*redisServer, *dbIdleTimeout, false, gaeEndpoint)
 	if err != nil {
 		log.Fatal(err)
 	}

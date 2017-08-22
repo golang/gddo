@@ -89,8 +89,10 @@ func init() {
 func setDefaults() {
 	// ConfigGAERemoteAPI is based on project.
 	project := viper.GetString(ConfigProject)
-	defaultEndpoint := fmt.Sprintf("serviceproxy-dot-%s.appspot.com", project)
-	viper.SetDefault(ConfigGAERemoteAPI, defaultEndpoint)
+	if project != "" {
+		defaultEndpoint := fmt.Sprintf("serviceproxy-dot-%s.appspot.com", project)
+		viper.SetDefault(ConfigGAERemoteAPI, defaultEndpoint)
+	}
 }
 
 func buildFlags() *pflag.FlagSet {

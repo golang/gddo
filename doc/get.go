@@ -8,10 +8,11 @@
 package doc
 
 import (
-	"github.com/golang/gddo/gosrc"
 	"go/doc"
 	"net/http"
 	"strings"
+
+	"github.com/golang/gddo/gosrc"
 )
 
 func Get(client *http.Client, importPath string, etag string) (*Package, error) {

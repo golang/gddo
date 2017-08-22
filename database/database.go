@@ -132,12 +132,12 @@ func newAppEngineContext(host string) (context.Context, error) {
 	return remote_api.NewRemoteContext(host, client)
 }
 
-// New creates a gddo database. serverUri, idleTimeout, and logConn configure
+// New creates a gddo database. serverURI, idleTimeout, and logConn configure
 // the use of redis. gaeEndpoint is the target of the App Engine remoteapi
 // endpoint.
-func New(serverUri string, idleTimeout time.Duration, logConn bool, gaeEndpoint string) (*Database, error) {
+func New(serverURI string, idleTimeout time.Duration, logConn bool, gaeEndpoint string) (*Database, error) {
 	pool := &redis.Pool{
-		Dial:        newDBDialer(serverUri, logConn),
+		Dial:        newDBDialer(serverURI, logConn),
 		MaxIdle:     10,
 		IdleTimeout: idleTimeout,
 	}
@@ -148,9 +148,12 @@ func New(serverUri string, idleTimeout time.Duration, logConn bool, gaeEndpoint 
 	}
 	c.Close()
 
-	gaeCtx, err := newAppEngineContext(gaeEndpoint)
-	if err != nil {
-		return nil, err
+	gaeCtx := context.TODO()
+	if gaeEndpoint != "" {
+		var err error
+		if gaeCtx, err = newAppEngineContext(gaeEndpoint); err != nil {
+			return nil, err
+		}
 	}
 
 	return &Database{Pool: pool, AppEngineContext: gaeCtx}, nil
@@ -753,6 +756,8 @@ func (db *Database) Importers(path string) ([]Package, error) {
 	return db.getPackages("index:import:"+path, false)
 }
 
+// Block puts a domain, repo or package into the block set, removes all the
+// packages under it from the database and prevents future crawling from it.
 func (db *Database) Block(root string) error {
 	c := db.Pool.Get()
 	defer c.Close()
@@ -785,6 +790,8 @@ var isBlockedScript = redis.NewScript(0, `
     return  0
 `)
 
+// IsBlocked returns whether the package is blocked or belongs to a blocked
+// domain/repo.
 func (db *Database) IsBlocked(path string) (bool, error) {
 	c := db.Pool.Get()
 	defer c.Close()

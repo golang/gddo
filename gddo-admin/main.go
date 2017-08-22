@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 type command struct {
@@ -25,6 +26,14 @@ func (c *command) printUsage() {
 	fmt.Fprintf(os.Stderr, "%s %s\n", os.Args[0], c.usage)
 	c.flag.PrintDefaults()
 }
+
+var (
+	project       = flag.String("project", "", "App Engine project ID used to interact with remote API.")
+	redisServer   = flag.String("db-server", "redis://127.0.0.1:6379", "URI of Redis server.")
+	dbIdleTimeout = flag.Duration("db-idle-timeout", 250*time.Second, "Close database connections after remaining idle for this duration.")
+)
+
+var gaeEndpoint string
 
 var commands = []*command{
 	blockCommand,
@@ -48,10 +57,18 @@ func printUsage() {
 	}
 }
 
+func setDefaults() {
+	if *project != "" {
+		gaeEndpoint = fmt.Sprintf("serviceproxy-dot-%s.appspot.com", *project)
+	}
+}
+
 func main() {
 	flag.Usage = printUsage
 	flag.Parse()
 	args := flag.Args()
+	setDefaults()
+
 	if len(args) >= 1 {
 		for _, c := range commands {
 			if args[0] == c.name {
