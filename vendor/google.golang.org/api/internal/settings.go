@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package internal supports the options and transport packages.
 package internal
 
@@ -11,13 +25,13 @@ import (
 // DialSettings holds information needed to establish a connection with a
 // Google API service.
 type DialSettings struct {
-	Endpoint                   string
-	Scopes                     []string
-	ServiceAccountJSONFilename string // if set, TokenSource is ignored.
-	TokenSource                oauth2.TokenSource
-	UserAgent                  string
-	APIKey                     string
-	HTTPClient                 *http.Client
-	GRPCDialOpts               []grpc.DialOption
-	GRPCConn                   *grpc.ClientConn
+	Endpoint        string
+	Scopes          []string
+	TokenSource     oauth2.TokenSource
+	CredentialsFile string // if set, Token Source is ignored.
+	UserAgent       string
+	APIKey          string
+	HTTPClient      *http.Client
+	GRPCDialOpts    []grpc.DialOption
+	GRPCConn        *grpc.ClientConn
 }
