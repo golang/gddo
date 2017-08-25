@@ -24,7 +24,7 @@ func (dir *Directory) Import(ctx *build.Context, mode build.ImportMode) (*build.
 	ctx.JoinPath = path.Join
 	ctx.IsAbsPath = path.IsAbs
 	ctx.SplitPathList = func(list string) []string { return strings.Split(list, ":") }
-	ctx.IsDir = func(path string) bool { return false }
+	ctx.IsDir = func(path string) bool { return path == "." }
 	ctx.HasSubdir = func(root, dir string) (rel string, ok bool) { return "", false }
 	ctx.ReadDir = dir.readDir
 	ctx.OpenFile = dir.openFile
