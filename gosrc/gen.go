@@ -55,10 +55,10 @@ func main() {
 		log.Fatal("usage: decgen [--output filename]")
 	}
 
-	// Build map of standard repository path flags.
+	// Build map of standard repository path flags for each GOOS/GOARCH distribution.
 
-	cmd := exec.Command("go", "list", "std", "cmd")
-	p, err := cmd.Output()
+	cmd := exec.Command("go", "tool", "dist", "list")
+	dists, err := cmd.Output()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,15 +66,27 @@ func main() {
 		"builtin": packagePath | goRepoPath,
 		"C":       packagePath,
 	}
-	for _, path := range strings.Fields(string(p)) {
-		pathFlags[path] |= packagePath | goRepoPath
-		for {
-			i := strings.LastIndex(path, "/")
-			if i < 0 {
-				break
+
+	for _, dist := range strings.Fields(string(dists)) {
+		c := strings.Split(dist, "/")
+		os.Setenv("GOOS", c[0])
+		os.Setenv("GOARCH", c[1])
+		cmd := exec.Command("go", "list", "std", "cmd")
+		p, err := cmd.Output()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, path := range strings.Fields(string(p)) {
+			pathFlags[path] |= packagePath | goRepoPath
+			for {
+				i := strings.LastIndex(path, "/")
+				if i < 0 {
+					break
+				}
+				path = path[:i]
+				pathFlags[path] |= goRepoPath
 			}
-			path = path[:i]
-			pathFlags[path] |= goRepoPath
 		}
 	}
 
@@ -85,7 +97,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	p, err = ioutil.ReadAll(resp.Body)
+	p, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}

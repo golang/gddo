@@ -50,5 +50,7 @@ func IsGoRepoPath(path string) bool {
 
 // IsValidPath returns true if importPath is structurally valid.
 func IsValidPath(importPath string) bool {
-	return pathFlags[importPath]&packagePath != 0 || IsValidRemotePath(importPath)
+	return pathFlags[importPath]&packagePath != 0 ||
+		pathFlags["vendor/"+importPath]&packagePath != 0 ||
+		IsValidRemotePath(importPath)
 }
