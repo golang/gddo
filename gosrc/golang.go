@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"regexp"
@@ -18,11 +19,11 @@ var (
 	golangFileRe         = regexp.MustCompile(`<a href="([^"]+)"`)
 )
 
-func getStandardDir(client *http.Client, importPath string, savedEtag string) (*Directory, error) {
+func getStandardDir(ctx context.Context, client *http.Client, importPath string, savedEtag string) (*Directory, error) {
 	c := &httpClient{client: client}
 
 	browseURL := "https://golang.org/src/" + importPath + "/"
-	p, err := c.getBytes(browseURL)
+	p, err := c.getBytes(ctx, browseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,7 @@ func getStandardDir(client *http.Client, importPath string, savedEtag string) (*
 		}
 	}
 
-	if err := c.getFiles(dataURLs, files); err != nil {
+	if err := c.getFiles(ctx, dataURLs, files); err != nil {
 		return nil, err
 	}
 

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -28,7 +29,7 @@ func del(c *command) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := db.Delete(c.flag.Args()[0]); err != nil {
+	if err := db.Delete(context.Background(), c.flag.Args()[0]); err != nil {
 		log.Fatal(err)
 	}
 }

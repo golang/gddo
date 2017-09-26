@@ -8,6 +8,7 @@ package database
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -15,7 +16,6 @@ import (
 	"strings"
 	"unicode"
 
-	"golang.org/x/net/context"
 	"google.golang.org/appengine/search"
 
 	"github.com/golang/gddo/doc"
@@ -181,6 +181,7 @@ func deleteIndex(c context.Context, id string) error {
 }
 
 // PurgeIndex deletes all the packages from the search index.
+// TODO(shantuo): wrap this with db and use db.RemoteClient to create the context.
 func PurgeIndex(c context.Context) error {
 	idx, err := search.Open("packages")
 	if err != nil {

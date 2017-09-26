@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"path"
@@ -40,14 +41,14 @@ type bitbucketNode struct {
 	Timestamp string `json:"utctimestamp"`
 }
 
-func getBitbucketDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getBitbucketDir(ctx context.Context, client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	var repo *bitbucketRepo
 	c := &httpClient{client: client}
 
 	if m := bitbucketEtagRe.FindStringSubmatch(savedEtag); m != nil {
 		match["vcs"] = m[1]
 	} else {
-		repo, err := getBitbucketRepo(c, match)
+		repo, err := getBitbucketRepo(ctx, c, match)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +61,7 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 
 	for _, nodeType := range []string{"branches", "tags"} {
 		var nodes map[string]bitbucketNode
-		if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/{0}", match, nodeType), &nodes); err != nil {
+		if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/{0}", match, nodeType), &nodes); err != nil {
 			return nil, err
 		}
 		for t, n := range nodes {
@@ -88,7 +89,7 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 	}
 
 	if repo == nil {
-		repo, err = getBitbucketRepo(c, match)
+		repo, err = getBitbucketRepo(ctx, c, match)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +102,7 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		}
 	}
 
-	if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), &contents); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), &contents); err != nil {
 		return nil, err
 	}
 
@@ -116,7 +117,7 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 		}
 	}
 
-	if err := c.getFiles(dataURLs, files); err != nil {
+	if err := c.getFiles(ctx, dataURLs, files); err != nil {
 		return nil, err
 	}
 
@@ -141,9 +142,9 @@ func getBitbucketDir(client *http.Client, match map[string]string, savedEtag str
 	}, nil
 }
 
-func getBitbucketRepo(c *httpClient, match map[string]string) (*bitbucketRepo, error) {
+func getBitbucketRepo(ctx context.Context, c *httpClient, match map[string]string) (*bitbucketRepo, error) {
 	var repo bitbucketRepo
-	if _, err := c.getJSON(expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 

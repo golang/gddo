@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -59,7 +60,7 @@ func reindex(c *command) {
 	err = db.Do(func(pi *database.PackageInfo) error {
 		n++
 		fix(pi.PDoc)
-		return db.Put(pi.PDoc, time.Time{}, false)
+		return db.Put(context.Background(), pi.PDoc, time.Time{}, false)
 	})
 	if err != nil {
 		log.Fatal(err)

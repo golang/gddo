@@ -8,6 +8,7 @@
 package doc
 
 import (
+	"context"
 	"go/doc"
 	"net/http"
 	"strings"
@@ -15,7 +16,7 @@ import (
 	"github.com/golang/gddo/gosrc"
 )
 
-func Get(client *http.Client, importPath string, etag string) (*Package, error) {
+func Get(ctx context.Context, client *http.Client, importPath string, etag string) (*Package, error) {
 
 	const versionPrefix = PackageVersion + "-"
 
@@ -25,7 +26,7 @@ func Get(client *http.Client, importPath string, etag string) (*Package, error) 
 		etag = ""
 	}
 
-	dir, err := gosrc.Get(client, importPath, etag)
+	dir, err := gosrc.Get(ctx, client, importPath, etag)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +42,7 @@ func Get(client *http.Client, importPath string, etag string) (*Package, error) 
 		pdoc.Name != "" &&
 		dir.ImportPath == dir.ProjectRoot &&
 		len(pdoc.Errors) == 0 {
-		project, err := gosrc.GetProject(client, dir.ResolvedPath)
+		project, err := gosrc.GetProject(ctx, client, dir.ResolvedPath)
 		switch {
 		case err == nil:
 			pdoc.Synopsis = doc.Synopsis(project.Description)

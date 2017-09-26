@@ -10,6 +10,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"io"
@@ -41,11 +42,11 @@ func (p byHash) Swap(i, j int) {
 	copy(p[j*md5.Size:], temp[:])
 }
 
-func getLaunchpadDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getLaunchpadDir(ctx context.Context, client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	c := &httpClient{client: client}
 
 	if match["project"] != "" && match["series"] != "" {
-		rc, err := c.getReader(expand("https://code.launchpad.net/{project}{series}/.bzr/branch-format", match))
+		rc, err := c.getReader(ctx, expand("https://code.launchpad.net/{project}{series}/.bzr/branch-format", match))
 		switch {
 		case err == nil:
 			rc.Close()
@@ -59,7 +60,7 @@ func getLaunchpadDir(client *http.Client, match map[string]string, savedEtag str
 		}
 	}
 
-	p, err := c.getBytes(expand("https://bazaar.launchpad.net/+branch/{repo}/tarball", match))
+	p, err := c.getBytes(ctx, expand("https://bazaar.launchpad.net/+branch/{repo}/tarball", match))
 	if err != nil {
 		return nil, err
 	}

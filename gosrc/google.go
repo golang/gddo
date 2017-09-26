@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -30,7 +31,7 @@ var (
 	googleFileRe     = regexp.MustCompile(`<li><a href="([^"]+)"`)
 )
 
-func checkGoogleRedir(c *httpClient, match map[string]string) error {
+func checkGoogleRedir(ctx context.Context, c *httpClient, match map[string]string) error {
 	resp, err := c.getNoFollow(expand("https://code.google.com/{pr}/{repo}/", match))
 	if err != nil {
 		return err
@@ -48,22 +49,22 @@ func checkGoogleRedir(c *httpClient, match map[string]string) error {
 	return c.err(resp)
 }
 
-func getGoogleDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getGoogleDir(ctx context.Context, client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	setupGoogleMatch(match)
 	c := &httpClient{client: client}
 
-	if err := checkGoogleRedir(c, match); err != nil {
+	if err := checkGoogleRedir(ctx, c, match); err != nil {
 		return nil, err
 	}
 
 	if m := googleEtagRe.FindStringSubmatch(savedEtag); m != nil {
 		match["vcs"] = m[1]
-	} else if err := getGoogleVCS(c, match); err != nil {
+	} else if err := getGoogleVCS(ctx, c, match); err != nil {
 		return nil, err
 	}
 
 	// Scrape the repo browser to find the project revision and individual Go files.
-	p, err := c.getBytes(expand("http://{subrepo}{dot}{repo}.googlecode.com/{vcs}{dir}/", match))
+	p, err := c.getBytes(ctx, expand("http://{subrepo}{dot}{repo}.googlecode.com/{vcs}{dir}/", match))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func getGoogleDir(client *http.Client, match map[string]string, savedEtag string
 		}
 	}
 
-	if err := c.getFiles(dataURLs, files); err != nil {
+	if err := c.getFiles(ctx, dataURLs, files); err != nil {
 		return nil, err
 	}
 
@@ -128,9 +129,9 @@ func setupGoogleMatch(match map[string]string) {
 	}
 }
 
-func getGoogleVCS(c *httpClient, match map[string]string) error {
+func getGoogleVCS(ctx context.Context, c *httpClient, match map[string]string) error {
 	// Scrape the HTML project page to find the VCS.
-	p, err := c.getBytes(expand("http://code.google.com/{pr}/{repo}/source/checkout", match))
+	p, err := c.getBytes(ctx, expand("http://code.google.com/{pr}/{repo}/source/checkout", match))
 	if err != nil {
 		return err
 	}
@@ -142,11 +143,11 @@ func getGoogleVCS(c *httpClient, match map[string]string) error {
 	return nil
 }
 
-func getGooglePresentation(client *http.Client, match map[string]string) (*Presentation, error) {
+func getGooglePresentation(ctx context.Context, client *http.Client, match map[string]string) (*Presentation, error) {
 	c := &httpClient{client: client}
 
 	setupGoogleMatch(match)
-	if err := getGoogleVCS(c, match); err != nil {
+	if err := getGoogleVCS(ctx, c, match); err != nil {
 		return nil, err
 	}
 
@@ -155,7 +156,7 @@ func getGooglePresentation(client *http.Client, match map[string]string) (*Prese
 		return nil, err
 	}
 
-	p, err := c.getBytes(expand("http://{subrepo}{dot}{repo}.googlecode.com/{vcs}{dir}/{file}", match))
+	p, err := c.getBytes(ctx, expand("http://{subrepo}{dot}{repo}.googlecode.com/{vcs}{dir}/{file}", match))
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +175,7 @@ func getGooglePresentation(client *http.Client, match map[string]string) (*Prese
 				files = append(files, &File{Name: fname})
 				dataURLs = append(dataURLs, u.String())
 			}
-			err := c.getFiles(dataURLs, files)
+			err := c.getFiles(ctx, dataURLs, files)
 			return files, err
 		},
 		resolveURL: func(fname string) string {

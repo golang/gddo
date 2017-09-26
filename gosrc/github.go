@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -57,7 +58,7 @@ func gitHubError(resp *http.Response) error {
 	return &RemoteError{resp.Request.URL.Host, fmt.Errorf("%d: (%s)", resp.StatusCode, resp.Request.URL.String())}
 }
 
-func getGitHubDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getGitHubDir(ctx context.Context, client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 
 	c := &httpClient{client: client, errFn: gitHubError}
 
@@ -69,7 +70,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		DefaultBranch string    `json:"default_branch"`
 	}
 
-	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +80,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	if match["dir"] != "" {
 		u += fmt.Sprintf("?path=%s", url.QueryEscape(match["dir"]))
 	}
-	if _, err := c.getJSON(u, &commits); err != nil {
+	if _, err := c.getJSON(ctx, u, &commits); err != nil {
 		return nil, err
 	}
 	if len(commits) == 0 {
@@ -110,7 +111,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 		HTMLURL string `json:"html_url"`
 	}
 
-	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}", match), &contents); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}", match), &contents); err != nil {
 		// The GitHub content API returns array values for directories
 		// and object values for files. If there's a type mismatch at
 		// the beginning of the response, then assume that the path is
@@ -153,7 +154,7 @@ func getGitHubDir(client *http.Client, match map[string]string, savedEtag string
 	}
 
 	c.header = gitHubRawHeader
-	if err := c.getFiles(dataURLs, files); err != nil {
+	if err := c.getFiles(ctx, dataURLs, files); err != nil {
 		return nil, err
 	}
 
@@ -200,18 +201,18 @@ func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
 	return n < 3
 }
 
-func getGitHubPresentation(client *http.Client, match map[string]string) (*Presentation, error) {
+func getGitHubPresentation(ctx context.Context, client *http.Client, match map[string]string) (*Presentation, error) {
 	c := &httpClient{client: client, header: gitHubRawHeader}
 
 	var repo struct {
 		DefaultBranch string `json:"default_branch"`
 	}
-	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 	branch := repo.DefaultBranch
 
-	p, err := c.getBytes(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}", match))
+	p, err := c.getBytes(ctx, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}", match))
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +243,7 @@ func getGitHubPresentation(client *http.Client, match map[string]string) (*Prese
 				files = append(files, &File{Name: fname})
 				dataURLs = append(dataURLs, u.String())
 			}
-			err := c.getFiles(dataURLs, files)
+			err := c.getFiles(ctx, dataURLs, files)
 			return files, err
 		},
 		resolveURL: func(fname string) string {
@@ -262,7 +263,7 @@ func getGitHubPresentation(client *http.Client, match map[string]string) (*Prese
 
 // GetGitHubUpdates returns the full names ("owner/repo") of recently pushed GitHub repositories.
 // by pushedAfter.
-func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt string, names []string, err error) {
+func GetGitHubUpdates(ctx context.Context, client *http.Client, pushedAfter string) (maxPushedAt string, names []string, err error) {
 	c := httpClient{client: client, header: gitHubPreviewHeader}
 
 	if pushedAfter == "" {
@@ -275,7 +276,7 @@ func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt stri
 			PushedAt string `json:"pushed_at"`
 		}
 	}
-	_, err = c.getJSON(u, &updates)
+	_, err = c.getJSON(ctx, u, &updates)
 	if err != nil {
 		return pushedAfter, nil, err
 	}
@@ -290,14 +291,14 @@ func GetGitHubUpdates(client *http.Client, pushedAfter string) (maxPushedAt stri
 	return maxPushedAt, names, nil
 }
 
-func getGitHubProject(client *http.Client, match map[string]string) (*Project, error) {
+func getGitHubProject(ctx context.Context, client *http.Client, match map[string]string) (*Project, error) {
 	c := &httpClient{client: client, errFn: gitHubError}
 
 	var repo struct {
 		Description string
 	}
 
-	if _, err := c.getJSON(expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 
@@ -306,7 +307,7 @@ func getGitHubProject(client *http.Client, match map[string]string) (*Project, e
 	}, nil
 }
 
-func getGistDir(client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
+func getGistDir(ctx context.Context, client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
 	c := &httpClient{client: client, errFn: gitHubError}
 
 	var gist struct {
@@ -319,7 +320,7 @@ func getGistDir(client *http.Client, match map[string]string, savedEtag string) 
 		}
 	}
 
-	if _, err := c.getJSON(expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.github.com/gists/{gist}", match), &gist); err != nil {
 		return nil, err
 	}
 

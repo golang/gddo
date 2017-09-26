@@ -7,6 +7,7 @@
 package gosrc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,11 +32,12 @@ func (c *httpClient) err(resp *http.Response) error {
 }
 
 // get issues a GET to the specified URL.
-func (c *httpClient) get(url string) (*http.Response, error) {
+func (c *httpClient) get(ctx context.Context, url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	for k, vs := range c.header {
 		req.Header[k] = vs
 	}
@@ -66,8 +68,8 @@ func (c *httpClient) getNoFollow(url string) (*http.Response, error) {
 	return resp, err
 }
 
-func (c *httpClient) getBytes(url string) ([]byte, error) {
-	resp, err := c.get(url)
+func (c *httpClient) getBytes(ctx context.Context, url string) ([]byte, error) {
+	resp, err := c.get(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +81,8 @@ func (c *httpClient) getBytes(url string) ([]byte, error) {
 	return p, err
 }
 
-func (c *httpClient) getReader(url string) (io.ReadCloser, error) {
-	resp, err := c.get(url)
+func (c *httpClient) getReader(ctx context.Context, url string) (io.ReadCloser, error) {
+	resp, err := c.get(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +94,8 @@ func (c *httpClient) getReader(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func (c *httpClient) getJSON(url string, v interface{}) (*http.Response, error) {
-	resp, err := c.get(url)
+func (c *httpClient) getJSON(ctx context.Context, url string, v interface{}) (*http.Response, error) {
+	resp, err := c.get(ctx, url)
 	if err != nil {
 		return resp, err
 	}
@@ -108,11 +110,11 @@ func (c *httpClient) getJSON(url string, v interface{}) (*http.Response, error) 
 	return resp, err
 }
 
-func (c *httpClient) getFiles(urls []string, files []*File) error {
+func (c *httpClient) getFiles(ctx context.Context, urls []string, files []*File) error {
 	ch := make(chan error, len(files))
 	for i := range files {
 		go func(i int) {
-			resp, err := c.get(urls[i])
+			resp, err := c.get(ctx, urls[i])
 			if err != nil {
 				ch <- err
 				return

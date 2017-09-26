@@ -9,6 +9,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"errors"
@@ -30,8 +31,6 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
-	"google.golang.org/appengine"
 
 	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/doc"
@@ -74,7 +73,7 @@ type crawlResult struct {
 
 // getDoc gets the package documentation from the database or from the version
 // control system as needed.
-func getDoc(path string, requestType int) (*doc.Package, []database.Package, error) {
+func getDoc(ctx context.Context, path string, requestType int) (*doc.Package, []database.Package, error) {
 	if path == "-" {
 		// A hack in the database package uses the path "-" to represent the
 		// next document to crawl. Block "-" here so that requests to /- always
@@ -82,7 +81,7 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 		return nil, nil, &httpError{status: http.StatusNotFound}
 	}
 
-	pdoc, pkgs, nextCrawl, err := db.Get(path)
+	pdoc, pkgs, nextCrawl, err := db.Get(ctx, path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -103,7 +102,7 @@ func getDoc(path string, requestType int) (*doc.Package, []database.Package, err
 
 	c := make(chan crawlResult, 1)
 	go func() {
-		pdoc, err := crawlDoc("web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
+		pdoc, err := crawlDoc(ctx, "web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
 		c <- crawlResult{pdoc, err}
 	}()
 
@@ -236,12 +235,12 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
-	pdoc, pkgs, err := getDoc(importPath, requestType)
+	pdoc, pkgs, err := getDoc(req.Context(), importPath, requestType)
 
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
 		// To prevent dumb clients from following redirect loops, respond with
 		// status 404 if the target document is not found.
-		if _, _, err := getDoc(e.Redirect, requestType); gosrc.IsNotFound(err) {
+		if _, _, err := getDoc(req.Context(), e.Redirect, requestType); gosrc.IsNotFound(err) {
 			return &httpError{status: http.StatusNotFound}
 		}
 		u := "/" + e.Redirect
@@ -262,7 +261,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if len(pkgs) == 0 {
 			return &httpError{status: http.StatusNotFound}
 		}
-		pdocChild, _, _, err := db.Get(pkgs[0].Path)
+		pdocChild, _, _, err := db.Get(req.Context(), pkgs[0].Path)
 		if err != nil {
 			return err
 		}
@@ -420,13 +419,13 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 
 func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	importPath := req.Form.Get("path")
-	_, pkgs, _, err := db.Get(importPath)
+	_, pkgs, _, err := db.Get(req.Context(), importPath)
 	if err != nil {
 		return err
 	}
 	c := make(chan error, 1)
 	go func() {
-		_, err := crawlDoc("rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
+		_, err := crawlDoc(req.Context(), "rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
 		c <- err
 	}()
 	select {
@@ -552,7 +551,7 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, pkgs, err := getDoc(q, queryRequest)
+		pdoc, pkgs, err := getDoc(req.Context(), q, queryRequest)
 		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
 			http.Redirect(resp, req, "/"+e.Redirect, http.StatusFound)
 			return nil
@@ -611,9 +610,9 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	var pkgs []database.Package
 
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, _, err := getDoc(q, apiRequest)
+		pdoc, _, err := getDoc(req.Context(), q, apiRequest)
 		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-			pdoc, _, err = getDoc(e.Redirect, robotRequest)
+			pdoc, _, err = getDoc(req.Context(), e.Redirect, robotRequest)
 		}
 		if err == nil && pdoc != nil {
 			pkgs = []database.Package{{Path: pdoc.ImportPath, Synopsis: pdoc.Synopsis}}
@@ -668,7 +667,7 @@ func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 
 func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
 	importPath := strings.TrimPrefix(req.URL.Path, "/imports/")
-	pdoc, _, err := getDoc(importPath, robotRequest)
+	pdoc, _, err := getDoc(req.Context(), importPath, robotRequest)
 	if err != nil {
 		return err
 	}
@@ -922,14 +921,14 @@ func main() {
 
 	go func() {
 		for range time.Tick(viper.GetDuration(ConfigCrawlInterval)) {
-			if err := doCrawl(); err != nil {
+			if err := doCrawl(context.Background()); err != nil {
 				log.Printf("Task Crawl: %v", err)
 			}
 		}
 	}()
 	go func() {
 		for range time.Tick(viper.GetDuration(ConfigGithubInterval)) {
-			if err := readGitHubUpdates(); err != nil {
+			if err := readGitHubUpdates(context.Background()); err != nil {
 				log.Printf("Task GitHub updates: %v", err)
 			}
 		}
@@ -1010,6 +1009,5 @@ func main() {
 		gceLogger = newGCELogger(logger)
 	}
 
-	http.Handle("/", root)
-	appengine.Main()
+	log.Fatal(http.ListenAndServe(viper.GetString(ConfigBindAddress), root))
 }

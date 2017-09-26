@@ -10,6 +10,7 @@ package gosrc
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"log"
@@ -245,7 +246,7 @@ func getSVNRevision(target string) (string, error) {
 	return "", NotFoundError{Message: "Last changed revision not found"}
 }
 
-func getVCSDir(client *http.Client, match map[string]string, etagSaved string) (*Directory, error) {
+func getVCSDir(ctx context.Context, client *http.Client, match map[string]string, etagSaved string) (*Directory, error) {
 	cmd := vcsCmds[match["vcs"]]
 	if cmd == nil {
 		return nil, NotFoundError{Message: expand("VCS not supported: {vcs}", match)}

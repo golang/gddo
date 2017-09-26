@@ -31,6 +31,7 @@ package database
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -47,7 +48,6 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/snappy"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/remote_api"
@@ -62,7 +62,7 @@ type Database struct {
 		Get() redis.Conn
 	}
 
-	AppEngineContext context.Context
+	RemoteClient *remote_api.Client
 }
 
 // Package represents the content of a package both for the search index and
@@ -121,7 +121,7 @@ func newDBDialer(server string, logConn bool) func() (c redis.Conn, err error) {
 	}
 }
 
-func newAppEngineContext(host string) (context.Context, error) {
+func newRemoteClient(host string) (*remote_api.Client, error) {
 	client, err := google.DefaultClient(context.TODO(),
 		"https://www.googleapis.com/auth/appengine.apis",
 	)
@@ -129,7 +129,7 @@ func newAppEngineContext(host string) (context.Context, error) {
 		return nil, err
 	}
 
-	return remote_api.NewRemoteContext(host, client)
+	return remote_api.NewClient(host, client)
 }
 
 // New creates a gddo database. serverURI, idleTimeout, and logConn configure
@@ -148,15 +148,15 @@ func New(serverURI string, idleTimeout time.Duration, logConn bool, gaeEndpoint 
 	}
 	c.Close()
 
-	gaeCtx := context.TODO()
+	var rc *remote_api.Client
 	if gaeEndpoint != "" {
 		var err error
-		if gaeCtx, err = newAppEngineContext(gaeEndpoint); err != nil {
+		if rc, err = newRemoteClient(gaeEndpoint); err != nil {
 			return nil, err
 		}
 	}
 
-	return &Database{Pool: pool, AppEngineContext: gaeCtx}, nil
+	return &Database{Pool: pool, RemoteClient: rc}, nil
 }
 
 // Exists returns true if package with import path exists in the database.
@@ -235,7 +235,7 @@ func (db *Database) AddNewCrawl(importPath string) error {
 }
 
 // Put adds the package documentation to the database.
-func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error {
+func (db *Database) Put(ctx context.Context, pdoc *doc.Package, nextCrawl time.Time, hide bool) error {
 	c := db.Pool.Get()
 	defer c.Close()
 
@@ -284,7 +284,7 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 
 	// Get old version of the package to extract its imports.
 	// If the package does not exist, both oldDoc and err will be nil.
-	old, _, err := db.getDoc(c, pdoc.ImportPath)
+	old, _, err := db.getDoc(ctx, c, pdoc.ImportPath)
 	if err != nil {
 		return err
 	}
@@ -300,17 +300,17 @@ func (db *Database) Put(pdoc *doc.Package, nextCrawl time.Time, hide bool) error
 	}
 
 	if score > 0 {
-		if err := db.PutIndex(db.AppEngineContext, pdoc, id, score, n); err != nil {
+		if err := db.PutIndex(ctx, pdoc, id, score, n); err != nil {
 			log.Printf("Cannot put %q in index: %v", pdoc.ImportPath, err)
 		}
 
 		if old != nil {
-			if err := db.updateImportsIndex(c, db.AppEngineContext, old, pdoc); err != nil {
+			if err := db.updateImportsIndex(ctx, c, old, pdoc); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := deleteIndex(db.AppEngineContext, id); err != nil {
+		if err := db.DeleteIndex(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -364,7 +364,7 @@ func pkgIDAndImportCount(c redis.Conn, path string) (id string, numImported int,
 	return id, numImported, nil
 }
 
-func (db *Database) updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc, newDoc *doc.Package) error {
+func (db *Database) updateImportsIndex(ctx context.Context, c redis.Conn, oldDoc, newDoc *doc.Package) error {
 	// Create a map to store any import change since last time we indexed the package.
 	changes := make(map[string]bool)
 	for _, p := range oldDoc.Imports {
@@ -387,7 +387,7 @@ func (db *Database) updateImportsIndex(c redis.Conn, ctx context.Context, oldDoc
 			return err
 		}
 		if id != "" {
-			db.PutIndex(db.AppEngineContext, nil, id, -1, n)
+			db.PutIndex(ctx, nil, id, -1, n)
 		}
 	}
 	return nil
@@ -481,7 +481,7 @@ var getDocScript = redis.NewScript(0, `
     return {gob, nextCrawl}
 `)
 
-func (db *Database) getDoc(c redis.Conn, path string) (*doc.Package, time.Time, error) {
+func (db *Database) getDoc(ctx context.Context, c redis.Conn, path string) (*doc.Package, time.Time, error) {
 	r, err := redis.Values(getDocScript.Do(c, path))
 	if err == redis.ErrNil {
 		return nil, time.Time{}, nil
@@ -573,11 +573,11 @@ func (db *Database) getSubdirs(c redis.Conn, path string, pdoc *doc.Package) ([]
 
 // Get gets the package documentation and sub-directories for the the given
 // import path.
-func (db *Database) Get(path string) (*doc.Package, []Package, time.Time, error) {
+func (db *Database) Get(ctx context.Context, path string) (*doc.Package, []Package, time.Time, error) {
 	c := db.Pool.Get()
 	defer c.Close()
 
-	pdoc, nextCrawl, err := db.getDoc(c, path)
+	pdoc, nextCrawl, err := db.getDoc(ctx, c, path)
 	if err != nil {
 		return nil, nil, time.Time{}, err
 	}
@@ -594,10 +594,10 @@ func (db *Database) Get(path string) (*doc.Package, []Package, time.Time, error)
 	return pdoc, subdirs, nextCrawl, nil
 }
 
-func (db *Database) GetDoc(path string) (*doc.Package, time.Time, error) {
+func (db *Database) GetDoc(ctx context.Context, path string) (*doc.Package, time.Time, error) {
 	c := db.Pool.Get()
 	defer c.Close()
-	return db.getDoc(c, path)
+	return db.getDoc(ctx, c, path)
 }
 
 var deleteScript = redis.NewScript(0, `
@@ -620,7 +620,7 @@ var deleteScript = redis.NewScript(0, `
 `)
 
 // Delete deletes the documentation for the given import path.
-func (db *Database) Delete(path string) error {
+func (db *Database) Delete(ctx context.Context, path string) error {
 	c := db.Pool.Get()
 	defer c.Close()
 
@@ -631,7 +631,7 @@ func (db *Database) Delete(path string) error {
 	if err != nil {
 		return err
 	}
-	if err := deleteIndex(db.AppEngineContext, id); err != nil {
+	if err := db.DeleteIndex(ctx, id); err != nil {
 		return err
 	}
 
@@ -1200,6 +1200,10 @@ func (db *Database) IncrementCounter(key string, delta float64) (float64, error)
 // This will update the search index with the path, synopsis, score, import counts
 // of all the packages in the database.
 func (db *Database) Reindex(ctx context.Context) error {
+	if db.RemoteClient == nil {
+		return errors.New("database.Reindex: no App Engine endpoint given")
+	}
+
 	c := db.Pool.Get()
 	defer c.Close()
 
@@ -1246,7 +1250,7 @@ func (db *Database) Reindex(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if _, err := idx.Put(ctx, id, &Package{
+			if _, err := idx.Put(db.RemoteClient.NewContext(ctx), id, &Package{
 				Path:        pdoc.ImportPath,
 				Synopsis:    pdoc.Synopsis,
 				Score:       score,
@@ -1265,9 +1269,24 @@ func (db *Database) Reindex(ctx context.Context) error {
 }
 
 func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
-	return searchAE(db.AppEngineContext, q)
+	if db.RemoteClient == nil {
+		return nil, errors.New("remote_api client not setup to use App Engine search")
+	}
+	return searchAE(db.RemoteClient.NewContext(ctx), q)
 }
 
+// PutIndex puts a package into App Engine search index. ID is the package ID in the database.
 func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
-	return putIndex(db.AppEngineContext, pdoc, id, score, importCount)
+	if db.RemoteClient == nil {
+		return errors.New("remote_api client not setup to use App Engine search")
+	}
+	return putIndex(db.RemoteClient.NewContext(ctx), pdoc, id, score, importCount)
+}
+
+// DeleteIndex deletes a package from App Engine search index. ID is the package ID in the database.
+func (db *Database) DeleteIndex(ctx context.Context, id string) error {
+	if db.RemoteClient == nil {
+		return errors.New("database.DeleteIndex: no App Engine endpoint given")
+	}
+	return deleteIndex(db.RemoteClient.NewContext(ctx), id)
 }

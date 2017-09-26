@@ -8,6 +8,7 @@
 package gosrc
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -150,9 +151,9 @@ var errNoMatch = errors.New("no match")
 type service struct {
 	pattern         *regexp.Regexp
 	prefix          string
-	get             func(*http.Client, map[string]string, string) (*Directory, error)
-	getPresentation func(*http.Client, map[string]string) (*Presentation, error)
-	getProject      func(*http.Client, map[string]string) (*Project, error)
+	get             func(context.Context, *http.Client, map[string]string, string) (*Directory, error)
+	getPresentation func(context.Context, *http.Client, map[string]string) (*Presentation, error)
+	getProject      func(context.Context, *http.Client, map[string]string) (*Project, error)
 }
 
 var services []*service
@@ -224,7 +225,7 @@ func attrValue(attrs []xml.Attr, name string) string {
 	return ""
 }
 
-func fetchMeta(client *http.Client, importPath string) (scheme string, im *importMeta, sm *sourceMeta, redir bool, err error) {
+func fetchMeta(ctx context.Context, client *http.Client, importPath string) (scheme string, im *importMeta, sm *sourceMeta, redir bool, err error) {
 	uri := importPath
 	if !strings.Contains(uri, "/") {
 		// Add slash for root of domain.
@@ -234,13 +235,13 @@ func fetchMeta(client *http.Client, importPath string) (scheme string, im *impor
 
 	c := httpClient{client: client}
 	scheme = "https"
-	resp, err := c.get(scheme + "://" + uri)
+	resp, err := c.get(ctx, scheme+"://"+uri)
 	if err != nil || resp.StatusCode != 200 {
 		if err == nil {
 			resp.Body.Close()
 		}
 		scheme = "http"
-		resp, err = c.get(scheme + "://" + uri)
+		resp, err = c.get(ctx, scheme+"://"+uri)
 		if err != nil {
 			return scheme, nil, nil, false, err
 		}
@@ -340,20 +341,20 @@ metaScan:
 // getVCSDirFn is called by getDynamic to fetch source using VCS commands. The
 // default value here does nothing. If the code is not built for App Engine,
 // then getVCSDirFn is set getVCSDir, the function that actually does the work.
-var getVCSDirFn = func(client *http.Client, m map[string]string, etag string) (*Directory, error) {
+var getVCSDirFn = func(ctx context.Context, client *http.Client, m map[string]string, etag string) (*Directory, error) {
 	return nil, errNoMatch
 }
 
 // getDynamic gets a directory from a service that is not statically known.
-func getDynamic(client *http.Client, importPath, etag string) (*Directory, error) {
-	metaProto, im, sm, redir, err := fetchMeta(client, importPath)
+func getDynamic(ctx context.Context, client *http.Client, importPath, etag string) (*Directory, error) {
+	metaProto, im, sm, redir, err := fetchMeta(ctx, client, importPath)
 	if err != nil {
 		return nil, err
 	}
 
 	if im.projectRoot != importPath {
 		var imRoot *importMeta
-		metaProto, imRoot, _, redir, err = fetchMeta(client, im.projectRoot)
+		metaProto, imRoot, _, redir, err = fetchMeta(ctx, client, im.projectRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +377,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 	dirName := importPath[len(im.projectRoot):]
 
 	resolvedPath := repo + dirName
-	dir, err := getStatic(client, resolvedPath, etag)
+	dir, err := getStatic(ctx, client, resolvedPath, etag)
 	if err == errNoMatch {
 		resolvedPath = repo + "." + im.vcs + dirName
 		match := map[string]string{
@@ -387,7 +388,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 			"scheme":     proto,
 			"vcs":        im.vcs,
 		}
-		dir, err = getVCSDirFn(client, match, etag)
+		dir, err = getVCSDirFn(ctx, client, match, etag)
 	}
 	if err != nil || dir == nil {
 		return nil, err
@@ -442,7 +443,7 @@ func getDynamic(client *http.Client, importPath, etag string) (*Directory, error
 
 // getStatic gets a diretory from a statically known service. getStatic
 // returns errNoMatch if the import path is not recognized.
-func getStatic(client *http.Client, importPath, etag string) (*Directory, error) {
+func getStatic(ctx context.Context, client *http.Client, importPath, etag string) (*Directory, error) {
 	for _, s := range services {
 		if s.get == nil {
 			continue
@@ -452,7 +453,7 @@ func getStatic(client *http.Client, importPath, etag string) (*Directory, error)
 			return nil, err
 		}
 		if match != nil {
-			dir, err := s.get(client, match, etag)
+			dir, err := s.get(ctx, client, match, etag)
 			if dir != nil {
 				dir.ImportPath = importPath
 				dir.ResolvedPath = importPath
@@ -463,16 +464,16 @@ func getStatic(client *http.Client, importPath, etag string) (*Directory, error)
 	return nil, errNoMatch
 }
 
-func Get(client *http.Client, importPath string, etag string) (dir *Directory, err error) {
+func Get(ctx context.Context, client *http.Client, importPath string, etag string) (dir *Directory, err error) {
 	switch {
 	case localPath != "":
 		dir, err = getLocal(importPath)
 	case IsGoRepoPath(importPath):
-		dir, err = getStandardDir(client, importPath, etag)
+		dir, err = getStandardDir(ctx, client, importPath, etag)
 	case IsValidRemotePath(importPath):
-		dir, err = getStatic(client, importPath, etag)
+		dir, err = getStatic(ctx, client, importPath, etag)
 		if err == errNoMatch {
-			dir, err = getDynamic(client, importPath, etag)
+			dir, err = getDynamic(ctx, client, importPath, etag)
 		}
 	default:
 		err = errNoMatch
@@ -486,7 +487,7 @@ func Get(client *http.Client, importPath string, etag string) (dir *Directory, e
 }
 
 // GetPresentation gets a presentation from the the given path.
-func GetPresentation(client *http.Client, importPath string) (*Presentation, error) {
+func GetPresentation(ctx context.Context, client *http.Client, importPath string) (*Presentation, error) {
 	ext := path.Ext(importPath)
 	if ext != ".slide" && ext != ".article" {
 		return nil, NotFoundError{Message: "unknown file extension."}
@@ -504,14 +505,14 @@ func GetPresentation(client *http.Client, importPath string) (*Presentation, err
 		}
 		if match != nil {
 			match["file"] = file
-			return s.getPresentation(client, match)
+			return s.getPresentation(ctx, client, match)
 		}
 	}
 	return nil, NotFoundError{Message: "path does not match registered service"}
 }
 
 // GetProject gets information about a repository.
-func GetProject(client *http.Client, importPath string) (*Project, error) {
+func GetProject(ctx context.Context, client *http.Client, importPath string) (*Project, error) {
 	for _, s := range services {
 		if s.getProject == nil {
 			continue
@@ -521,7 +522,7 @@ func GetProject(client *http.Client, importPath string) (*Project, error) {
 			return nil, err
 		}
 		if match != nil {
-			return s.getProject(client, match)
+			return s.getProject(ctx, client, match)
 		}
 	}
 	return nil, NotFoundError{Message: "path does not match registered service"}
