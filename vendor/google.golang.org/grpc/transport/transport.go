@@ -235,7 +235,8 @@ type Stream struct {
 	// is used to adjust flow control, if need be.
 	requestRead func(int)
 
-	sendQuotaPool *quotaPool
+	sendQuotaPool  *quotaPool
+	localSendQuota *quotaPool
 	// Close headerChan to indicate the end of reception of header metadata.
 	headerChan chan struct{}
 	// header caches the received header metadata.
@@ -491,9 +492,9 @@ type ConnectOptions struct {
 	KeepaliveParams keepalive.ClientParameters
 	// StatsHandler stores the handler for stats.
 	StatsHandler stats.Handler
-	// InitialWindowSize sets the intial window size for a stream.
+	// InitialWindowSize sets the initial window size for a stream.
 	InitialWindowSize int32
-	// InitialConnWindowSize sets the intial window size for a connection.
+	// InitialConnWindowSize sets the initial window size for a connection.
 	InitialConnWindowSize int32
 }
 
@@ -564,7 +565,7 @@ type ClientTransport interface {
 
 	// Write sends the data for the given stream. A nil stream indicates
 	// the write is to be performed on the transport as a whole.
-	Write(s *Stream, data []byte, opts *Options) error
+	Write(s *Stream, hdr []byte, data []byte, opts *Options) error
 
 	// NewStream creates a Stream for an RPC.
 	NewStream(ctx context.Context, callHdr *CallHdr) (*Stream, error)
@@ -606,7 +607,7 @@ type ServerTransport interface {
 
 	// Write sends the data for the given stream.
 	// Write may not be called on all streams.
-	Write(s *Stream, data []byte, opts *Options) error
+	Write(s *Stream, hdr []byte, data []byte, opts *Options) error
 
 	// WriteStatus sends the status of a stream to the client.  WriteStatus is
 	// the final call made on a stream and always occurs.
@@ -700,12 +701,6 @@ func wait(ctx context.Context, done, goAway, closing <-chan struct{}, proceed <-
 	case <-ctx.Done():
 		return 0, ContextErr(ctx.Err())
 	case <-done:
-		// User cancellation has precedence.
-		select {
-		case <-ctx.Done():
-			return 0, ContextErr(ctx.Err())
-		default:
-		}
 		return 0, io.EOF
 	case <-goAway:
 		return 0, ErrStreamDrain
@@ -725,6 +720,39 @@ const (
 	// NoReason is the default value when GoAway frame is received.
 	NoReason GoAwayReason = 1
 	// TooManyPings indicates that a GoAway frame with ErrCodeEnhanceYourCalm
-	// was recieved and that the debug data said "too_many_pings".
+	// was received and that the debug data said "too_many_pings".
 	TooManyPings GoAwayReason = 2
 )
+
+// loopyWriter is run in a separate go routine. It is the single code path that will
+// write data on wire.
+func loopyWriter(cbuf *controlBuffer, done chan struct{}, handler func(item) error) {
+	for {
+		select {
+		case i := <-cbuf.get():
+			cbuf.load()
+			if err := handler(i); err != nil {
+				return
+			}
+		case <-done:
+			return
+		}
+	hasData:
+		for {
+			select {
+			case i := <-cbuf.get():
+				cbuf.load()
+				if err := handler(i); err != nil {
+					return
+				}
+			case <-done:
+				return
+			default:
+				if err := handler(&flushIO{}); err != nil {
+					return
+				}
+				break hasData
+			}
+		}
+	}
+}
