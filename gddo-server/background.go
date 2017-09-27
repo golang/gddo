@@ -11,9 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"google.golang.org/appengine"
 
-	"github.com/golang/gddo/database"
 	"github.com/golang/gddo/gosrc"
 )
 
@@ -117,18 +115,4 @@ func readGitHubUpdates() error {
 		return err
 	}
 	return nil
-}
-
-func reindex() {
-	c := appengine.BackgroundContext()
-	if err := db.Reindex(c); err != nil {
-		log.Println("reindex:", err)
-	}
-}
-
-func purgeIndex() {
-	c := appengine.BackgroundContext()
-	if err := database.PurgeIndex(c); err != nil {
-		log.Println("purgeIndex:", err)
-	}
 }
