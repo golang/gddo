@@ -15,50 +15,6 @@ import (
 	"github.com/golang/gddo/gosrc"
 )
 
-type BackgroundTask struct {
-	name     string
-	fn       func() error
-	interval time.Duration
-	next     time.Time
-}
-
-func runBackgroundTasks() {
-	defer log.Println("ERROR: Background exiting!")
-
-	var backgroundTasks = []BackgroundTask{
-		{
-			name:     "GitHub updates",
-			fn:       readGitHubUpdates,
-			interval: viper.GetDuration(ConfigGithubInterval),
-		},
-		{
-			name:     "Crawl",
-			fn:       doCrawl,
-			interval: viper.GetDuration(ConfigCrawlInterval),
-		},
-	}
-
-	sleep := time.Minute
-	for _, task := range backgroundTasks {
-		if task.interval > 0 && sleep > task.interval {
-			sleep = task.interval
-		}
-	}
-
-	for {
-		for _, task := range backgroundTasks {
-			start := time.Now()
-			if task.interval > 0 && start.After(task.next) {
-				if err := task.fn(); err != nil {
-					log.Printf("Task %s: %v", task.name, err)
-				}
-				task.next = time.Now().Add(task.interval)
-			}
-		}
-		time.Sleep(sleep)
-	}
-}
-
 func doCrawl() error {
 	// Look for new package to crawl.
 	importPath, hasSubdirs, err := db.PopNewCrawl()

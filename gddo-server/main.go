@@ -920,7 +920,20 @@ func main() {
 		log.Fatalf("Error opening database: %v", err)
 	}
 
-	go runBackgroundTasks()
+	go func() {
+		for range time.Tick(viper.GetDuration(ConfigCrawlInterval)) {
+			if err := doCrawl(); err != nil {
+				log.Printf("Task Crawl: %v", err)
+			}
+		}
+	}()
+	go func() {
+		for range time.Tick(viper.GetDuration(ConfigGithubInterval)) {
+			if err := readGitHubUpdates(); err != nil {
+				log.Printf("Task GitHub updates: %v", err)
+			}
+		}
+	}()
 
 	staticServer := httputil.StaticServer{
 		Dir:    viper.GetString(ConfigAssetsDir),
