@@ -846,7 +846,7 @@ var (
 
 func main() {
 	doc.SetDefaultGOOS(viper.GetString(ConfigDefaultGOOS))
-	httpClient = newHTTPClient()
+	httpClient = newHTTPClient(viper.GetViper())
 
 	var (
 		gceLogName string

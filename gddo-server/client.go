@@ -20,12 +20,12 @@ import (
 	"github.com/golang/gddo/httputil"
 )
 
-func newHTTPClient() *http.Client {
-	requestTimeout := viper.GetDuration(ConfigRequestTimeout)
+func newHTTPClient(v *viper.Viper) *http.Client {
+	requestTimeout := v.GetDuration(ConfigRequestTimeout)
 	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
-			Timeout:   viper.GetDuration(ConfigDialTimeout),
+			Timeout:   v.GetDuration(ConfigDialTimeout),
 			KeepAlive: requestTimeout / 2,
 		}).Dial,
 		ResponseHeaderTimeout: requestTimeout / 2,
@@ -33,7 +33,7 @@ func newHTTPClient() *http.Client {
 	}
 
 	var rt http.RoundTripper
-	if addr := viper.GetString(ConfigMemcacheAddr); addr != "" {
+	if addr := v.GetString(ConfigMemcacheAddr); addr != "" {
 		ct := httpcache.NewTransport(memcache.New(addr))
 		ct.Transport = t
 		rt = httputil.NewAuthTransport(ct)
