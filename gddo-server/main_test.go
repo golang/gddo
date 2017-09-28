@@ -7,7 +7,6 @@
 package main
 
 import (
-	"net/http"
 	"testing"
 )
 
@@ -23,10 +22,13 @@ var robotTests = []string{
 	"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
 }
 
-func TestRobots(t *testing.T) {
+func TestRobotPat(t *testing.T) {
+	// TODO(light): isRobot checks for more than just the User-Agent.
+	// Extract out the database interaction to an interface to test the
+	// full analysis.
+
 	for _, tt := range robotTests {
-		req := http.Request{Header: http.Header{"User-Agent": {tt}}}
-		if !isRobot(&req) {
+		if !robotPat.MatchString(tt) {
 			t.Errorf("%s not a robot", tt)
 		}
 	}
