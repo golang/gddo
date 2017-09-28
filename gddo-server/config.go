@@ -52,19 +52,17 @@ const (
 	ConfigMemcacheAddr    = "memcache_addr"
 )
 
-// Initialize configuration
-func init() {
-	ctx := context.Background()
-
+func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
+	v := viper.New()
 	// Gather information from execution environment.
 	if os.Getenv(gaeProjectEnvVar) != "" {
-		viper.Set("on_appengine", true)
+		v.Set("on_appengine", true)
 	} else {
-		viper.Set("on_appengine", false)
+		v.Set("on_appengine", false)
 	}
 	if metadata.OnGCE() {
-		gceProjectAttributeDefault(ctx, viper.GetViper(), ConfigGAAccount, "ga-account")
-		gceProjectAttributeDefault(ctx, viper.GetViper(), ConfigGCELogName, "gce-log-name")
+		gceProjectAttributeDefault(ctx, v, ConfigGAAccount, "ga-account")
+		gceProjectAttributeDefault(ctx, v, ConfigGCELogName, "gce-log-name")
 		if id, err := metadata.ProjectID(); err != nil {
 			log.Warn(ctx, "failed to retrieve project ID", "error", err)
 		} else {
@@ -74,25 +72,30 @@ func init() {
 
 	// Setup command line flags
 	flags := buildFlags()
-	flags.Parse(os.Args)
-	if err := viper.BindPFlags(flags); err != nil {
-		panic(err)
+	if err := flags.Parse(args); err != nil {
+		return nil, err
+	}
+	if err := v.BindPFlags(flags); err != nil {
+		return nil, err
 	}
 
-	// Also fetch from enviorment
-	viper.SetEnvPrefix("gddo")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
-	viper.BindEnv(ConfigProject, gaeProjectEnvVar)
-	viper.BindEnv(ConfigGAAccount, gaAccountEnvVar)
+	// Also fetch from environment
+	v.SetEnvPrefix("gddo")
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	v.AutomaticEnv()
+	v.BindEnv(ConfigProject, gaeProjectEnvVar)
+	v.BindEnv(ConfigGAAccount, gaAccountEnvVar)
 
 	// Read from config.
-	readViperConfig(ctx)
+	if err := readViperConfig(ctx, v); err != nil {
+		return nil, err
+	}
 
 	// Set defaults based on other configs
-	setDefaults()
+	setDefaults(v)
 
-	log.Info(ctx, "config values loaded", "values", viper.AllSettings())
+	log.Info(ctx, "config values loaded", "values", v.AllSettings())
+	return v, nil
 }
 
 func gceProjectAttributeDefault(ctx context.Context, v *viper.Viper, cfg, attr string) {
@@ -109,17 +112,17 @@ func gceProjectAttributeDefault(ctx context.Context, v *viper.Viper, cfg, attr s
 // setDefaults sets defaults for configuration options that depend on other
 // configuration options. This allows for smart defaults but allows for
 // overrides.
-func setDefaults() {
+func setDefaults(v *viper.Viper) {
 	// ConfigGAERemoteAPI is based on project.
-	project := viper.GetString(ConfigProject)
+	project := v.GetString(ConfigProject)
 	if project != "" {
 		defaultEndpoint := fmt.Sprintf("serviceproxy-dot-%s.appspot.com", project)
-		viper.SetDefault(ConfigGAERemoteAPI, defaultEndpoint)
+		v.SetDefault(ConfigGAERemoteAPI, defaultEndpoint)
 	}
 }
 
 func buildFlags() *pflag.FlagSet {
-	flags := pflag.NewFlagSet("default", pflag.ExitOnError)
+	flags := pflag.NewFlagSet("default", pflag.ContinueOnError)
 
 	flags.StringP("config", "c", "", "path to motd config file")
 	flags.String(ConfigProject, "", "Google Cloud Platform project used for Google services")
@@ -147,31 +150,31 @@ func buildFlags() *pflag.FlagSet {
 	return flags
 }
 
-// readViperConfig finds and then parses a config file. It will log.Fatal if the
-// config file was specified or could not parse. Otherwise it will only warn
-// that it failed to load the config.
-func readViperConfig(ctx context.Context) {
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc")
-	viper.SetConfigName("gddo")
-	if viper.GetString("config") != "" {
-		viper.SetConfigFile(viper.GetString("config"))
+// readViperConfig finds and then parses a config file. It will return
+// an error if the config file was specified or could not parse.
+// Otherwise it will only warn that it failed to load the config.
+func readViperConfig(ctx context.Context, v *viper.Viper) error {
+	v.AddConfigPath(".")
+	v.AddConfigPath("/etc")
+	v.SetConfigName("gddo")
+	if v.GetString("config") != "" {
+		v.SetConfigFile(v.GetString("config"))
 	}
 
-	if err := viper.ReadInConfig(); err != nil {
+	if err := v.ReadInConfig(); err != nil {
 		// If a config exists but could not be parsed, we should bail.
 		if _, ok := err.(viper.ConfigParseError); ok {
-			log.Fatal(ctx, "failed to parse config", "error", err)
+			return fmt.Errorf("parse config: %v", err)
 		}
 
 		// If the user specified a config file location in flags or env and
 		// we failed to load it, we should bail. If not, it is just a warning.
-		if viper.GetString("config") != "" {
-			log.Fatal(ctx, "failed to load configuration file", "error", err)
-		} else {
-			log.Warn(ctx, "failed to load configuration file", "error", err)
+		if v.GetString("config") != "" {
+			return fmt.Errorf("load config: %v", err)
 		}
-	} else {
-		log.Info(ctx, "loaded configuration file successfully", "path", viper.ConfigFileUsed())
+		log.Warn(ctx, "failed to load configuration file", "error", err)
+		return nil
 	}
+	log.Info(ctx, "loaded configuration file successfully", "path", v.ConfigFileUsed())
+	return nil
 }

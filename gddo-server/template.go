@@ -32,8 +32,6 @@ import (
 	"github.com/golang/gddo/httputil"
 )
 
-var cacheBusters httputil.CacheBusters
-
 type flashMessage struct {
 	ID   string
 	Args []string
@@ -489,10 +487,6 @@ var mimeTypes = map[string]string{
 	".txt":  textMIMEType,
 }
 
-// TODO(light): pass templates explicitly, not as a global.
-
-var templates templateMap
-
 type templateMap map[string]interface {
 	Execute(io.Writer, interface{}) error
 }
@@ -525,7 +519,7 @@ func joinTemplateDir(base string, files []string) []string {
 	return result
 }
 
-func parseTemplates(dir string, v *viper.Viper) (templateMap, error) {
+func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (templateMap, error) {
 	m := make(templateMap)
 	htmlSets := [][]string{
 		{"about.html", "common.html", "layout.html"},
@@ -558,7 +552,7 @@ func parseTemplates(dir string, v *viper.Viper) (templateMap, error) {
 		"noteTitle":         noteTitleFn,
 		"relativePath":      relativePathFn,
 		"sidebarEnabled":    func() bool { return v.GetBool(ConfigSidebar) },
-		"staticPath":        func(p string) string { return cacheBusters.AppendQueryParam(p, "v") },
+		"staticPath":        func(p string) string { return cb.AppendQueryParam(p, "v") },
 	}
 	for _, set := range htmlSets {
 		templateName := set[0]

@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/viper"
-
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 )
@@ -25,7 +23,7 @@ var (
 )
 
 // crawlDoc fetches the package documentation from the VCS and updates the database.
-func crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.Package, hasSubdirs bool, nextCrawl time.Time) (*doc.Package, error) {
+func (s *server) crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.Package, hasSubdirs bool, nextCrawl time.Time) (*doc.Package, error) {
 	message := []interface{}{source}
 	defer func() {
 		message = append(message, importPath)
@@ -51,7 +49,7 @@ func crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.P
 		// Old import path for Go sub-repository.
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "old Go sub-repo", Redirect: "golang.org/x/" + importPath[len("code.google.com/p/go."):]}
-	} else if blocked, e := db.IsBlocked(importPath); blocked && e == nil {
+	} else if blocked, e := s.db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "blocked."}
 	} else if testdataPat.MatchString(importPath) {
@@ -59,7 +57,7 @@ func crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.P
 		err = gosrc.NotFoundError{Message: "testdata."}
 	} else {
 		var pdocNew *doc.Package
-		pdocNew, err = doc.Get(ctx, httpClient, importPath, etag)
+		pdocNew, err = doc.Get(ctx, s.httpClient, importPath, etag)
 		message = append(message, "fetch:", int64(time.Since(start)/time.Millisecond))
 		if err == nil && pdocNew.Name == "" && !hasSubdirs {
 			for _, e := range pdocNew.Errors {
@@ -72,7 +70,7 @@ func crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.P
 		}
 	}
 
-	maxAge := viper.GetDuration(ConfigMaxAge)
+	maxAge := s.v.GetDuration(ConfigMaxAge)
 	nextCrawl = start.Add(maxAge)
 	switch {
 	case strings.HasPrefix(importPath, "github.com/") || (pdoc != nil && len(pdoc.Errors) > 0):
@@ -84,31 +82,31 @@ func crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.P
 
 	if err == nil {
 		message = append(message, "put:", pdoc.Etag)
-		if err := put(ctx, pdoc, nextCrawl); err != nil {
+		if err := s.put(ctx, pdoc, nextCrawl); err != nil {
 			log.Println(err)
 		}
 		return pdoc, nil
 	} else if e, ok := err.(gosrc.NotModifiedError); ok {
-		if pdoc.Status == gosrc.Active && !isActivePkg(importPath, e.Status) {
+		if pdoc.Status == gosrc.Active && !s.isActivePkg(importPath, e.Status) {
 			if e.Status == gosrc.NoRecentCommits {
 				e.Status = gosrc.Inactive
 			}
 			message = append(message, "archive", e)
 			pdoc.Status = e.Status
-			if err := db.Put(ctx, pdoc, nextCrawl, false); err != nil {
+			if err := s.db.Put(ctx, pdoc, nextCrawl, false); err != nil {
 				log.Printf("ERROR db.Put(%q): %v", importPath, err)
 			}
 		} else {
 			// Touch the package without updating and move on to next one.
 			message = append(message, "touch")
-			if err := db.SetNextCrawl(importPath, nextCrawl); err != nil {
+			if err := s.db.SetNextCrawl(importPath, nextCrawl); err != nil {
 				log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
 			}
 		}
 		return pdoc, nil
 	} else if e, ok := err.(gosrc.NotFoundError); ok {
 		message = append(message, "notfound:", e)
-		if err := db.Delete(ctx, importPath); err != nil {
+		if err := s.db.Delete(ctx, importPath); err != nil {
 			log.Printf("ERROR db.Delete(%q): %v", importPath, err)
 		}
 		return nil, e
@@ -118,12 +116,12 @@ func crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.P
 	}
 }
 
-func put(ctx context.Context, pdoc *doc.Package, nextCrawl time.Time) error {
+func (s *server) put(ctx context.Context, pdoc *doc.Package, nextCrawl time.Time) error {
 	if pdoc.Status == gosrc.NoRecentCommits &&
-		isActivePkg(pdoc.ImportPath, gosrc.NoRecentCommits) {
+		s.isActivePkg(pdoc.ImportPath, gosrc.NoRecentCommits) {
 		pdoc.Status = gosrc.Active
 	}
-	if err := db.Put(ctx, pdoc, nextCrawl, false); err != nil {
+	if err := s.db.Put(ctx, pdoc, nextCrawl, false); err != nil {
 		return fmt.Errorf("ERROR db.Put(%q): %v", pdoc.ImportPath, err)
 	}
 	return nil
@@ -131,13 +129,13 @@ func put(ctx context.Context, pdoc *doc.Package, nextCrawl time.Time) error {
 
 // isActivePkg reports whether a package is considered active,
 // either because its directory is active or because it is imported by another package.
-func isActivePkg(pkg string, status gosrc.DirectoryStatus) bool {
+func (s *server) isActivePkg(pkg string, status gosrc.DirectoryStatus) bool {
 	switch status {
 	case gosrc.Active:
 		return true
 	case gosrc.NoRecentCommits:
 		// It should be inactive only if it has no imports as well.
-		n, err := db.ImporterCount(pkg)
+		n, err := s.db.ImporterCount(pkg)
 		if err != nil {
 			log.Printf("ERROR db.ImporterCount(%q): %v", pkg, err)
 		}

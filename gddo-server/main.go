@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"runtime/debug"
@@ -71,7 +72,7 @@ type crawlResult struct {
 
 // getDoc gets the package documentation from the database or from the version
 // control system as needed.
-func getDoc(ctx context.Context, path string, requestType int) (*doc.Package, []database.Package, error) {
+func (s *server) getDoc(ctx context.Context, path string, requestType int) (*doc.Package, []database.Package, error) {
 	if path == "-" {
 		// A hack in the database package uses the path "-" to represent the
 		// next document to crawl. Block "-" here so that requests to /- always
@@ -79,7 +80,7 @@ func getDoc(ctx context.Context, path string, requestType int) (*doc.Package, []
 		return nil, nil, &httpError{status: http.StatusNotFound}
 	}
 
-	pdoc, pkgs, nextCrawl, err := db.Get(ctx, path)
+	pdoc, pkgs, nextCrawl, err := s.db.Get(ctx, path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,13 +101,13 @@ func getDoc(ctx context.Context, path string, requestType int) (*doc.Package, []
 
 	c := make(chan crawlResult, 1)
 	go func() {
-		pdoc, err := crawlDoc(ctx, "web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
+		pdoc, err := s.crawlDoc(ctx, "web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
 		c <- crawlResult{pdoc, err}
 	}()
 
-	timeout := viper.GetDuration(ConfigGetTimeout)
+	timeout := s.v.GetDuration(ConfigGetTimeout)
 	if pdoc == nil {
-		timeout = viper.GetDuration(ConfigFirstGetTimeout)
+		timeout = s.v.GetDuration(ConfigFirstGetTimeout)
 	}
 
 	select {
@@ -142,21 +143,19 @@ func templateExt(req *http.Request) string {
 	return ".html"
 }
 
-var (
-	robotPat = regexp.MustCompile(`(:?\+https?://)|(?:\Wbot\W)|(?:^Python-urllib)|(?:^Go )|(?:^Java/)`)
-)
+var robotPat = regexp.MustCompile(`(:?\+https?://)|(?:\Wbot\W)|(?:^Python-urllib)|(?:^Go )|(?:^Java/)`)
 
-func isRobot(req *http.Request) bool {
+func (s *server) isRobot(req *http.Request) bool {
 	if robotPat.MatchString(req.Header.Get("User-Agent")) {
 		return true
 	}
 	host := httputil.StripPort(req.RemoteAddr)
-	n, err := db.IncrementCounter(host, 1)
+	n, err := s.db.IncrementCounter(host, 1)
 	if err != nil {
 		log.Printf("error incrementing counter for %s, %v", host, err)
 		return false
 	}
-	if n > viper.GetFloat64(ConfigRobotThreshold) {
+	if n > s.v.GetFloat64(ConfigRobotThreshold) {
 		log.Printf("robot %.2f %s %s", n, host, req.Header.Get("User-Agent"))
 		return true
 	}
@@ -174,7 +173,7 @@ func isView(req *http.Request, key string) bool {
 }
 
 // httpEtag returns the package entity tag used in HTTP transactions.
-func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, flashMessages []flashMessage) string {
+func (s *server) httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, flashMessages []flashMessage) string {
 	b := make([]byte, 0, 128)
 	b = strconv.AppendInt(b, pdoc.Updated.Unix(), 16)
 	b = append(b, 0)
@@ -190,7 +189,7 @@ func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, fla
 		b = append(b, 0)
 		b = append(b, pkg.Synopsis...)
 	}
-	if viper.GetBool(ConfigSidebar) {
+	if s.v.GetBool(ConfigSidebar) {
 		b = append(b, "\000xsb"...)
 	}
 	for _, m := range flashMessages {
@@ -207,7 +206,7 @@ func httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, fla
 	return fmt.Sprintf("\"%x\"", b)
 }
 
-func servePackage(resp http.ResponseWriter, req *http.Request) error {
+func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error {
 	p := path.Clean(req.URL.Path)
 	if strings.HasPrefix(p, "/pkg/") {
 		p = p[len("/pkg"):]
@@ -218,27 +217,27 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	if isView(req, "status.svg") {
-		statusImageHandlerSVG.ServeHTTP(resp, req)
+		s.statusSVG.ServeHTTP(resp, req)
 		return nil
 	}
 
 	if isView(req, "status.png") {
-		statusImageHandlerPNG.ServeHTTP(resp, req)
+		s.statusPNG.ServeHTTP(resp, req)
 		return nil
 	}
 
 	requestType := humanRequest
-	if isRobot(req) {
+	if s.isRobot(req) {
 		requestType = robotRequest
 	}
 
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
-	pdoc, pkgs, err := getDoc(req.Context(), importPath, requestType)
+	pdoc, pkgs, err := s.getDoc(req.Context(), importPath, requestType)
 
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
 		// To prevent dumb clients from following redirect loops, respond with
 		// status 404 if the target document is not found.
-		if _, _, err := getDoc(req.Context(), e.Redirect, requestType); gosrc.IsNotFound(err) {
+		if _, _, err := s.getDoc(req.Context(), e.Redirect, requestType); gosrc.IsNotFound(err) {
 			return &httpError{status: http.StatusNotFound}
 		}
 		u := "/" + e.Redirect
@@ -259,7 +258,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if len(pkgs) == 0 {
 			return &httpError{status: http.StatusNotFound}
 		}
-		pdocChild, _, _, err := db.Get(req.Context(), pkgs[0].Path)
+		pdocChild, _, _, err := s.db.Get(req.Context(), pkgs[0].Path)
 		if err != nil {
 			return err
 		}
@@ -275,13 +274,13 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 	case len(req.Form) == 0:
 		importerCount := 0
 		if pdoc.Name != "" {
-			importerCount, err = db.ImporterCount(importPath)
+			importerCount, err = s.db.ImporterCount(importPath)
 			if err != nil {
 				return err
 			}
 		}
 
-		etag := httpEtag(pdoc, pkgs, importerCount, flashMessages)
+		etag := s.httpEtag(pdoc, pkgs, importerCount, flashMessages)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified
@@ -293,12 +292,12 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			!pdoc.IsCmd &&
 			len(pdoc.Errors) == 0 &&
 			!popularLinkReferral(req) {
-			if err := db.IncrementPopularScore(pdoc.ImportPath); err != nil {
+			if err := s.db.IncrementPopularScore(pdoc.ImportPath); err != nil {
 				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
 		}
-		if gceLogger != nil {
-			gceLogger.LogEvent(resp, req, nil)
+		if s.gceLogger != nil {
+			s.gceLogger.LogEvent(resp, req, nil)
 		}
 
 		template := "dir"
@@ -310,40 +309,40 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		}
 		template += templateExt(req)
 
-		return templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
+		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(viper.GetViper(), pdoc),
+			"pdoc":          newTDoc(s.v, pdoc),
 			"importerCount": importerCount,
 		})
 	case isView(req, "imports"):
 		if pdoc.Name == "" {
 			break
 		}
-		pkgs, err = db.Packages(pdoc.Imports)
+		pkgs, err = s.db.Packages(pdoc.Imports)
 		if err != nil {
 			return err
 		}
-		return templates.execute(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
+		return s.templates.execute(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(viper.GetViper(), pdoc),
+			"pdoc":          newTDoc(s.v, pdoc),
 		})
 	case isView(req, "tools"):
 		proto := "http"
 		if req.Host == "godoc.org" {
 			proto = "https"
 		}
-		return templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
+		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"uri":           fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
-			"pdoc":          newTDoc(viper.GetViper(), pdoc),
+			"pdoc":          newTDoc(s.v, pdoc),
 		})
 	case isView(req, "importers"):
 		if pdoc.Name == "" {
 			break
 		}
-		pkgs, err = db.Importers(importPath)
+		pkgs, err = s.db.Importers(importPath)
 		if err != nil {
 			return err
 		}
@@ -352,10 +351,10 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			// Hide back links from robots.
 			template = "importers_robot.html"
 		}
-		return templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
+		return s.templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(viper.GetViper(), pdoc),
+			"pdoc":          newTDoc(s.v, pdoc),
 		})
 	case isView(req, "import-graph"):
 		if requestType == robotRequest {
@@ -371,7 +370,7 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		case "2":
 			hide = database.HideStandardAll
 		}
-		pkgs, edges, err := db.ImportGraph(pdoc, hide)
+		pkgs, edges, err := s.db.ImportGraph(pdoc, hide)
 		if err != nil {
 			return err
 		}
@@ -379,14 +378,14 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		return templates.execute(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
+		return s.templates.execute(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"svg":           template.HTML(b),
-			"pdoc":          newTDoc(viper.GetViper(), pdoc),
+			"pdoc":          newTDoc(s.v, pdoc),
 			"hide":          hide,
 		})
 	case isView(req, "play"):
-		u, err := playURL(pdoc, req.Form.Get("play"), req.Header.Get("X-AppEngine-Country"))
+		u, err := s.playURL(pdoc, req.Form.Get("play"), req.Header.Get("X-AppEngine-Country"))
 		if err != nil {
 			return err
 		}
@@ -415,20 +414,20 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 	return &httpError{status: http.StatusNotFound}
 }
 
-func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
+func (s *server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	importPath := req.Form.Get("path")
-	_, pkgs, _, err := db.Get(req.Context(), importPath)
+	_, pkgs, _, err := s.db.Get(req.Context(), importPath)
 	if err != nil {
 		return err
 	}
 	c := make(chan error, 1)
 	go func() {
-		_, err := crawlDoc(req.Context(), "rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
+		_, err := s.crawlDoc(req.Context(), "rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
 		c <- err
 	}()
 	select {
 	case err = <-c:
-	case <-time.After(viper.GetDuration(ConfigGetTimeout)):
+	case <-time.After(s.v.GetDuration(ConfigGetTimeout)):
 		err = errUpdateTimeout
 	}
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
@@ -442,22 +441,22 @@ func serveRefresh(resp http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
-func serveGoIndex(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := db.GoIndex()
+func (s *server) serveGoIndex(resp http.ResponseWriter, req *http.Request) error {
+	pkgs, err := s.db.GoIndex()
 	if err != nil {
 		return err
 	}
-	return templates.execute(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
+	return s.templates.execute(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
 
-func serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := db.GoSubrepoIndex()
+func (s *server) serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request) error {
+	pkgs, err := s.db.GoSubrepoIndex()
 	if err != nil {
 		return err
 	}
-	return templates.execute(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
+	return s.templates.execute(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
@@ -486,10 +485,10 @@ func (br *byRank) Swap(i, j int) {
 	br.rank[i], br.rank[j] = br.rank[j], br.rank[i]
 }
 
-func popular() ([]database.Package, error) {
+func (s *server) popular() ([]database.Package, error) {
 	const n = 25
 
-	pkgs, err := db.Popular(2 * n)
+	pkgs, err := s.db.Popular(2 * n)
 	if err != nil {
 		return nil, err
 	}
@@ -528,19 +527,19 @@ func popular() ([]database.Package, error) {
 	return pkgs, nil
 }
 
-func serveHome(resp http.ResponseWriter, req *http.Request) error {
+func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	if req.URL.Path != "/" {
-		return servePackage(resp, req)
+		return s.servePackage(resp, req)
 	}
 
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
-		pkgs, err := popular()
+		pkgs, err := s.popular()
 		if err != nil {
 			return err
 		}
 
-		return templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil,
+		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil,
 			map[string]interface{}{"Popular": pkgs})
 	}
 
@@ -549,7 +548,7 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, pkgs, err := getDoc(req.Context(), q, queryRequest)
+		pdoc, pkgs, err := s.getDoc(req.Context(), q, queryRequest)
 		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
 			http.Redirect(resp, req, "/"+e.Redirect, http.StatusFound)
 			return nil
@@ -560,30 +559,30 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 		}
 	}
 
-	pkgs, err := db.Search(req.Context(), q)
+	pkgs, err := s.db.Search(req.Context(), q)
 	if err != nil {
 		return err
 	}
-	if gceLogger != nil {
+	if s.gceLogger != nil {
 		// Log up to top 10 packages we served upon a search.
 		logPkgs := pkgs
 		if len(pkgs) > 10 {
 			logPkgs = pkgs[:10]
 		}
-		gceLogger.LogEvent(resp, req, logPkgs)
+		s.gceLogger.LogEvent(resp, req, logPkgs)
 	}
 
-	return templates.execute(resp, "results"+templateExt(req), http.StatusOK, nil,
+	return s.templates.execute(resp, "results"+templateExt(req), http.StatusOK, nil,
 		map[string]interface{}{"q": q, "pkgs": pkgs})
 }
 
-func serveAbout(resp http.ResponseWriter, req *http.Request) error {
-	return templates.execute(resp, "about.html", http.StatusOK, nil,
+func (s *server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
+	return s.templates.execute(resp, "about.html", http.StatusOK, nil,
 		map[string]interface{}{"Host": req.Host})
 }
 
-func serveBot(resp http.ResponseWriter, req *http.Request) error {
-	return templates.execute(resp, "bot.html", http.StatusOK, nil, nil)
+func (s *server) serveBot(resp http.ResponseWriter, req *http.Request) error {
+	return s.templates.execute(resp, "bot.html", http.StatusOK, nil, nil)
 }
 
 func serveHealthCheck(resp http.ResponseWriter, req *http.Request) {
@@ -602,15 +601,15 @@ func logError(req *http.Request, err error, rv interface{}) {
 	}
 }
 
-func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
+func (s *server) serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	q := strings.TrimSpace(req.Form.Get("q"))
 
 	var pkgs []database.Package
 
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, _, err := getDoc(req.Context(), q, apiRequest)
+		pdoc, _, err := s.getDoc(req.Context(), q, apiRequest)
 		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-			pdoc, _, err = getDoc(req.Context(), e.Redirect, robotRequest)
+			pdoc, _, err = s.getDoc(req.Context(), e.Redirect, robotRequest)
 		}
 		if err == nil && pdoc != nil {
 			pkgs = []database.Package{{Path: pdoc.ImportPath, Synopsis: pdoc.Synopsis}}
@@ -619,7 +618,7 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 
 	if pkgs == nil {
 		var err error
-		pkgs, err = db.Search(req.Context(), q)
+		pkgs, err = s.db.Search(req.Context(), q)
 		if err != nil {
 			return err
 		}
@@ -634,8 +633,8 @@ func serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	return json.NewEncoder(resp).Encode(&data)
 }
 
-func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := db.AllPackages()
+func (s *server) serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
+	pkgs, err := s.db.AllPackages()
 	if err != nil {
 		return err
 	}
@@ -648,9 +647,9 @@ func serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
 	return json.NewEncoder(resp).Encode(&data)
 }
 
-func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
+func (s *server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	importPath := strings.TrimPrefix(req.URL.Path, "/importers/")
-	pkgs, err := db.Importers(importPath)
+	pkgs, err := s.db.Importers(importPath)
 	if err != nil {
 		return err
 	}
@@ -663,20 +662,20 @@ func serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	return json.NewEncoder(resp).Encode(&data)
 }
 
-func serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
+func (s *server) serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
 	importPath := strings.TrimPrefix(req.URL.Path, "/imports/")
-	pdoc, _, err := getDoc(req.Context(), importPath, robotRequest)
+	pdoc, _, err := s.getDoc(req.Context(), importPath, robotRequest)
 	if err != nil {
 		return err
 	}
 	if pdoc == nil || pdoc.Name == "" {
 		return &httpError{status: http.StatusNotFound}
 	}
-	imports, err := db.Packages(pdoc.Imports)
+	imports, err := s.db.Packages(pdoc.Imports)
 	if err != nil {
 		return err
 	}
-	testImports, err := db.Packages(pdoc.TestImports)
+	testImports, err := s.db.Packages(pdoc.TestImports)
 	if err != nil {
 		return err
 	}
@@ -754,10 +753,10 @@ func errorText(err error) string {
 	return "Internal server error."
 }
 
-func handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
+func (s *server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch status {
 	case http.StatusNotFound:
-		templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
+		s.templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
 			"flashMessages": getFlashMessages(resp, req),
 		})
 	default:
@@ -834,59 +833,36 @@ func defaultBase(path string) string {
 	return p.Dir
 }
 
-var (
-	db                    *database.Database
-	httpClient            *http.Client
-	statusImageHandlerPNG http.Handler
-	statusImageHandlerSVG http.Handler
-	gceLogger             *GCELogger
-)
+type server struct {
+	v          *viper.Viper
+	db         *database.Database
+	httpClient *http.Client
+	gceLogger  *GCELogger
+	templates  templateMap
 
-func main() {
-	doc.SetDefaultGOOS(viper.GetString(ConfigDefaultGOOS))
-	httpClient = newHTTPClient(viper.GetViper())
+	statusPNG http.Handler
+	statusSVG http.Handler
 
-	var err error
-	templates, err = parseTemplates(viper.GetString(ConfigAssetsDir), viper.GetViper())
-	if err != nil {
-		log.Fatal(err)
+	root rootHandler
+}
+
+func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
+	s := &server{
+		v:          v,
+		httpClient: newHTTPClient(v),
 	}
 
-	db, err = database.New(
-		viper.GetString(ConfigDBServer),
-		viper.GetDuration(ConfigDBIdleTimeout),
-		viper.GetBool(ConfigDBLog),
-		viper.GetString(ConfigGAERemoteAPI),
-	)
-	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
-	}
-
-	go func() {
-		for range time.Tick(viper.GetDuration(ConfigCrawlInterval)) {
-			if err := doCrawl(context.Background()); err != nil {
-				log.Printf("Task Crawl: %v", err)
-			}
-		}
-	}()
-	go func() {
-		for range time.Tick(viper.GetDuration(ConfigGithubInterval)) {
-			if err := readGitHubUpdates(context.Background()); err != nil {
-				log.Printf("Task GitHub updates: %v", err)
-			}
-		}
-	}()
-
+	assets := v.GetString(ConfigAssetsDir)
 	staticServer := httputil.StaticServer{
-		Dir:    viper.GetString(ConfigAssetsDir),
+		Dir:    assets,
 		MaxAge: time.Hour,
 		MIMETypes: map[string]string{
 			".css": "text/css; charset=utf-8",
 			".js":  "text/javascript; charset=utf-8",
 		},
 	}
-	statusImageHandlerPNG = staticServer.FileHandler("status.png")
-	statusImageHandlerSVG = staticServer.FileHandler("status.svg")
+	s.statusPNG = staticServer.FileHandler("status.png")
+	s.statusSVG = staticServer.FileHandler("status.svg")
 
 	apiHandler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {
 		return requestCleaner{
@@ -894,7 +870,7 @@ func main() {
 				fn:    f,
 				errFn: handleAPIError,
 			},
-			trustProxyHeaders: viper.GetBool(ConfigTrustProxyHeaders),
+			trustProxyHeaders: v.GetBool(ConfigTrustProxyHeaders),
 		}
 	}
 	apiMux := http.NewServeMux()
@@ -902,10 +878,10 @@ func main() {
 	apiMux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
 	apiMux.Handle("/humans.txt", staticServer.FileHandler("humans.txt"))
 	apiMux.Handle("/robots.txt", staticServer.FileHandler("apiRobots.txt"))
-	apiMux.Handle("/search", apiHandler(serveAPISearch))
-	apiMux.Handle("/packages", apiHandler(serveAPIPackages))
-	apiMux.Handle("/importers/", apiHandler(serveAPIImporters))
-	apiMux.Handle("/imports/", apiHandler(serveAPIImports))
+	apiMux.Handle("/search", apiHandler(s.serveAPISearch))
+	apiMux.Handle("/packages", apiHandler(s.serveAPIPackages))
+	apiMux.Handle("/importers/", apiHandler(s.serveAPIImporters))
+	apiMux.Handle("/imports/", apiHandler(s.serveAPIImports))
 	apiMux.Handle("/", apiHandler(serveAPIHome))
 
 	mux := http.NewServeMux()
@@ -916,7 +892,7 @@ func main() {
 	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
 	mux.Handle("/-/bootstrap.min.js", staticServer.FilesHandler("bootstrap.min.js"))
 	mux.Handle("/-/jquery-2.0.3.min.js", staticServer.FilesHandler("jquery-2.0.3.min.js"))
-	if viper.GetBool(ConfigSidebar) {
+	if s.v.GetBool(ConfigSidebar) {
 		mux.Handle("/-/sidebar.css", staticServer.FilesHandler("sidebar.css"))
 	}
 	mux.Handle("/-/", http.NotFoundHandler())
@@ -925,16 +901,16 @@ func main() {
 		return requestCleaner{
 			h: errorHandler{
 				fn:    f,
-				errFn: handleError,
+				errFn: s.handleError,
 			},
-			trustProxyHeaders: viper.GetBool(ConfigTrustProxyHeaders),
+			trustProxyHeaders: v.GetBool(ConfigTrustProxyHeaders),
 		}
 	}
-	mux.Handle("/-/about", handler(serveAbout))
-	mux.Handle("/-/bot", handler(serveBot))
-	mux.Handle("/-/go", handler(serveGoIndex))
-	mux.Handle("/-/subrepo", handler(serveGoSubrepoIndex))
-	mux.Handle("/-/refresh", handler(serveRefresh))
+	mux.Handle("/-/about", handler(s.serveAbout))
+	mux.Handle("/-/bot", handler(s.serveBot))
+	mux.Handle("/-/go", handler(s.serveGoIndex))
+	mux.Handle("/-/subrepo", handler(s.serveGoSubrepoIndex))
+	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	mux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
@@ -945,30 +921,70 @@ func main() {
 	mux.Handle("/code.jquery.com/", http.NotFoundHandler())
 	mux.Handle("/_ah/health", http.HandlerFunc(serveHealthCheck))
 	mux.Handle("/_ah/", http.NotFoundHandler())
-	mux.Handle("/", handler(serveHome))
+	mux.Handle("/", handler(s.serveHome))
 
-	cacheBusters.Handler = mux
-
-	var root http.Handler = rootHandler{
+	s.root = rootHandler{
 		{"api.", httpsRedirectHandler{apiMux}},
 		{"talks.godoc.org", otherDomainHandler{"https", "go-talks.appspot.com"}},
 		{"", httpsRedirectHandler{mux}},
 	}
-	if gceLogName := viper.GetString(ConfigGCELogName); gceLogName != "" {
-		ctx := context.Background()
 
-		logc, err := logging.NewClient(ctx, viper.GetString(ConfigProject))
+	var err error
+	cacheBusters := &httputil.CacheBusters{Handler: mux}
+	s.templates, err = parseTemplates(assets, cacheBusters, v)
+	if err != nil {
+		return nil, err
+	}
+	s.db, err = database.New(
+		v.GetString(ConfigDBServer),
+		v.GetDuration(ConfigDBIdleTimeout),
+		v.GetBool(ConfigDBLog),
+		v.GetString(ConfigGAERemoteAPI),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %v", err)
+	}
+	if gceLogName := v.GetString(ConfigGCELogName); gceLogName != "" {
+		logc, err := logging.NewClient(ctx, v.GetString(ConfigProject))
 		if err != nil {
-			log.Fatalf("Failed to create cloud logging client: %v", err)
+			return nil, fmt.Errorf("create cloud logging client: %v", err)
 		}
 		logger := logc.Logger(gceLogName)
-
 		if err := logc.Ping(ctx); err != nil {
-			log.Fatalf("Failed to ping Google Cloud Logging: %v", err)
+			return nil, fmt.Errorf("pinging cloud logging: %v", err)
 		}
-
-		gceLogger = newGCELogger(logger)
+		s.gceLogger = newGCELogger(logger)
 	}
+	return s, nil
+}
 
-	log.Fatal(http.ListenAndServe(viper.GetString(ConfigBindAddress), root))
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.root.ServeHTTP(w, r)
+}
+
+func main() {
+	ctx := context.Background()
+	v, err := loadConfig(ctx, os.Args)
+	if err != nil {
+		log.Fatal(ctx, "load config", "error", err.Error())
+	}
+	doc.SetDefaultGOOS(v.GetString(ConfigDefaultGOOS))
+
+	s, err := newServer(ctx, v)
+	go func() {
+		for range time.Tick(s.v.GetDuration(ConfigCrawlInterval)) {
+			if err := s.doCrawl(ctx); err != nil {
+				log.Printf("Task Crawl: %v", err)
+			}
+		}
+	}()
+	go func() {
+		for range time.Tick(s.v.GetDuration(ConfigGithubInterval)) {
+			if err := s.readGitHubUpdates(ctx); err != nil {
+				log.Printf("Task GitHub updates: %v", err)
+			}
+		}
+	}()
+	http.Handle("/", s)
+	log.Fatal(http.ListenAndServe(s.v.GetString(ConfigBindAddress), s))
 }

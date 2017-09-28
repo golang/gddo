@@ -57,7 +57,7 @@ func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
 
 var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
-func playURL(pdoc *doc.Package, id, countryHeader string) (string, error) {
+func (s *server) playURL(pdoc *doc.Package, id, countryHeader string) (string, error) {
 	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
 		if e := findExample(pdoc, m[1], m[2], m[3]); e != nil && e.Play != "" {
 			req, err := http.NewRequest("POST", "https://play.golang.org/share", strings.NewReader(e.Play))
@@ -69,7 +69,7 @@ func playURL(pdoc *doc.Package, id, countryHeader string) (string, error) {
 				// Forward the App Engine country header.
 				req.Header.Set("X-AppEngine-Country", countryHeader)
 			}
-			resp, err := httpClient.Do(req)
+			resp, err := s.httpClient.Do(req)
 			if err != nil {
 				return "", err
 			}
