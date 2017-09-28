@@ -472,12 +472,6 @@ func isInterfaceFn(t *doc.Type) bool {
 	return isInterfacePat.MatchString(t.Decl.Text)
 }
 
-var gaAccount string
-
-func gaAccountFn() string {
-	return gaAccount
-}
-
 func noteTitleFn(s string) string {
 	return strings.Title(strings.ToLower(s))
 }
@@ -531,7 +525,7 @@ func parseHTMLTemplates(sets [][]string) error {
 			"code":              codeFn,
 			"comment":           commentFn,
 			"equal":             reflect.DeepEqual,
-			"gaAccount":         gaAccountFn,
+			"gaAccount":         func() string { return viper.GetString(ConfigGAAccount) },
 			"host":              hostFn,
 			"htmlComment":       htmlCommentFn,
 			"importPath":        importPathFn,

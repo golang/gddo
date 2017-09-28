@@ -19,7 +19,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"path"
 	"regexp"
 	"runtime/debug"
@@ -28,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
 	"github.com/spf13/viper"
 
@@ -848,35 +846,6 @@ func main() {
 	doc.SetDefaultGOOS(viper.GetString(ConfigDefaultGOOS))
 	httpClient = newHTTPClient(viper.GetViper())
 
-	var (
-		gceLogName string
-		projID     string
-	)
-
-	// TODO(stephenmw): merge into viper config infrastructure.
-	if metadata.OnGCE() {
-		acct, err := metadata.ProjectAttributeValue("ga-account")
-		if err != nil {
-			log.Printf("querying metadata for ga-account: %v", err)
-		} else {
-			gaAccount = acct
-		}
-
-		// Get the log name on GCE and setup context for creating a GCE log client.
-		if name, err := metadata.ProjectAttributeValue("gce-log-name"); err != nil {
-			log.Printf("querying metadata for gce-log-name: %v", err)
-		} else {
-			gceLogName = name
-			if id, err := metadata.ProjectID(); err != nil {
-				log.Printf("querying metadata for project ID: %v", err)
-			} else {
-				projID = id
-			}
-		}
-	} else {
-		gaAccount = os.Getenv("GA_ACCOUNT")
-	}
-
 	if err := parseHTMLTemplates([][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"bot.html", "common.html", "layout.html"},
@@ -1011,10 +980,10 @@ func main() {
 		{"talks.godoc.org", otherDomainHandler{"https", "go-talks.appspot.com"}},
 		{"", httpsRedirectHandler{mux}},
 	}
-	if gceLogName != "" {
+	if gceLogName := viper.GetString(ConfigGCELogName); gceLogName != "" {
 		ctx := context.Background()
 
-		logc, err := logging.NewClient(ctx, projID)
+		logc, err := logging.NewClient(ctx, viper.GetString(ConfigProject))
 		if err != nil {
 			log.Fatalf("Failed to create cloud logging client: %v", err)
 		}

@@ -8,14 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/gddo/log"
-
+	"cloud.google.com/go/compute/metadata"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/golang/gddo/log"
 )
 
 const (
 	gaeProjectEnvVar = "GCLOUD_PROJECT"
+	gaAccountEnvVar  = "GA_ACCOUNT"
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 	ConfigBindAddress       = "http"
 	ConfigAssetsDir         = "assets"
 	ConfigRobotThreshold    = "robot"
+	ConfigGCELogName        = "gce_log_name"
 
 	// Database Config
 	ConfigDBServer      = "db-server"
@@ -36,6 +39,7 @@ const (
 	ConfigSidebar        = "sidebar"
 	ConfigSourcegraphURL = "sourcegraph_url"
 	ConfigDefaultGOOS    = "default_goos"
+	ConfigGAAccount      = "ga_account"
 
 	// Crawl Config
 	ConfigMaxAge          = "max_age"
@@ -52,11 +56,20 @@ const (
 func init() {
 	ctx := context.Background()
 
-	// Automatically detect if we are on App Engine.
+	// Gather information from execution environment.
 	if os.Getenv(gaeProjectEnvVar) != "" {
 		viper.Set("on_appengine", true)
 	} else {
 		viper.Set("on_appengine", false)
+	}
+	if metadata.OnGCE() {
+		gceProjectAttributeDefault(ctx, viper.GetViper(), ConfigGAAccount, "ga-account")
+		gceProjectAttributeDefault(ctx, viper.GetViper(), ConfigGCELogName, "gce-log-name")
+		if id, err := metadata.ProjectID(); err != nil {
+			log.Warn(ctx, "failed to retrieve project ID", "error", err)
+		} else {
+			viper.SetDefault(ConfigProject, id)
+		}
 	}
 
 	// Setup command line flags
@@ -70,9 +83,8 @@ func init() {
 	viper.SetEnvPrefix("gddo")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
-
-	// Automatically get project ID from env on Google App Engine
 	viper.BindEnv(ConfigProject, gaeProjectEnvVar)
+	viper.BindEnv(ConfigGAAccount, gaAccountEnvVar)
 
 	// Read from config.
 	readViperConfig(ctx)
@@ -81,6 +93,17 @@ func init() {
 	setDefaults()
 
 	log.Info(ctx, "config values loaded", "values", viper.AllSettings())
+}
+
+func gceProjectAttributeDefault(ctx context.Context, v *viper.Viper, cfg, attr string) {
+	val, err := metadata.ProjectAttributeValue(attr)
+	if err != nil {
+		if _, undef := err.(metadata.NotDefinedError); !undef {
+			log.Warn(ctx, "failed to query metadata", "key", attr, "error", err)
+		}
+		return
+	}
+	v.SetDefault(cfg, val)
 }
 
 // setDefaults sets defaults for configuration options that depend on other
@@ -99,7 +122,7 @@ func buildFlags() *pflag.FlagSet {
 	flags := pflag.NewFlagSet("default", pflag.ExitOnError)
 
 	flags.StringP("config", "c", "", "path to motd config file")
-	flags.String("project", "", "Google Cloud Platform project used for Google services")
+	flags.String(ConfigProject, "", "Google Cloud Platform project used for Google services")
 	// TODO(stephenmw): flags.Bool("enable-admin-pages", false, "When true, enables /admin pages")
 	flags.Float64(ConfigRobotThreshold, 100, "Request counter threshold for robots.")
 	flags.String(ConfigAssetsDir, filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
