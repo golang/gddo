@@ -9,6 +9,7 @@ package talksapp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -26,7 +27,6 @@ import (
 	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
 
-	"golang.org/x/net/context"
 	"golang.org/x/tools/present"
 )
 
@@ -193,7 +193,7 @@ func servePresentation(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	log.Infof(ctx, "Fetching presentation %s.", importPath)
-	pres, err := getPresentation(httpClient(r), importPath)
+	pres, err := getPresentation(ctx, httpClient(r), importPath)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ package lintapp
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"fmt"
 	"html/template"
@@ -19,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
@@ -182,7 +182,7 @@ func getPackage(c context.Context, importPath string) (*lintPackage, error) {
 }
 
 func runLint(r *http.Request, importPath string) (*lintPackage, error) {
-	dir, err := gosrc.Get(httpClient(r), importPath, "")
+	dir, err := gosrc.Get(appengine.NewContext(r), httpClient(r), importPath, "")
 	if err != nil {
 		return nil, err
 	}

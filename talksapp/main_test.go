@@ -7,6 +7,7 @@
 package talksapp
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -53,7 +54,7 @@ Subtitle
 `)
 
 	originalGetPresentation := getPresentation
-	getPresentation = func(client *http.Client, importPath string) (*gosrc.Presentation, error) {
+	getPresentation = func(ctx context.Context, client *http.Client, importPath string) (*gosrc.Presentation, error) {
 		return &gosrc.Presentation{
 			Filename: "presentation.slide",
 			Files: map[string][]byte{
@@ -116,7 +117,7 @@ func TestPresentationCacheHit(t *testing.T) {
 
 func TestPresentationNotFound(t *testing.T) {
 	originalGetPresentation := getPresentation
-	getPresentation = func(client *http.Client, importPath string) (*gosrc.Presentation, error) {
+	getPresentation = func(ctx context.Context, client *http.Client, importPath string) (*gosrc.Presentation, error) {
 		return nil, gosrc.NotFoundError{}
 	}
 	defer func() {

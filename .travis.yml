@@ -1,10 +1,8 @@
 language: go
-install:
-  - curl -sSo gae_sdk.zip https://storage.googleapis.com/appengine-sdks/featured/go_appengine_sdk_linux_amd64-1.9.40.zip
-  - unzip -q gae_sdk.zip
+go:
+  - 1.8
 script:
   - pushd talksapp
   - ./setup.sh
-  - ../go_appengine/goapp get .
-  - ../go_appengine/goapp test -v .
+  - go test -v .
   - popd
