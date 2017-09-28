@@ -310,10 +310,10 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		}
 		template += templateExt(req)
 
-		return executeTemplate(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
+		return templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(pdoc),
+			"pdoc":          newTDoc(viper.GetViper(), pdoc),
 			"importerCount": importerCount,
 		})
 	case isView(req, "imports"):
@@ -324,20 +324,20 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		return executeTemplate(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
+		return templates.execute(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(pdoc),
+			"pdoc":          newTDoc(viper.GetViper(), pdoc),
 		})
 	case isView(req, "tools"):
 		proto := "http"
 		if req.Host == "godoc.org" {
 			proto = "https"
 		}
-		return executeTemplate(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
+		return templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"uri":           fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
-			"pdoc":          newTDoc(pdoc),
+			"pdoc":          newTDoc(viper.GetViper(), pdoc),
 		})
 	case isView(req, "importers"):
 		if pdoc.Name == "" {
@@ -352,10 +352,10 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 			// Hide back links from robots.
 			template = "importers_robot.html"
 		}
-		return executeTemplate(resp, template, http.StatusOK, nil, map[string]interface{}{
+		return templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(pdoc),
+			"pdoc":          newTDoc(viper.GetViper(), pdoc),
 		})
 	case isView(req, "import-graph"):
 		if requestType == robotRequest {
@@ -379,10 +379,10 @@ func servePackage(resp http.ResponseWriter, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		return executeTemplate(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
+		return templates.execute(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"svg":           template.HTML(b),
-			"pdoc":          newTDoc(pdoc),
+			"pdoc":          newTDoc(viper.GetViper(), pdoc),
 			"hide":          hide,
 		})
 	case isView(req, "play"):
@@ -447,7 +447,7 @@ func serveGoIndex(resp http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return executeTemplate(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
+	return templates.execute(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
@@ -457,7 +457,7 @@ func serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return executeTemplate(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
+	return templates.execute(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 }
@@ -540,7 +540,7 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 			return err
 		}
 
-		return executeTemplate(resp, "home"+templateExt(req), http.StatusOK, nil,
+		return templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil,
 			map[string]interface{}{"Popular": pkgs})
 	}
 
@@ -573,17 +573,17 @@ func serveHome(resp http.ResponseWriter, req *http.Request) error {
 		gceLogger.LogEvent(resp, req, logPkgs)
 	}
 
-	return executeTemplate(resp, "results"+templateExt(req), http.StatusOK, nil,
+	return templates.execute(resp, "results"+templateExt(req), http.StatusOK, nil,
 		map[string]interface{}{"q": q, "pkgs": pkgs})
 }
 
 func serveAbout(resp http.ResponseWriter, req *http.Request) error {
-	return executeTemplate(resp, "about.html", http.StatusOK, nil,
+	return templates.execute(resp, "about.html", http.StatusOK, nil,
 		map[string]interface{}{"Host": req.Host})
 }
 
 func serveBot(resp http.ResponseWriter, req *http.Request) error {
-	return executeTemplate(resp, "bot.html", http.StatusOK, nil, nil)
+	return templates.execute(resp, "bot.html", http.StatusOK, nil, nil)
 }
 
 func serveHealthCheck(resp http.ResponseWriter, req *http.Request) {
@@ -757,7 +757,7 @@ func errorText(err error) string {
 func handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch status {
 	case http.StatusNotFound:
-		executeTemplate(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
+		templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
 			"flashMessages": getFlashMessages(resp, req),
 		})
 	default:
@@ -846,38 +846,12 @@ func main() {
 	doc.SetDefaultGOOS(viper.GetString(ConfigDefaultGOOS))
 	httpClient = newHTTPClient(viper.GetViper())
 
-	if err := parseHTMLTemplates([][]string{
-		{"about.html", "common.html", "layout.html"},
-		{"bot.html", "common.html", "layout.html"},
-		{"cmd.html", "common.html", "layout.html"},
-		{"dir.html", "common.html", "layout.html"},
-		{"home.html", "common.html", "layout.html"},
-		{"importers.html", "common.html", "layout.html"},
-		{"importers_robot.html", "common.html", "layout.html"},
-		{"imports.html", "common.html", "layout.html"},
-		{"notfound.html", "common.html", "layout.html"},
-		{"pkg.html", "common.html", "layout.html"},
-		{"results.html", "common.html", "layout.html"},
-		{"tools.html", "common.html", "layout.html"},
-		{"std.html", "common.html", "layout.html"},
-		{"subrepo.html", "common.html", "layout.html"},
-		{"graph.html", "common.html"},
-	}); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := parseTextTemplates([][]string{
-		{"cmd.txt", "common.txt"},
-		{"dir.txt", "common.txt"},
-		{"home.txt", "common.txt"},
-		{"notfound.txt", "common.txt"},
-		{"pkg.txt", "common.txt"},
-		{"results.txt", "common.txt"},
-	}); err != nil {
-		log.Fatal(err)
-	}
-
 	var err error
+	templates, err = parseTemplates(viper.GetString(ConfigAssetsDir), viper.GetViper())
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	db, err = database.New(
 		viper.GetString(ConfigDBServer),
 		viper.GetDuration(ConfigDBIdleTimeout),

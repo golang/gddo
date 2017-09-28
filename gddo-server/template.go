@@ -80,7 +80,8 @@ func setFlashMessages(resp http.ResponseWriter, messages []flashMessage) {
 
 type tdoc struct {
 	*doc.Package
-	allExamples []*texample
+	allExamples    []*texample
+	sourcegraphURL string
 }
 
 type texample struct {
@@ -91,8 +92,11 @@ type texample struct {
 	obj     interface{}
 }
 
-func newTDoc(pdoc *doc.Package) *tdoc {
-	return &tdoc{Package: pdoc}
+func newTDoc(v *viper.Viper, pdoc *doc.Package) *tdoc {
+	return &tdoc{
+		Package:        pdoc,
+		sourcegraphURL: v.GetString(ConfigSourcegraphURL),
+	}
 }
 
 func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
@@ -110,7 +114,7 @@ func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HT
 // UsesLink generates a link to uses of a symbol definition.
 // title is used as the tooltip. defParts are parts of the symbol definition name.
 func (pdoc *tdoc) UsesLink(title string, defParts ...string) htemp.HTML {
-	if viper.GetString(ConfigSourcegraphURL) == "" {
+	if pdoc.sourcegraphURL == "" {
 		return ""
 	}
 
@@ -146,7 +150,7 @@ func (pdoc *tdoc) UsesLink(title string, defParts ...string) htemp.HTML {
 		"pkg":  {pdoc.ImportPath},
 		"def":  {def},
 	}
-	u := viper.GetString(ConfigSourcegraphURL) + "/-/godoc/refs?" + q.Encode()
+	u := pdoc.sourcegraphURL + "/-/godoc/refs?" + q.Encode()
 	return htemp.HTML(fmt.Sprintf(`<a class="uses" title="%s" href="%s">Uses</a>`, htemp.HTMLEscapeString(title), htemp.HTMLEscapeString(u)))
 }
 
@@ -485,7 +489,15 @@ var mimeTypes = map[string]string{
 	".txt":  textMIMEType,
 }
 
-func executeTemplate(resp http.ResponseWriter, name string, status int, header http.Header, data interface{}) error {
+// TODO(light): pass templates explicitly, not as a global.
+
+var templates templateMap
+
+type templateMap map[string]interface {
+	Execute(io.Writer, interface{}) error
+}
+
+func (m templateMap) execute(resp http.ResponseWriter, name string, status int, header http.Header, data interface{}) error {
 	for k, v := range header {
 		resp.Header()[k] = v
 	}
@@ -494,7 +506,7 @@ func executeTemplate(resp http.ResponseWriter, name string, status int, header h
 		mimeType = textMIMEType
 	}
 	resp.Header().Set("Content-Type", mimeType)
-	t := templates[name]
+	t := m[name]
 	if t == nil {
 		return fmt.Errorf("template %s not found", name)
 	}
@@ -505,10 +517,6 @@ func executeTemplate(resp http.ResponseWriter, name string, status int, header h
 	return t.Execute(resp, data)
 }
 
-var templates = map[string]interface {
-	Execute(io.Writer, interface{}) error
-}{}
-
 func joinTemplateDir(base string, files []string) []string {
 	result := make([]string, len(files))
 	for i := range files {
@@ -517,53 +525,76 @@ func joinTemplateDir(base string, files []string) []string {
 	return result
 }
 
-func parseHTMLTemplates(sets [][]string) error {
-	for _, set := range sets {
+func parseTemplates(dir string, v *viper.Viper) (templateMap, error) {
+	m := make(templateMap)
+	htmlSets := [][]string{
+		{"about.html", "common.html", "layout.html"},
+		{"bot.html", "common.html", "layout.html"},
+		{"cmd.html", "common.html", "layout.html"},
+		{"dir.html", "common.html", "layout.html"},
+		{"home.html", "common.html", "layout.html"},
+		{"importers.html", "common.html", "layout.html"},
+		{"importers_robot.html", "common.html", "layout.html"},
+		{"imports.html", "common.html", "layout.html"},
+		{"notfound.html", "common.html", "layout.html"},
+		{"pkg.html", "common.html", "layout.html"},
+		{"results.html", "common.html", "layout.html"},
+		{"tools.html", "common.html", "layout.html"},
+		{"std.html", "common.html", "layout.html"},
+		{"subrepo.html", "common.html", "layout.html"},
+		{"graph.html", "common.html"},
+	}
+	hfuncs := htemp.FuncMap{
+		"code":              codeFn,
+		"comment":           commentFn,
+		"equal":             reflect.DeepEqual,
+		"gaAccount":         func() string { return v.GetString(ConfigGAAccount) },
+		"host":              hostFn,
+		"htmlComment":       htmlCommentFn,
+		"importPath":        importPathFn,
+		"isInterface":       isInterfaceFn,
+		"isValidImportPath": gosrc.IsValidPath,
+		"map":               mapFn,
+		"noteTitle":         noteTitleFn,
+		"relativePath":      relativePathFn,
+		"sidebarEnabled":    func() bool { return v.GetBool(ConfigSidebar) },
+		"staticPath":        func(p string) string { return cacheBusters.AppendQueryParam(p, "v") },
+	}
+	for _, set := range htmlSets {
 		templateName := set[0]
-		t := htemp.New("")
-		t.Funcs(htemp.FuncMap{
-			"code":              codeFn,
-			"comment":           commentFn,
-			"equal":             reflect.DeepEqual,
-			"gaAccount":         func() string { return viper.GetString(ConfigGAAccount) },
-			"host":              hostFn,
-			"htmlComment":       htmlCommentFn,
-			"importPath":        importPathFn,
-			"isInterface":       isInterfaceFn,
-			"isValidImportPath": gosrc.IsValidPath,
-			"map":               mapFn,
-			"noteTitle":         noteTitleFn,
-			"relativePath":      relativePathFn,
-			"sidebarEnabled":    func() bool { return viper.GetBool(ConfigSidebar) },
-			"staticPath":        func(p string) string { return cacheBusters.AppendQueryParam(p, "v") },
-			"templateName":      func() string { return templateName },
+		t := htemp.New("").Funcs(hfuncs).Funcs(htemp.FuncMap{
+			"templateName": func() string { return templateName },
 		})
-		if _, err := t.ParseFiles(joinTemplateDir(viper.GetString(ConfigAssetsDir), set)...); err != nil {
-			return err
+		if _, err := t.ParseFiles(joinTemplateDir(dir, set)...); err != nil {
+			return nil, err
 		}
 		t = t.Lookup("ROOT")
 		if t == nil {
-			return fmt.Errorf("ROOT template not found in %v", set)
+			return nil, fmt.Errorf("ROOT template not found in %v", set)
 		}
-		templates[set[0]] = t
+		m[set[0]] = t
 	}
-	return nil
-}
-
-func parseTextTemplates(sets [][]string) error {
-	for _, set := range sets {
-		t := ttemp.New("")
-		t.Funcs(ttemp.FuncMap{
-			"comment": commentTextFn,
-		})
-		if _, err := t.ParseFiles(joinTemplateDir(viper.GetString(ConfigAssetsDir), set)...); err != nil {
-			return err
+	textSets := [][]string{
+		{"cmd.txt", "common.txt"},
+		{"dir.txt", "common.txt"},
+		{"home.txt", "common.txt"},
+		{"notfound.txt", "common.txt"},
+		{"pkg.txt", "common.txt"},
+		{"results.txt", "common.txt"},
+	}
+	tfuncs := ttemp.FuncMap{
+		"comment": commentTextFn,
+	}
+	for _, set := range textSets {
+		t := ttemp.New("").Funcs(tfuncs)
+		if _, err := t.ParseFiles(joinTemplateDir(dir, set)...); err != nil {
+			return nil, err
 		}
 		t = t.Lookup("ROOT")
 		if t == nil {
-			return fmt.Errorf("ROOT template not found in %v", set)
+			return nil, fmt.Errorf("ROOT template not found in %v", set)
 		}
-		templates[set[0]] = t
+		m[set[0]] = t
 	}
-	return nil
+	return m, nil
 }
