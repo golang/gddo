@@ -697,53 +697,53 @@ func serveAPIHome(resp http.ResponseWriter, req *http.Request) error {
 	return &httpError{status: http.StatusNotFound}
 }
 
-func runHandler(resp http.ResponseWriter, req *http.Request,
-	fn func(resp http.ResponseWriter, req *http.Request) error, errfn httputil.Error) {
+type requestCleaner struct {
+	h                 http.Handler
+	trustProxyHeaders bool
+}
+
+func (rc requestCleaner) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	req2 := new(http.Request)
+	*req2 = *req
+	if rc.trustProxyHeaders {
+		if s := req.Header.Get("X-Forwarded-For"); s != "" {
+			req2.RemoteAddr = s
+		}
+	}
+	req2.Body = http.MaxBytesReader(w, req.Body, 2048)
+	req2.ParseForm()
+	rc.h.ServeHTTP(w, req2)
+}
+
+type errorHandler struct {
+	fn    func(resp http.ResponseWriter, req *http.Request) error
+	errFn httputil.Error
+}
+
+func (eh errorHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if rv := recover(); rv != nil {
 			err := errors.New("handler panic")
 			logError(req, err, rv)
-			errfn(resp, req, http.StatusInternalServerError, err)
+			eh.errFn(resp, req, http.StatusInternalServerError, err)
 		}
 	}()
 
-	// TODO(stephenmw): choose headers based on if we are on App Engine
-	if viper.GetBool(ConfigTrustProxyHeaders) {
-		// If running on GAE flexible, use X-Forwarded-For to identify real ip of requests.
-		if s := req.Header.Get("X-Forwarded-For"); s != "" {
-			req.RemoteAddr = s
-		}
-	}
-
-	req.Body = http.MaxBytesReader(resp, req.Body, 2048)
-	req.ParseForm()
-	var rb httputil.ResponseBuffer
-	err := fn(&rb, req)
+	rb := new(httputil.ResponseBuffer)
+	err := eh.fn(rb, req)
 	if err == nil {
 		rb.WriteTo(resp)
 	} else if e, ok := err.(*httpError); ok {
 		if e.status >= 500 {
 			logError(req, err, nil)
 		}
-		errfn(resp, req, e.status, e.err)
+		eh.errFn(resp, req, e.status, e.err)
 	} else if gosrc.IsNotFound(err) {
-		errfn(resp, req, http.StatusNotFound, nil)
+		eh.errFn(resp, req, http.StatusNotFound, nil)
 	} else {
 		logError(req, err, nil)
-		errfn(resp, req, http.StatusInternalServerError, err)
+		eh.errFn(resp, req, http.StatusInternalServerError, err)
 	}
-}
-
-type handler func(resp http.ResponseWriter, req *http.Request) error
-
-func (h handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	runHandler(resp, req, h, handleError)
-}
-
-type apiHandler func(resp http.ResponseWriter, req *http.Request) error
-
-func (h apiHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	runHandler(resp, req, h, handleAPIError)
 }
 
 func errorText(err error) string {
@@ -945,6 +945,15 @@ func main() {
 	statusImageHandlerPNG = staticServer.FileHandler("status.png")
 	statusImageHandlerSVG = staticServer.FileHandler("status.svg")
 
+	apiHandler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {
+		return requestCleaner{
+			h: errorHandler{
+				fn:    f,
+				errFn: handleAPIError,
+			},
+			trustProxyHeaders: viper.GetBool(ConfigTrustProxyHeaders),
+		}
+	}
 	apiMux := http.NewServeMux()
 	apiMux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	apiMux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
@@ -969,6 +978,15 @@ func main() {
 	}
 	mux.Handle("/-/", http.NotFoundHandler())
 
+	handler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {
+		return requestCleaner{
+			h: errorHandler{
+				fn:    f,
+				errFn: handleError,
+			},
+			trustProxyHeaders: viper.GetBool(ConfigTrustProxyHeaders),
+		}
+	}
 	mux.Handle("/-/about", handler(serveAbout))
 	mux.Handle("/-/bot", handler(serveBot))
 	mux.Handle("/-/go", handler(serveGoIndex))
