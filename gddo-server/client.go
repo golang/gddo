@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 
+	"cloud.google.com/go/trace"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/memcache"
 	"github.com/spf13/viper"
@@ -42,7 +43,7 @@ func newHTTPClient(v *viper.Viper) *http.Client {
 	}
 	return &http.Client{
 		// Wrap the cached transport with GitHub authentication.
-		Transport: rt,
+		Transport: trace.Transport{Base: rt},
 		Timeout:   requestTimeout,
 	}
 }

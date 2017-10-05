@@ -38,6 +38,8 @@ func (c *httpClient) get(ctx context.Context, url string) (*http.Response, error
 		return nil, err
 	}
 
+	// Take the trace ID to group all outbound requests together.
+	req = req.WithContext(ctx)
 	for k, vs := range c.header {
 		req.Header[k] = vs
 	}

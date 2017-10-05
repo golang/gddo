@@ -50,6 +50,10 @@ const (
 	ConfigDialTimeout     = "dial_timeout"
 	ConfigRequestTimeout  = "request_timeout"
 	ConfigMemcacheAddr    = "memcache_addr"
+
+	// Trace Config
+	ConfigTraceSamplerFraction = "trace_fraction"
+	ConfigTraceSamplerMaxQPS   = "trace_max_qps"
 )
 
 func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
@@ -126,7 +130,6 @@ func buildFlags() *pflag.FlagSet {
 
 	flags.StringP("config", "c", "", "path to motd config file")
 	flags.String(ConfigProject, "", "Google Cloud Platform project used for Google services")
-	// TODO(stephenmw): flags.Bool("enable-admin-pages", false, "When true, enables /admin pages")
 	flags.Float64(ConfigRobotThreshold, 100, "Request counter threshold for robots.")
 	flags.String(ConfigAssetsDir, filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	flags.Duration(ConfigGetTimeout, 8*time.Second, "Time to wait for package update from the VCS.")
@@ -146,6 +149,8 @@ func buildFlags() *pflag.FlagSet {
 	flags.Bool(ConfigDBLog, false, "Log database commands")
 	flags.String(ConfigMemcacheAddr, "", "Address in the format host:port gddo uses to point to the memcache backend.")
 	flags.String(ConfigGAERemoteAPI, "", "Remoteapi endpoint for App Engine Search. Defaults to serviceproxy-dot-${project}.appspot.com.")
+	flags.Float64(ConfigTraceSamplerFraction, 0.1, "Fraction of the requests sampled by the trace API.")
+	flags.Float64(ConfigTraceSamplerMaxQPS, 5, "Max number of requests sampled every second by the trace API.")
 
 	return flags
 }

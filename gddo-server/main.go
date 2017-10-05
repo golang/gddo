@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/logging"
+	"cloud.google.com/go/trace"
 	"github.com/spf13/viper"
 
 	"github.com/golang/gddo/database"
@@ -834,11 +835,12 @@ func defaultBase(path string) string {
 }
 
 type server struct {
-	v          *viper.Viper
-	db         *database.Database
-	httpClient *http.Client
-	gceLogger  *GCELogger
-	templates  templateMap
+	v           *viper.Viper
+	db          *database.Database
+	httpClient  *http.Client
+	gceLogger   *GCELogger
+	templates   templateMap
+	traceClient *trace.Client
 
 	statusPNG http.Handler
 	statusSVG http.Handler
@@ -850,6 +852,18 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	s := &server{
 		v:          v,
 		httpClient: newHTTPClient(v),
+	}
+
+	var err error
+	if proj := s.v.GetString(ConfigProject); proj != "" {
+		if s.traceClient, err = trace.NewClient(ctx, proj); err != nil {
+			return nil, err
+		}
+		sp, err := trace.NewLimitedSampler(s.v.GetFloat64(ConfigTraceSamplerFraction), s.v.GetFloat64(ConfigTraceSamplerMaxQPS))
+		if err != nil {
+			return nil, err
+		}
+		s.traceClient.SetSamplingPolicy(sp)
 	}
 
 	assets := v.GetString(ConfigAssetsDir)
@@ -919,17 +933,21 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/BingSiteAuth.xml", staticServer.FileHandler("BingSiteAuth.xml"))
 	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/code.jquery.com/", http.NotFoundHandler())
-	mux.Handle("/_ah/health", http.HandlerFunc(serveHealthCheck))
-	mux.Handle("/_ah/", http.NotFoundHandler())
 	mux.Handle("/", handler(s.serveHome))
 
+	ahMux := http.NewServeMux()
+	ahMux.HandleFunc("/_ah/health", serveHealthCheck)
+
+	mainMux := http.NewServeMux()
+	mainMux.Handle("/_ah/", ahMux)
+	mainMux.Handle("/", s.traceClient.HTTPHandler(mux))
+
 	s.root = rootHandler{
-		{"api.", httpsRedirectHandler{apiMux}},
+		{"api.", httpsRedirectHandler{s.traceClient.HTTPHandler(apiMux)}},
 		{"talks.godoc.org", otherDomainHandler{"https", "go-talks.appspot.com"}},
-		{"", httpsRedirectHandler{mux}},
+		{"", httpsRedirectHandler{mainMux}},
 	}
 
-	var err error
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
 	s.templates, err = parseTemplates(assets, cacheBusters, v)
 	if err != nil {
@@ -971,6 +989,10 @@ func main() {
 	doc.SetDefaultGOOS(v.GetString(ConfigDefaultGOOS))
 
 	s, err := newServer(ctx, v)
+	if err != nil {
+		log.Fatal("error creating server:", err)
+	}
+
 	go func() {
 		for range time.Tick(s.v.GetDuration(ConfigCrawlInterval)) {
 			if err := s.doCrawl(ctx); err != nil {
