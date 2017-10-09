@@ -497,11 +497,19 @@
 			"Rev": "1e559d0a00eef8a9a43151db4665280bd8dd5886"
 		},
 		{
+			"ImportPath": "google.golang.org/genproto/googleapis/cloud/runtimeconfig/v1beta1",
+			"Rev": "1e559d0a00eef8a9a43151db4665280bd8dd5886"
+		},
+		{
 			"ImportPath": "google.golang.org/genproto/googleapis/logging/type",
 			"Rev": "1e559d0a00eef8a9a43151db4665280bd8dd5886"
 		},
 		{
 			"ImportPath": "google.golang.org/genproto/googleapis/logging/v2",
+			"Rev": "1e559d0a00eef8a9a43151db4665280bd8dd5886"
+		},
+		{
+			"ImportPath": "google.golang.org/genproto/googleapis/longrunning",
 			"Rev": "1e559d0a00eef8a9a43151db4665280bd8dd5886"
 		},
 		{
