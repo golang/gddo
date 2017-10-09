@@ -87,9 +87,9 @@ func TestTransportGithubAuth(t *testing.T) {
 						query = r.URL.Query()
 						authHeader = r.Header.Get("Authorization")
 					}),
-					Token:        test.token,
-					ClientID:     test.clientID,
-					ClientSecret: test.clientSecret,
+					GithubToken:        test.token,
+					GithubClientID:     test.clientID,
+					GithubClientSecret: test.clientSecret,
 				},
 			}
 			_, err := client.Get(test.url)

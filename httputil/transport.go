@@ -10,12 +10,8 @@
 package httputil
 
 import (
-	"log"
 	"net/http"
 	"net/url"
-	"os"
-
-	"cloud.google.com/go/compute/metadata"
 )
 
 // AuthTransport is an implementation of http.RoundTripper that authenticates
@@ -23,45 +19,11 @@ import (
 //
 // When both a token and client credentials are set, the latter is preferred.
 type AuthTransport struct {
-	UserAgent    string
-	Token        string
-	ClientID     string
-	ClientSecret string
-	Base         http.RoundTripper
-}
-
-// NewAuthTransport gives new AuthTransport created with GitHub credentials
-// read from GCE metadata when the metadata server is accessible (we're on GCE)
-// or read from environment varialbes otherwise.
-func NewAuthTransport(base http.RoundTripper) *AuthTransport {
-	if metadata.OnGCE() {
-		return NewAuthTransportFromMetadata(base)
-	}
-	return NewAuthTransportFromEnvironment(base)
-}
-
-// NewAuthTransportFromEnvironment gives new AuthTransport created with GitHub
-// credentials read from environment variables.
-func NewAuthTransportFromEnvironment(base http.RoundTripper) *AuthTransport {
-	return &AuthTransport{
-		UserAgent:    os.Getenv("USER_AGENT"),
-		Token:        os.Getenv("GITHUB_TOKEN"),
-		ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
-		ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
-		Base:         base,
-	}
-}
-
-// NewAuthTransportFromMetadata gives new AuthTransport created with GitHub
-// credentials read from GCE metadata.
-func NewAuthTransportFromMetadata(base http.RoundTripper) *AuthTransport {
-	return &AuthTransport{
-		UserAgent:    gceAttr("user-agent"),
-		Token:        gceAttr("github-token"),
-		ClientID:     gceAttr("github-client-id"),
-		ClientSecret: gceAttr("github-client-secret"),
-		Base:         base,
-	}
+	UserAgent          string
+	GithubToken        string
+	GithubClientID     string
+	GithubClientSecret string
+	Base               http.RoundTripper
 }
 
 // RoundTrip implements the http.RoundTripper interface.
@@ -73,20 +35,20 @@ func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	if req.URL.Host == "api.github.com" && req.URL.Scheme == "https" {
 		switch {
-		case t.ClientID != "" && t.ClientSecret != "":
+		case t.GithubClientID != "" && t.GithubClientSecret != "":
 			if reqCopy == nil {
 				reqCopy = copyRequest(req)
 			}
 			if reqCopy.URL.RawQuery == "" {
-				reqCopy.URL.RawQuery = "client_id=" + t.ClientID + "&client_secret=" + t.ClientSecret
+				reqCopy.URL.RawQuery = "client_id=" + t.GithubClientID + "&client_secret=" + t.GithubClientSecret
 			} else {
-				reqCopy.URL.RawQuery += "&client_id=" + t.ClientID + "&client_secret=" + t.ClientSecret
+				reqCopy.URL.RawQuery += "&client_id=" + t.GithubClientID + "&client_secret=" + t.GithubClientSecret
 			}
-		case t.Token != "":
+		case t.GithubToken != "":
 			if reqCopy == nil {
 				reqCopy = copyRequest(req)
 			}
-			reqCopy.Header.Set("Authorization", "token "+t.Token)
+			reqCopy.Header.Set("Authorization", "token "+t.GithubToken)
 		}
 	}
 	if reqCopy != nil {
@@ -110,15 +72,6 @@ func (t *AuthTransport) base() http.RoundTripper {
 		return t.Base
 	}
 	return http.DefaultTransport
-}
-
-func gceAttr(name string) string {
-	s, err := metadata.ProjectAttributeValue(name)
-	if err != nil {
-		log.Printf("error querying metadata for %q: %s", name, err)
-		return ""
-	}
-	return s
 }
 
 func copyRequest(req *http.Request) *http.Request {

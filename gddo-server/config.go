@@ -18,6 +18,11 @@ import (
 const (
 	gaeProjectEnvVar = "GCLOUD_PROJECT"
 	gaAccountEnvVar  = "GA_ACCOUNT"
+
+	userAgentEnvVar          = "USER_AGENT"
+	githubTokenEnvVar        = "GITHUB_TOKEN"
+	githubClientIDEnvVar     = "GITHUB_CLIENT_ID"
+	githubClientSecretEnvVar = "GITHUB_CLIENT_SECRET"
 )
 
 const (
@@ -54,6 +59,12 @@ const (
 	// Trace Config
 	ConfigTraceSamplerFraction = "trace_fraction"
 	ConfigTraceSamplerMaxQPS   = "trace_max_qps"
+
+	// Outbound HTTP Config
+	ConfigUserAgent          = "user_agent"
+	ConfigGithubToken        = "github_token"
+	ConfigGithubClientID     = "github_client_id"
+	ConfigGithubClientSecret = "github_client_secret"
 )
 
 func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
@@ -67,6 +78,10 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	if metadata.OnGCE() {
 		gceProjectAttributeDefault(ctx, v, ConfigGAAccount, "ga-account")
 		gceProjectAttributeDefault(ctx, v, ConfigGCELogName, "gce-log-name")
+		gceProjectAttributeDefault(ctx, v, ConfigUserAgent, "user-agent")
+		gceProjectAttributeDefault(ctx, v, ConfigGithubToken, "github-token")
+		gceProjectAttributeDefault(ctx, v, ConfigGithubClientID, "github-client-id")
+		gceProjectAttributeDefault(ctx, v, ConfigGithubClientSecret, "github-client-secret")
 		if id, err := metadata.ProjectID(); err != nil {
 			log.Warn(ctx, "failed to retrieve project ID", "error", err)
 		} else {
@@ -89,6 +104,10 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v.AutomaticEnv()
 	v.BindEnv(ConfigProject, gaeProjectEnvVar)
 	v.BindEnv(ConfigGAAccount, gaAccountEnvVar)
+	v.BindEnv(ConfigUserAgent, userAgentEnvVar)
+	v.BindEnv(ConfigGithubToken, githubTokenEnvVar)
+	v.BindEnv(ConfigGithubClientID, githubClientIDEnvVar)
+	v.BindEnv(ConfigGithubClientSecret, githubClientSecretEnvVar)
 
 	// Read from config.
 	if err := readViperConfig(ctx, v); err != nil {

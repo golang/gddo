@@ -23,7 +23,7 @@ import (
 
 func newHTTPClient(v *viper.Viper) *http.Client {
 	requestTimeout := v.GetDuration(ConfigRequestTimeout)
-	t := &http.Transport{
+	var t http.RoundTripper = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
 			Timeout:   v.GetDuration(ConfigDialTimeout),
@@ -32,18 +32,22 @@ func newHTTPClient(v *viper.Viper) *http.Client {
 		ResponseHeaderTimeout: requestTimeout / 2,
 		TLSHandshakeTimeout:   requestTimeout / 2,
 	}
-
-	var rt http.RoundTripper
 	if addr := v.GetString(ConfigMemcacheAddr); addr != "" {
 		ct := httpcache.NewTransport(memcache.New(addr))
 		ct.Transport = t
-		rt = httputil.NewAuthTransport(ct)
-	} else {
-		rt = httputil.NewAuthTransport(t)
+		t = ct
 	}
+	t = &httputil.AuthTransport{
+		Base: t,
+
+		UserAgent:          v.GetString(ConfigUserAgent),
+		GithubToken:        v.GetString(ConfigGithubToken),
+		GithubClientID:     v.GetString(ConfigGithubClientID),
+		GithubClientSecret: v.GetString(ConfigGithubClientSecret),
+	}
+	t = trace.Transport{Base: t}
 	return &http.Client{
-		// Wrap the cached transport with GitHub authentication.
-		Transport: trace.Transport{Base: rt},
+		Transport: t,
 		Timeout:   requestTimeout,
 	}
 }

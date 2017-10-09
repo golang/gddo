@@ -41,6 +41,10 @@ var (
 	// used for mocking in tests
 	getPresentation = gosrc.GetPresentation
 	playCompileURL  = "https://play.golang.org/compile"
+
+	githubToken        = os.Getenv("GITHUB_TOKEN")
+	githubClientID     = os.Getenv("GITHUB_CLIENT_ID")
+	githubClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 )
 
 func init() {
@@ -52,12 +56,13 @@ func init() {
 		contactEmail = s
 	}
 
-	if appengine.IsDevAppServer() {
-		return
-	}
-	github := httputil.NewAuthTransportFromEnvironment(nil)
-	if github.Token == "" || github.ClientID == "" || github.ClientSecret == "" {
-		panic("missing GitHub metadata, follow the instructions on README.md")
+	if !appengine.IsDevAppServer() {
+		if githubToken == "" && githubClientID == "" && githubClientSecret == "" {
+			panic("missing GitHub metadata, follow the instructions on README.md")
+		}
+		if githubToken != "" && (githubClientID != "" || githubClientSecret != "") {
+			panic("GitHub token and client secret given, follow the instructions on README.md")
+		}
 	}
 }
 
@@ -126,15 +131,14 @@ func writeTextHeader(w http.ResponseWriter, status int) {
 
 func httpClient(r *http.Request) *http.Client {
 	ctx, _ := context.WithTimeout(appengine.NewContext(r), 10*time.Second)
-	github := httputil.NewAuthTransportFromEnvironment(nil)
 
 	return &http.Client{
 		Transport: &httputil.AuthTransport{
-			Token:        github.Token,
-			ClientID:     github.ClientID,
-			ClientSecret: github.ClientSecret,
-			Base:         &urlfetch.Transport{Context: ctx},
-			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(ctx), r.Host),
+			GithubToken:        githubToken,
+			GithubClientID:     githubClientID,
+			GithubClientSecret: githubClientSecret,
+			Base:               &urlfetch.Transport{Context: ctx},
+			UserAgent:          fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(ctx), r.Host),
 		},
 	}
 }

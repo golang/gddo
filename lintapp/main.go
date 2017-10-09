@@ -49,7 +49,6 @@ var (
 		"timeago":      timeagoFn,
 		"contactEmail": contactEmailFn,
 	}
-	github = httputil.NewAuthTransportFromEnvironment(nil)
 )
 
 func parseTemplate(fnames ...string) *template.Template {
@@ -114,11 +113,11 @@ func httpClient(r *http.Request) *http.Client {
 	c := appengine.NewContext(r)
 	return &http.Client{
 		Transport: &httputil.AuthTransport{
-			Token:        github.Token,
-			ClientID:     github.ClientID,
-			ClientSecret: github.ClientSecret,
-			Base:         &urlfetch.Transport{Context: c},
-			UserAgent:    fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
+			GithubToken:        os.Getenv("GITHUB_TOKEN"),
+			GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+			GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+			Base:               &urlfetch.Transport{Context: c},
+			UserAgent:          fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(c), r.Host),
 		},
 	}
 }

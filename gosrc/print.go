@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang/gddo/gosrc"
@@ -45,7 +46,13 @@ func printDir(path string) {
 		gosrc.SetLocalDevMode(*local)
 	}
 	c := &http.Client{
-		Transport: httputil.NewAuthTransport(&http.Transport{}),
+		Transport: &httputil.AuthTransport{
+			Base:               http.DefaultTransport,
+			UserAgent:          os.Getenv("USER_AGENT"),
+			GithubToken:        os.Getenv("GITHUB_TOKEN"),
+			GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+			GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		},
 	}
 	dir, err := gosrc.Get(c, path, *etag)
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
