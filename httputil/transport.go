@@ -71,7 +71,7 @@ func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		reqCopy = copyRequest(req)
 		reqCopy.Header.Set("User-Agent", t.UserAgent)
 	}
-	if req.URL.Host == "api.github.com" {
+	if req.URL.Host == "api.github.com" && req.URL.Scheme == "https" {
 		switch {
 		case t.ClientID != "" && t.ClientSecret != "":
 			if reqCopy == nil {
