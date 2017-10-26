@@ -9,7 +9,11 @@ package requestlog
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -183,4 +187,33 @@ func BenchmarkFluentdLog(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		l.Log(ent)
 	}
+}
+
+func BenchmarkE2E(b *testing.B) {
+	run := func(b *testing.B, handler http.Handler) {
+		s := httptest.NewServer(handler)
+		defer s.Close()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			resp, err := s.Client().Get(s.URL)
+			if err != nil {
+				b.Fatal(err)
+			}
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
+	}
+	b.Run("Baseline", func(b *testing.B) {
+		run(b, http.HandlerFunc(benchHandler))
+	})
+	b.Run("WithLog", func(b *testing.B) {
+		l := NewFluentdLogger(ioutil.Discard, "mytag", func(error) {})
+		run(b, NewHandler(l, http.HandlerFunc(benchHandler)))
+	})
+}
+
+func benchHandler(w http.ResponseWriter, r *http.Request) {
+	const msg = "Hello, World!"
+	w.Header().Set("Content-Length", fmt.Sprint(len(msg)))
+	io.WriteString(w, msg)
 }
