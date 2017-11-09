@@ -8,38 +8,38 @@
 	"Deps": [
 		{
 			"ImportPath": "cloud.google.com/go/compute/metadata",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "cloud.google.com/go/internal/tracecontext",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "cloud.google.com/go/internal/version",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "cloud.google.com/go/logging",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "cloud.google.com/go/logging/apiv2",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "cloud.google.com/go/logging/internal",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "cloud.google.com/go/trace",
-			"Comment": "v0.13.0-17-g4b5faa4",
-			"Rev": "4b5faa47331c50b3f75616de199da5fea9c50bea"
+			"Comment": "v0.16.0",
+			"Rev": "2d3a6656c17a60b0815b7e06ab0be04eacb6e613"
 		},
 		{
 			"ImportPath": "github.com/bradfitz/gomemcache/memcache",
