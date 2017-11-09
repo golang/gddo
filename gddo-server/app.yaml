@@ -1,10 +1,9 @@
 # This YAML file is used for local deployment with GAE development environment.
+env: flex
 runtime: go
-vm: true
-api_version: 1
-threadsafe: true
 
-handlers:
-- url: /.*
-  script: IGNORED
-  secure: always
+liveness_check:
+  path: /_ah/health
+
+readiness_check:
+  path: /_ah/ready

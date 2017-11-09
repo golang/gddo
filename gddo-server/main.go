@@ -36,6 +36,7 @@ import (
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
+	"github.com/golang/gddo/internal/health"
 )
 
 const (
@@ -586,10 +587,6 @@ func (s *server) serveBot(resp http.ResponseWriter, req *http.Request) error {
 	return s.templates.execute(resp, "bot.html", http.StatusOK, nil, nil)
 }
 
-func serveHealthCheck(resp http.ResponseWriter, req *http.Request) {
-	resp.Write([]byte("Health check: ok\n"))
-}
-
 func logError(req *http.Request, err error, rv interface{}) {
 	if err != nil {
 		var buf bytes.Buffer
@@ -936,7 +933,9 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/", handler(s.serveHome))
 
 	ahMux := http.NewServeMux()
-	ahMux.HandleFunc("/_ah/health", serveHealthCheck)
+	ready := new(health.Handler)
+	ahMux.HandleFunc("/_ah/health", health.HandleLive)
+	ahMux.Handle("/_ah/ready", ready)
 
 	mainMux := http.NewServeMux()
 	mainMux.Handle("/_ah/", ahMux)
@@ -962,6 +961,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %v", err)
 	}
+	ready.Add(s.db)
 	if gceLogName := v.GetString(ConfigGCELogName); gceLogName != "" {
 		logc, err := logging.NewClient(ctx, v.GetString(ConfigProject))
 		if err != nil {

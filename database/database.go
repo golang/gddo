@@ -144,12 +144,6 @@ func New(serverURI string, idleTimeout time.Duration, logConn bool, gaeEndpoint 
 		IdleTimeout: idleTimeout,
 	}
 
-	c := pool.Get()
-	if c.Err() != nil {
-		return nil, c.Err()
-	}
-	c.Close()
-
 	var rc *remote_api.Client
 	if gaeEndpoint != "" {
 		var err error
@@ -159,6 +153,16 @@ func New(serverURI string, idleTimeout time.Duration, logConn bool, gaeEndpoint 
 	}
 
 	return &Database{Pool: pool, RemoteClient: rc}, nil
+}
+
+func (db *Database) CheckHealth() error {
+	// TODO(light): get() can trigger a dial.  Ideally, the pool could
+	// inform whether or not a lack of connections is due to idleness or
+	// errors.
+	c := db.Pool.Get()
+	err := c.Err()
+	c.Close()
+	return err
 }
 
 // Exists returns true if package with import path exists in the database.
