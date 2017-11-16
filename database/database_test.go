@@ -7,14 +7,14 @@
 package database
 
 import (
+	"context"
 	"math"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
-	"google.golang.org/appengine/aetest"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/golang/gddo/doc"
 )
@@ -40,13 +40,7 @@ func newDB(t *testing.T) *Database {
 		t.Errorf("DBSIZE returned %d, %v", n, err)
 	}
 
-	ctx, done, err := aetest.NewContext()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer done()
-
-	return &Database{Pool: p, AppEngineContext: ctx}
+	return &Database{Pool: p, RemoteClient: nil}
 }
 
 func closeDB(db *Database) {
@@ -56,6 +50,7 @@ func closeDB(db *Database) {
 }
 
 func TestPutGet(t *testing.T) {
+	ctx := context.Background()
 	var nextCrawl = time.Unix(time.Now().Add(time.Hour).Unix(), 0).UTC()
 
 	db := newDB(t)
@@ -69,21 +64,21 @@ func TestPutGet(t *testing.T) {
 		Updated:     time.Now().Add(-time.Hour),
 		Imports:     []string{"C", "errors", "github.com/user/repo/foo/bar"}, // self import for testing convenience.
 	}
-	if err := db.Put(pdoc, nextCrawl, false); err != nil {
+	if err := db.Put(ctx, pdoc, nextCrawl, false); err != nil {
 		t.Errorf("db.Put() returned error %v", err)
 	}
-	if err := db.Put(pdoc, time.Time{}, false); err != nil {
+	if err := db.Put(ctx, pdoc, time.Time{}, false); err != nil {
 		t.Errorf("second db.Put() returned error %v", err)
 	}
 
-	actualPdoc, actualSubdirs, actualCrawl, err := db.Get("github.com/user/repo/foo/bar")
+	actualPdoc, actualSubdirs, actualCrawl, err := db.Get(ctx, "github.com/user/repo/foo/bar")
 	if err != nil {
 		t.Fatalf("db.Get(.../foo/bar) returned %v", err)
 	}
 	if len(actualSubdirs) != 0 {
 		t.Errorf("db.Get(.../foo/bar) returned subdirs %v, want none", actualSubdirs)
 	}
-	if !reflect.DeepEqual(actualPdoc, pdoc) {
+	if !cmp.Equal(actualPdoc, pdoc) {
 		t.Errorf("db.Get(.../foo/bar) returned doc %v, want %v", actualPdoc, pdoc)
 	}
 	if !nextCrawl.Equal(actualCrawl) {
@@ -96,7 +91,7 @@ func TestPutGet(t *testing.T) {
 	}
 	after := time.Now().Unix()
 
-	_, _, actualCrawl, _ = db.Get("github.com/user/repo/foo/bar")
+	_, _, actualCrawl, _ = db.Get(ctx, "github.com/user/repo/foo/bar")
 	if actualCrawl.Unix() < before || after < actualCrawl.Unix() {
 		t.Errorf("actualCrawl=%v, expect value between %v and %v", actualCrawl.Unix(), before, after)
 	}
@@ -109,15 +104,15 @@ func TestPutGet(t *testing.T) {
 
 	// Get "-"
 
-	actualPdoc, _, _, err = db.Get("-")
+	actualPdoc, _, _, err = db.Get(ctx, "-")
 	if err != nil {
 		t.Fatalf("db.Get(-) returned %v", err)
 	}
-	if !reflect.DeepEqual(actualPdoc, pdoc) {
+	if !cmp.Equal(actualPdoc, pdoc) {
 		t.Errorf("db.Get(-) returned doc %v, want %v", actualPdoc, pdoc)
 	}
 
-	actualPdoc, actualSubdirs, _, err = db.Get("github.com/user/repo/foo")
+	actualPdoc, actualSubdirs, _, err = db.Get(ctx, "github.com/user/repo/foo")
 	if err != nil {
 		t.Fatalf("db.Get(.../foo) returned %v", err)
 	}
@@ -125,7 +120,7 @@ func TestPutGet(t *testing.T) {
 		t.Errorf("db.Get(.../foo) returned doc %v, want %v", actualPdoc, nil)
 	}
 	expectedSubdirs := []Package{{Path: "github.com/user/repo/foo/bar", Synopsis: "hello"}}
-	if !reflect.DeepEqual(actualSubdirs, expectedSubdirs) {
+	if !cmp.Equal(actualSubdirs, expectedSubdirs) {
 		t.Errorf("db.Get(.../foo) returned subdirs %v, want %v", actualSubdirs, expectedSubdirs)
 	}
 	actualImporters, err := db.Importers("github.com/user/repo/foo/bar")
@@ -133,7 +128,7 @@ func TestPutGet(t *testing.T) {
 		t.Fatalf("db.Importers() returned error %v", err)
 	}
 	expectedImporters := []Package{{Path: "github.com/user/repo/foo/bar", Synopsis: "hello"}}
-	if !reflect.DeepEqual(actualImporters, expectedImporters) {
+	if !cmp.Equal(actualImporters, expectedImporters) {
 		t.Errorf("db.Importers() = %v, want %v", actualImporters, expectedImporters)
 	}
 	actualImports, err := db.Packages(pdoc.Imports)
@@ -150,20 +145,20 @@ func TestPutGet(t *testing.T) {
 		{Path: "errors", Synopsis: ""},
 		{Path: "github.com/user/repo/foo/bar", Synopsis: "hello"},
 	}
-	if !reflect.DeepEqual(actualImports, expectedImports) {
+	if !cmp.Equal(actualImports, expectedImports) {
 		t.Errorf("db.Imports() = %v, want %v", actualImports, expectedImports)
 	}
 	importerCount, _ := db.ImporterCount("github.com/user/repo/foo/bar")
 	if importerCount != 1 {
 		t.Errorf("db.ImporterCount() = %d, want %d", importerCount, 1)
 	}
-	if err := db.Delete("github.com/user/repo/foo/bar"); err != nil {
+	if err := db.Delete(ctx, "github.com/user/repo/foo/bar"); err != nil {
 		t.Errorf("db.Delete() returned error %v", err)
 	}
 
 	db.Query("bar")
 
-	if err := db.Put(pdoc, time.Time{}, false); err != nil {
+	if err := db.Put(ctx, pdoc, time.Time{}, false); err != nil {
 		t.Errorf("db.Put() returned error %v", err)
 	}
 

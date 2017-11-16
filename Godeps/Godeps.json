@@ -107,6 +107,26 @@
 			"Rev": "553a641470496b2327abcac10b36396bd98e45c9"
 		},
 		{
+			"ImportPath": "github.com/google/go-cmp/cmp",
+			"Comment": "v0.1.0-10-g9823290",
+			"Rev": "98232909528519e571b2e69fbe546b6ef35f5780"
+		},
+		{
+			"ImportPath": "github.com/google/go-cmp/cmp/internal/diff",
+			"Comment": "v0.1.0-10-g9823290",
+			"Rev": "98232909528519e571b2e69fbe546b6ef35f5780"
+		},
+		{
+			"ImportPath": "github.com/google/go-cmp/cmp/internal/function",
+			"Comment": "v0.1.0-10-g9823290",
+			"Rev": "98232909528519e571b2e69fbe546b6ef35f5780"
+		},
+		{
+			"ImportPath": "github.com/google/go-cmp/cmp/internal/value",
+			"Comment": "v0.1.0-10-g9823290",
+			"Rev": "98232909528519e571b2e69fbe546b6ef35f5780"
+		},
+		{
 			"ImportPath": "github.com/googleapis/gax-go",
 			"Comment": "v2.0.0",
 			"Rev": "317e0006254c44a0ac427cc52a0e083ff0b9622f"

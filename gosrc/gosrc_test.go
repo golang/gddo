@@ -7,14 +7,16 @@
 package gosrc
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"path"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var testWeb = map[string]string{
@@ -220,7 +222,7 @@ func (t testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 var githubPattern = regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/[a-z0-9A-Z_.\-/]*)?$`)
 
-func testGet(client *http.Client, match map[string]string, etag string) (*Directory, error) {
+func testGet(ctx context.Context, client *http.Client, match map[string]string, etag string) (*Directory, error) {
 	importPath := match["importPath"]
 
 	if m := githubPattern.FindStringSubmatch(importPath); m != nil {
@@ -268,7 +270,7 @@ func TestGetDynamic(t *testing.T) {
 	client := &http.Client{Transport: testTransport(testWeb)}
 
 	for _, tt := range getDynamicTests {
-		dir, err := getDynamic(client, tt.importPath, "")
+		dir, err := getDynamic(context.Background(), client, tt.importPath, "")
 
 		if tt.dir == nil {
 			if err == nil {
@@ -282,7 +284,7 @@ func TestGetDynamic(t *testing.T) {
 			continue
 		}
 
-		if !reflect.DeepEqual(dir, tt.dir) {
+		if !cmp.Equal(dir, tt.dir) {
 			t.Errorf("getDynamic(client, %q, etag) =\n     %+v,\nwant %+v", tt.importPath, dir, tt.dir)
 			for i, f := range dir.Files {
 				var want *File

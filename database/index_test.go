@@ -7,11 +7,11 @@
 package database
 
 import (
-	"reflect"
 	"sort"
 	"testing"
 
 	"github.com/golang/gddo/doc"
+	"github.com/google/go-cmp/cmp"
 )
 
 var indexTests = []struct {
@@ -94,7 +94,7 @@ func TestDocTerms(t *testing.T) {
 		terms := documentTerms(tt.pdoc, score)
 		sort.Strings(terms)
 		sort.Strings(tt.terms)
-		if !reflect.DeepEqual(terms, tt.terms) {
+		if !cmp.Equal(terms, tt.terms) {
 			t.Errorf("documentTerms(%s) ->\n got: %#v\nwant: %#v", tt.pdoc.ImportPath, terms, tt.terms)
 		}
 	}
@@ -195,7 +195,7 @@ func TestSynopsisTerms(t *testing.T) {
 		expected := tt.terms
 		sort.Strings(actual)
 		sort.Strings(expected)
-		if !reflect.DeepEqual(actual, expected) {
+		if !cmp.Equal(actual, expected) {
 			t.Errorf("%q ->\n got: %#v\nwant: %#v", tt.synopsis, actual, expected)
 		}
 	}

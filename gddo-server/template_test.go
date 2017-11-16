@@ -9,9 +9,10 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestFlashMessages(t *testing.T) {
@@ -27,7 +28,7 @@ func TestFlashMessages(t *testing.T) {
 	req := &http.Request{Header: http.Header{"Cookie": {strings.Split(resp.Header().Get("Set-Cookie"), ";")[0]}}}
 
 	actualMessages := getFlashMessages(resp, req)
-	if !reflect.DeepEqual(actualMessages, expectedMessages) {
+	if !cmp.Equal(actualMessages, expectedMessages) {
 		t.Errorf("got messages %+v, want %+v", actualMessages, expectedMessages)
 	}
 }

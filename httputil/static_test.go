@@ -14,12 +14,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/golang/gddo/httputil"
+	"github.com/google/go-cmp/cmp"
 )
 
 var (
@@ -151,7 +151,7 @@ func testStaticServer(t *testing.T, f func(*httputil.StaticServer) http.Handler)
 			t.Errorf("%s, status=%d, want %d", tt.name, w.Code, tt.status)
 		}
 
-		if !reflect.DeepEqual(w.HeaderMap, tt.header) {
+		if !cmp.Equal(w.HeaderMap, tt.header) {
 			t.Errorf("%s\n\theader=%v,\n\twant   %v", tt.name, w.HeaderMap, tt.header)
 		}
 
