@@ -195,7 +195,7 @@ func BenchmarkE2E(b *testing.B) {
 		defer s.Close()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			resp, err := s.Client().Get(s.URL)
+			resp, err := http.Get(s.URL)
 			if err != nil {
 				b.Fatal(err)
 			}
