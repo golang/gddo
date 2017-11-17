@@ -12,9 +12,11 @@ install:
   - unzip -q gae_sdk.zip -d ~
 services:
   - redis-server
+before_script:
+  - export PATH=$PATH:"$HOME/go_appengine"
 script:
   - go test -v $(go list ./... | grep -v '/vendor\|gae-service-proxy\|talksapp\|lintapp')
   - pushd talksapp
   - ./setup.sh
-  - go test -v .
+  - goapp test -v .
   - popd
