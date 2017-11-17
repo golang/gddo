@@ -67,7 +67,7 @@ func TestChecker(t *testing.T) {
 }
 
 func check(s *httptest.Server) (code int, err error) {
-	resp, err := s.Client().Get(s.URL)
+	resp, err := http.Get(s.URL)
 	if err != nil {
 		return 0, err
 	}
