@@ -23,19 +23,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// endpoint is the address of the GCP Runtime Configurator API.
-const endPoint = "runtimeconfig.googleapis.com:443"
+const (
+	// endpoint is the address of the GCP Runtime Configurator API.
+	endPoint = "runtimeconfig.googleapis.com:443"
+	// defaultWaitTimeout is the default value for WatchOptions.WaitTime if not set.
+	defaultWaitTimeout = 10 * time.Minute
+)
 
 // List of authentication scopes required for using the Runtime Configurator API.
 var authScopes = []string{
 	"https://www.googleapis.com/auth/cloud-platform",
 	"https://www.googleapis.com/auth/cloudruntimeconfig",
 }
-
-const (
-	defaultWaitTimeout = 10 * time.Minute
-	minWaitTimeout     = 10 * time.Second
-)
 
 // Client is a RuntimeConfigManager client.  It wraps the gRPC client stub and currently exposes
 // only a few APIs primarily for fetching and watching over configuration variables.
@@ -82,8 +81,8 @@ func (c *Client) NewWatcher(ctx context.Context, projectID, configName, varName 
 	switch {
 	case waitTime == 0:
 		waitTime = defaultWaitTimeout
-	case waitTime < minWaitTimeout:
-		waitTime = minWaitTimeout
+	case waitTime < 0:
+		return nil, fmt.Errorf("cannot have negative WaitTime option value: %v", waitTime)
 	}
 
 	// Make sure update time is valid before copying.
@@ -105,10 +104,10 @@ func (c *Client) NewWatcher(ctx context.Context, projectID, configName, varName 
 type WatchOptions struct {
 	// WaitTime controls the frequency of making RPC and checking for updates by the Watch method.
 	// A Watcher keeps track of the last time it made an RPC, when Watch is called, it waits for
-	// configured WaitTime from the last RPC before making another RPC.
+	// configured WaitTime from the last RPC before making another RPC. The smaller the value, the
+	// higher the frequency of making RPCs, which also means faster rate of hitting the API quota.
 	//
-	// If this option is not set, it defaults to defaultWaitTimeout.  If option is set to a value
-	// smaller than minWaitTimeout, it uses minWaitTimeout value instead.
+	// If this option is not set or set to 0, it uses defaultWaitTimeout value.
 	WaitTime time.Duration
 }
 
