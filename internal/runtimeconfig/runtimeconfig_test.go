@@ -48,12 +48,10 @@ func (s *fakeServer) GetVariable(context.Context, *pb.GetVariableRequest) (*pb.V
 }
 
 func setUp(t *testing.T, fs *fakeServer) (*Client, func()) {
-	// TODO: Replace logic to use a port picker.
-	const address = "localhost:8888"
 	// Set up gRPC server.
-	lis, err := net.Listen("tcp", address)
+	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatalf("tcp listen on %s failed: %v", address, err)
+		t.Fatalf("tcp listen failed: %v", err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterRuntimeConfigManagerServer(s, fs)
@@ -61,7 +59,7 @@ func setUp(t *testing.T, fs *fakeServer) (*Client, func()) {
 	go s.Serve(lis)
 
 	// Set up client.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("did not connect: %v", err)
 	}
