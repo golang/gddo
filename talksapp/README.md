@@ -1,7 +1,7 @@
 talksapp
 ========
 
-This directory contains the source for [go-talks.appspot.com](http://go-talks.appspot.com).
+This directory contains the source for [talks.godoc.org](https://talks.godoc.org).
 
 Development Environment Setup
 -----------------------------

@@ -34,8 +34,8 @@ func TestHome(t *testing.T) {
 			t.Fatalf("expected status: %d, got: %d", http.StatusOK, w.Code)
 		}
 
-		if !strings.Contains(w.Body.String(), "go-talks.appspot.org") {
-			t.Fatal("expected response to contain: go-talks.appspot.org")
+		if !strings.Contains(w.Body.String(), "talks.godoc.org") {
+			t.Fatal("expected response to contain: talks.godoc.org")
 		}
 	})
 }

@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd.
 
-// Package talksapp implements the go-talks.appspot.com server.
+// Package talksapp implements the talks.godoc.org server.
 package talksapp
 
 import (
