@@ -19,8 +19,6 @@ Contributions to this project are welcome, though please [file an
 issue](https://github.com/golang/gddo/issues/new). before starting work on
 anything major.
 
-**We do not accept GitHub pull requests**
-
 Please refer to the [Contribution
 Guidelines](https://golang.org/doc/contribute.html) on how to submit changes.
 
