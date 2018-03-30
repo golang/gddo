@@ -273,53 +273,9 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	switch {
-	case len(req.Form) == 0:
-		importerCount := 0
-		if pdoc.Name != "" {
-			importerCount, err = s.db.ImporterCount(importPath)
-			if err != nil {
-				return err
-			}
-		}
-
-		etag := s.httpEtag(pdoc, pkgs, importerCount, flashMessages)
-		status := http.StatusOK
-		if req.Header.Get("If-None-Match") == etag {
-			status = http.StatusNotModified
-		}
-
-		if requestType == humanRequest &&
-			pdoc.Name != "" && // not a directory
-			pdoc.ProjectRoot != "" && // not a standard package
-			!pdoc.IsCmd &&
-			len(pdoc.Errors) == 0 &&
-			!popularLinkReferral(req) {
-			if err := s.db.IncrementPopularScore(pdoc.ImportPath); err != nil {
-				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
-			}
-		}
-		if s.gceLogger != nil {
-			s.gceLogger.LogEvent(resp, req, nil)
-		}
-
-		template := "dir"
-		switch {
-		case pdoc.IsCmd:
-			template = "cmd"
-		case pdoc.Name != "":
-			template = "pkg"
-		}
-		template += templateExt(req)
-
-		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          removeInternal(pdoc, pkgs),
-			"pdoc":          newTDoc(s.v, pdoc),
-			"importerCount": importerCount,
-		})
 	case isView(req, "imports"):
 		if pdoc.Name == "" {
-			break
+			return &httpError{status: http.StatusNotFound}
 		}
 		pkgs, err = s.db.Packages(pdoc.Imports)
 		if err != nil {
@@ -342,7 +298,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		})
 	case isView(req, "importers"):
 		if pdoc.Name == "" {
-			break
+			return &httpError{status: http.StatusNotFound}
 		}
 		pkgs, err = s.db.Importers(importPath)
 		if err != nil {
@@ -363,7 +319,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return &httpError{status: http.StatusForbidden}
 		}
 		if pdoc.Name == "" {
-			break
+			return &httpError{status: http.StatusNotFound}
 		}
 		hide := database.ShowAllDeps
 		switch req.Form.Get("hide") {
@@ -412,8 +368,52 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			http.Redirect(resp, req, u.String(), http.StatusMovedPermanently)
 			return nil
 		}
+		return &httpError{status: http.StatusNotFound}
+	default:
+		importerCount := 0
+		if pdoc.Name != "" {
+			importerCount, err = s.db.ImporterCount(importPath)
+			if err != nil {
+				return err
+			}
+		}
+
+		etag := s.httpEtag(pdoc, pkgs, importerCount, flashMessages)
+		status := http.StatusOK
+		if req.Header.Get("If-None-Match") == etag {
+			status = http.StatusNotModified
+		}
+
+		if requestType == humanRequest &&
+			pdoc.Name != "" && // not a directory
+			pdoc.ProjectRoot != "" && // not a standard package
+			!pdoc.IsCmd &&
+			len(pdoc.Errors) == 0 &&
+			!popularLinkReferral(req) {
+			if err := s.db.IncrementPopularScore(pdoc.ImportPath); err != nil {
+				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
+			}
+		}
+		if s.gceLogger != nil {
+			s.gceLogger.LogEvent(resp, req, nil)
+		}
+
+		template := "dir"
+		switch {
+		case pdoc.IsCmd:
+			template = "cmd"
+		case pdoc.Name != "":
+			template = "pkg"
+		}
+		template += templateExt(req)
+
+		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
+			"flashMessages": flashMessages,
+			"pkgs":          removeInternal(pdoc, pkgs),
+			"pdoc":          newTDoc(s.v, pdoc),
+			"importerCount": importerCount,
+		})
 	}
-	return &httpError{status: http.StatusNotFound}
 }
 
 func (s *server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
