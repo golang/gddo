@@ -65,6 +65,9 @@ const (
 	ConfigGithubToken        = "github_token"
 	ConfigGithubClientID     = "github_client_id"
 	ConfigGithubClientSecret = "github_client_secret"
+
+	// Pub/Sub Config
+	ConfigCrawlPubSubTopic = "crawl-events"
 )
 
 func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {

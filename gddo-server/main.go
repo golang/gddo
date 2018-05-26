@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/logging"
+	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/trace"
 	"github.com/spf13/viper"
 
@@ -838,6 +839,7 @@ type server struct {
 	gceLogger   *GCELogger
 	templates   templateMap
 	traceClient *trace.Client
+	crawlTopic  *pubsub.Topic
 
 	statusPNG http.Handler
 	statusSVG http.Handler
@@ -861,6 +863,13 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 			return nil, err
 		}
 		s.traceClient.SetSamplingPolicy(sp)
+
+		// This topic should be created in the cloud console.
+		ps, err := pubsub.NewClient(ctx, proj)
+		if err != nil {
+			return nil, err
+		}
+		s.crawlTopic = ps.Topic(ConfigCrawlPubSubTopic)
 	}
 
 	assets := v.GetString(ConfigAssetsDir)
