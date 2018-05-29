@@ -26,7 +26,7 @@ var (
 )
 
 // crawlNote is a message sent to Pub/Sub when a crawl occurs.
-// It is encoded with encoding/gob, so changes should match its
+// It is encoded as JSON, so changes should match its
 // compatibility requirements.
 type crawlNote struct {
 	ImportPath string
