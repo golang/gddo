@@ -302,6 +302,10 @@ metaScan:
 					errorMessage = "go-import meta tag content attribute does not have three fields"
 					continue metaScan
 				}
+				if fields[1] == "mod" {
+					// vgo adds a special mod vcs type; we can skip this
+					continue
+				}
 				if im != nil {
 					im = nil
 					errorMessage = "more than one go-import meta tag found"

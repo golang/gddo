@@ -86,6 +86,14 @@ var testWeb = map[string]string{
 		`<meta name="go-source" content="azul3d.org/examples https://github.com/azul3d/examples https://gotools.org/azul3d.org/examples{/dir} https://gotools.org/azul3d.org/examples{/dir}#{file}-L{line}">` +
 		`<meta http-equiv="refresh" content="0; url=https://godoc.org/azul3d.org/examples/abs">` +
 		`</head>`,
+
+	// Multiple go-import meta tags; one of which is a vgo-special mod vcs type
+	"http://myitcv.io/blah2": `<!DOCTYPE html><html><head>` +
+		`<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>` +
+		`<meta name="go-import" content="myitcv.io/blah2 git https://github.com/myitcv/x">` +
+		`<meta name="go-import" content="myitcv.io/blah2 mod https://raw.githubusercontent.com/myitcv/pubx/master">` +
+		`<meta name="go-source" content="myitcv.io https://github.com/myitcv/x/wiki https://github.com/myitcv/x/tree/master{/dir} https://github.com/myitcv/x/blob/master{/dir}/{file}#L{line}">` +
+		`</head>`,
 }
 
 var getDynamicTests = []struct {
@@ -201,6 +209,17 @@ var getDynamicTests = []struct {
 		ResolvedPath: "github.com/azul3d/examples/abs",
 		VCS:          "git",
 		Files:        []*File{{Name: "main.go", BrowseURL: "https://gotools.org/azul3d.org/examples/abs#main.go"}},
+	}},
+	{"myitcv.io/blah2", &Directory{
+		BrowseURL:    "https://github.com/myitcv/x",
+		ImportPath:   "myitcv.io/blah2",
+		LineFmt:      "%s#L%d",
+		ProjectName:  "blah2",
+		ProjectRoot:  "myitcv.io/blah2",
+		ProjectURL:   "http://myitcv.io/blah2",
+		ResolvedPath: "github.com/myitcv/x",
+		VCS:          "git",
+		Files:        []*File{{Name: "main.go", BrowseURL: "https://github.com/myitcv/x/blob/master/main.go"}},
 	}},
 }
 
