@@ -378,6 +378,9 @@ func getDynamic(ctx context.Context, client *http.Client, importPath, etag strin
 	proto := im.repo[:i]
 	clonePath := im.repo[i+len("://"):]
 	repo := strings.TrimSuffix(clonePath, "."+im.vcs)
+	if !IsValidRemotePath(repo) {
+		return nil, fmt.Errorf("bad path from meta: %s", repo)
+	}
 	dirName := importPath[len(im.projectRoot):]
 
 	resolvedPath := repo + dirName

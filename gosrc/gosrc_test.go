@@ -94,6 +94,9 @@ var testWeb = map[string]string{
 		`<meta name="go-import" content="myitcv.io/blah2 mod https://raw.githubusercontent.com/myitcv/pubx/master">` +
 		`<meta name="go-source" content="myitcv.io https://github.com/myitcv/x/wiki https://github.com/myitcv/x/tree/master{/dir} https://github.com/myitcv/x/blob/master{/dir}/{file}#L{line}">` +
 		`</head>`,
+
+	// The repo element of go-import includes "../"
+	"http://my.host/pkg": `<head> <meta name="go-import" content="my.host/pkg git http://vcs.net/myhost/../../tmp/pkg.git"></head>`,
 }
 
 var getDynamicTests = []struct {
@@ -221,6 +224,7 @@ var getDynamicTests = []struct {
 		VCS:          "git",
 		Files:        []*File{{Name: "main.go", BrowseURL: "https://github.com/myitcv/x/blob/master/main.go"}},
 	}},
+	{"my.host/pkg", nil},
 }
 
 type testTransport map[string]string
@@ -293,13 +297,13 @@ func TestGetDynamic(t *testing.T) {
 
 		if tt.dir == nil {
 			if err == nil {
-				t.Errorf("getDynamic(client, %q, etag) did not return expected error", tt.importPath)
+				t.Errorf("getDynamic(ctx, client, %q, etag) did not return expected error", tt.importPath)
 			}
 			continue
 		}
 
 		if err != nil {
-			t.Errorf("getDynamic(client, %q, etag) return unexpected error: %v", tt.importPath, err)
+			t.Errorf("getDynamic(ctx, client, %q, etag) return unexpected error: %v", tt.importPath, err)
 			continue
 		}
 
