@@ -776,13 +776,36 @@ func (db *Database) Block(root string) error {
 	if _, err := c.Do("SADD", "block", root); err != nil {
 		return err
 	}
+
+	// Remove all packages under the project root.
 	keys, err := redis.Strings(c.Do("HKEYS", "ids"))
 	if err != nil {
 		return err
 	}
+	ctx := context.Background()
 	for _, key := range keys {
 		if key == root || strings.HasPrefix(key, root) && key[len(root)] == '/' {
+			id, err := redis.String(c.Do("HGET", "ids", key))
+			if err != nil {
+				return fmt.Errorf("cannot get package id for %s: %v", key, err)
+			}
 			if _, err := deleteScript.Do(c, key); err != nil {
+				return err
+			}
+			if err := deleteIndex(db.RemoteClient.NewContext(ctx), id); err != nil && err != search.ErrNoSuchDocument {
+				return err
+			}
+		}
+	}
+
+	// Remove all packages in the newCrawl set under the project root.
+	newCrawls, err := redis.Strings(c.Do("SORT", "newCrawl", "BY", "nosort"))
+	if err != nil {
+		return fmt.Errorf("cannot list newCrawl: %v", err)
+	}
+	for _, nc := range newCrawls {
+		if nc == root || strings.HasPrefix(nc, root) && nc[len(root)] == '/' {
+			if _, err := deleteScript.Do(c, nc); err != nil {
 				return err
 			}
 		}
