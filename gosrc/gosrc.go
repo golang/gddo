@@ -55,6 +55,13 @@ type Directory struct {
 	// Import path of package after resolving go-import meta tags, if any.
 	ResolvedPath string
 
+	// Import path of package with the canonical user/repo case as reported by
+	// the github.com server. Optional.
+	// If set, used to ensure canonical case is used when there's no import path
+	// comment (e.g., to redirect from "github.com/UsEr/rEpO/dir" to
+	// "github.com/User/Repo/dir").
+	ResolvedGitHubPath string
+
 	// Import path prefix for all packages in the project.
 	ProjectRoot string
 

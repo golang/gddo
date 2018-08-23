@@ -36,7 +36,6 @@ func init() {
 var (
 	gitHubRawHeader     = http.Header{"Accept": {"application/vnd.github-blob.raw"}}
 	gitHubPreviewHeader = http.Header{"Accept": {"application/vnd.github.preview"}}
-	ownerRepoPat        = regexp.MustCompile(`^https://api.github.com/repos/([^/]+/[^/]+)/`)
 )
 
 type githubCommit struct {
@@ -63,6 +62,7 @@ func getGitHubDir(ctx context.Context, client *http.Client, match map[string]str
 	c := &httpClient{client: client, errFn: gitHubError}
 
 	var repo struct {
+		FullName      string    `json:"full_name"`
 		Fork          bool      `json:"fork"`
 		Stars         int       `json:"stargazers_count"`
 		CreatedAt     time.Time `json:"created_at"`
@@ -126,10 +126,6 @@ func getGitHubDir(ctx context.Context, client *http.Client, match map[string]str
 		return nil, NotFoundError{Message: "No files in directory."}
 	}
 
-	if err := validateGitHubProjectName(contents[0].GitURL, match); err != nil {
-		return nil, err
-	}
-
 	var files []*File
 	var dataURLs []string
 	var subdirs []string
@@ -158,41 +154,20 @@ func getGitHubDir(ctx context.Context, client *http.Client, match map[string]str
 	}
 
 	return &Directory{
-		BrowseURL:      browseURL,
-		Etag:           commits[0].ID,
-		Files:          files,
-		LineFmt:        "%s#L%d",
-		ProjectName:    match["repo"],
-		ProjectRoot:    expand("github.com/{owner}/{repo}", match),
-		ProjectURL:     expand("https://github.com/{owner}/{repo}", match),
-		Subdirectories: subdirs,
-		VCS:            "git",
-		Status:         status,
-		Fork:           repo.Fork,
-		Stars:          repo.Stars,
+		ResolvedGitHubPath: "github.com/" + repo.FullName + match["dir"],
+		BrowseURL:          browseURL,
+		Etag:               commits[0].ID,
+		Files:              files,
+		LineFmt:            "%s#L%d",
+		ProjectName:        match["repo"],
+		ProjectRoot:        expand("github.com/{owner}/{repo}", match),
+		ProjectURL:         expand("https://github.com/{owner}/{repo}", match),
+		Subdirectories:     subdirs,
+		VCS:                "git",
+		Status:             status,
+		Fork:               repo.Fork,
+		Stars:              repo.Stars,
 	}, nil
-}
-
-// validateGitHubProjectName checks if the requested owner and repo names match
-// the case of the canonical names returned by Github. GitHub owner and repo names
-// are case-insensitive so they must be normalized to the canonical casing.
-//
-// Returns a not found error if the names are the same, but have different case.
-// Returns nil if the names match exactly, or if the names are different,
-// which will happen if the url is a github redirect to a new project name.
-func validateGitHubProjectName(canonicalName string, requestMatch map[string]string) error {
-	m := ownerRepoPat.FindStringSubmatch(canonicalName)
-	if m == nil {
-		return nil
-	}
-	requestedName := requestMatch["owner"] + "/" + requestMatch["repo"]
-	if m[1] == requestedName || !strings.EqualFold(m[1], requestedName) {
-		return nil
-	}
-	return NotFoundError{
-		Message:  "Github import path has incorrect case.",
-		Redirect: fmt.Sprintf("github.com/%s%s", m[1], requestMatch["dir"]),
-	}
 }
 
 // isQuickFork reports whether the repository is a "quick fork":
