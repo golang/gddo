@@ -410,7 +410,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 
 		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
 			"flashMessages": flashMessages,
-			"pkgs":          removeInternal(pdoc, pkgs),
+			"pkgs":          pkgs,
 			"pdoc":          newTDoc(s.v, pdoc),
 			"importerCount": importerCount,
 		})
@@ -1018,29 +1018,4 @@ func main() {
 	}()
 	http.Handle("/", s)
 	log.Fatal(http.ListenAndServe(s.v.GetString(ConfigBindAddress), s))
-}
-
-// removeInternal removes the internal packages from the given package
-// listing unless they are direct children of the given pdoc.
-// Packages filtered by this function will only list internal packages
-// underneath their own package godoc.
-func removeInternal(pdoc *doc.Package, pkgs []database.Package) []database.Package {
-	const internalPkg = "internal"
-
-	if len(pkgs) == 0 {
-		return pkgs
-	}
-	var filtered []database.Package
-	for _, pkg := range pkgs {
-		// List internal packages only under their parent package.
-		// Always list children of the internal packages if user
-		// is looking at the internal godoc.
-		if pdoc.Name != internalPkg && strings.Contains(pkg.Path, internalPkg) {
-			if !strings.HasPrefix(pkg.Path, pdoc.ImportPath+"/"+internalPkg) {
-				continue
-			}
-		}
-		filtered = append(filtered, pkg)
-	}
-	return filtered
 }

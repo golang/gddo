@@ -7,11 +7,7 @@
 package main
 
 import (
-	"reflect"
 	"testing"
-
-	"github.com/golang/gddo/database"
-	"github.com/golang/gddo/doc"
 )
 
 var robotTests = []string{
@@ -35,79 +31,5 @@ func TestRobotPat(t *testing.T) {
 		if !robotPat.MatchString(tt) {
 			t.Errorf("%s not a robot", tt)
 		}
-	}
-}
-
-func TestRemoveInternalPkgs(t *testing.T) {
-	tests := []struct {
-		name string
-		pdoc *doc.Package
-		pkgs []database.Package
-		want []database.Package
-	}{
-		{
-			name: "no children",
-			pdoc: &doc.Package{
-				ImportPath: "github.com/user/repo",
-				Name:       "repo",
-			},
-			pkgs: []database.Package{},
-			want: []database.Package{},
-		},
-		{
-			name: "indirect internal children",
-			pdoc: &doc.Package{
-				ImportPath: "github.com/user/repo",
-				Name:       "repo",
-			},
-			pkgs: []database.Package{
-				{Name: "agent", Path: "github.com/user/repo/cmd/internal/agent"},
-				{Name: "agent", Path: "github.com/user/repo/cmd/internal/reporter"},
-				{Name: "tool", Path: "github.com/user/repo/cmd/tool"},
-			},
-			want: []database.Package{
-				{Name: "tool", Path: "github.com/user/repo/cmd/tool"},
-			},
-		},
-		{
-			name: "direct internal children",
-			pdoc: &doc.Package{
-				ImportPath: "github.com/user/repo",
-				Name:       "repo",
-			},
-			pkgs: []database.Package{
-				{Name: "agent", Path: "github.com/user/repo/internal/agent"},
-				{Name: "agent", Path: "github.com/user/repo/internal/reporter"},
-				{Name: "tool", Path: "github.com/user/repo/cmd/tool"},
-			},
-			want: []database.Package{
-				{Name: "agent", Path: "github.com/user/repo/internal/agent"},
-				{Name: "agent", Path: "github.com/user/repo/internal/reporter"},
-				{Name: "tool", Path: "github.com/user/repo/cmd/tool"},
-			},
-		},
-		{
-			name: "internal package",
-			pdoc: &doc.Package{
-				ImportPath: "github.com/user/repo/internal",
-				Name:       "internal",
-			},
-			pkgs: []database.Package{
-				{Name: "agent", Path: "github.com/user/repo/internal/agent"},
-				{Name: "tool", Path: "github.com/user/repo/internal/tool"},
-			},
-			want: []database.Package{
-				{Name: "agent", Path: "github.com/user/repo/internal/agent"},
-				{Name: "tool", Path: "github.com/user/repo/internal/tool"},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, want := removeInternal(tt.pdoc, tt.pkgs), tt.want
-			if !reflect.DeepEqual(got, want) {
-				t.Errorf("removeInternal() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
