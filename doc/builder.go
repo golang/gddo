@@ -465,6 +465,7 @@ var goEnvs = []struct{ GOOS, GOARCH string }{
 	{"linux", "amd64"},
 	{"darwin", "amd64"},
 	{"windows", "amd64"},
+	{"js", "wasm"},
 	{"linux", "js"},
 }
 
