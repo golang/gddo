@@ -25,7 +25,7 @@ type presBuilder struct {
 	fetch      func(fnames []string) ([]*File, error)
 }
 
-var assetPat = regexp.MustCompile(`(?m)^\.(play|code|image|iframe|html)\s+(?:-\S+\s+)*(\S+)`)
+var assetPat = regexp.MustCompile(`(?m)^\.(play|code|image|background|iframe|html)\s+(?:-\S+\s+)*(\S+)`)
 
 func (b *presBuilder) build() (*Presentation, error) {
 	var data []byte
@@ -34,7 +34,7 @@ func (b *presBuilder) build() (*Presentation, error) {
 	for _, m := range assetPat.FindAllSubmatchIndex(b.data, -1) {
 		name := filepath.Clean(string(b.data[m[4]:m[5]]))
 		switch string(b.data[m[2]:m[3]]) {
-		case "iframe", "image":
+		case "iframe", "image", "background":
 			data = append(data, b.data[i:m[4]]...)
 			data = append(data, b.resolveURL(name)...)
 		case "html":
