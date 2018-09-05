@@ -12,6 +12,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -54,7 +55,7 @@ func printDir(path string) {
 			GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 		},
 	}
-	dir, err := gosrc.Get(c, path, *etag)
+	dir, err := gosrc.Get(context.Background(), c, path, *etag)
 	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
 		log.Fatalf("redirect to %s", e.Redirect)
 	} else if err != nil {
@@ -78,7 +79,7 @@ func printDir(path string) {
 }
 
 func printPresentation(path string) {
-	pres, err := gosrc.GetPresentation(http.DefaultClient, path)
+	pres, err := gosrc.GetPresentation(context.Background(), http.DefaultClient, path)
 	if err != nil {
 		log.Fatal(err)
 	}
