@@ -319,3 +319,103 @@ func TestGetDynamic(t *testing.T) {
 		}
 	}
 }
+
+// TestMaybeRedirect tests that MaybeRedirect redirects
+// and does not redirect as expected, in various situations.
+// See https://github.com/golang/gddo/issues/507
+// and https://github.com/golang/gddo/issues/579.
+func TestMaybeRedirect(t *testing.T) {
+	type repo struct {
+		ImportComment      string
+		ResolvedGitHubPath string
+	}
+
+	// robpike.io/ivy package.
+	// Vanity import path, hosted on GitHub, with import comment.
+	ivy := repo{
+		ImportComment:      "robpike.io/ivy",
+		ResolvedGitHubPath: "github.com/robpike/ivy",
+	}
+
+	// go4.org/sort package.
+	// Vanity import path, hosted on GitHub, without import comment.
+	go4sort := repo{
+		ResolvedGitHubPath: "github.com/go4org/go4/sort",
+	}
+
+	// github.com/teamwork/validate package.
+	// Hosted on GitHub, with import comment that doesn't match canonical GitHub case.
+	// See issue https://github.com/golang/gddo/issues/507.
+	gtv := repo{
+		ImportComment:      "github.com/teamwork/validate",
+		ResolvedGitHubPath: "github.com/Teamwork/validate", // Note that this differs from import comment.
+	}
+
+	tests := []struct {
+		name         string
+		repo         repo
+		requestPath  string
+		wantRedirect string // Empty string means no redirect.
+	}{
+		// ivy.
+		{
+			repo: ivy, name: "ivy repo: access canonical path -> no redirect",
+			requestPath: "robpike.io/ivy",
+		},
+		{
+			repo: ivy, name: "ivy repo: access GitHub path -> redirect to import comment",
+			requestPath:  "github.com/robpike/ivy",
+			wantRedirect: "robpike.io/ivy",
+		},
+		{
+			repo: ivy, name: "ivy repo: access GitHub path with weird casing -> redirect to import comment",
+			requestPath:  "github.com/RoBpIkE/iVy",
+			wantRedirect: "robpike.io/ivy",
+		},
+
+		// go4sort.
+		{
+			repo: go4sort, name: "go4sort repo: access canonical path -> no redirect",
+			requestPath: "go4.org/sort",
+		},
+		{
+			repo: go4sort, name: "go4sort repo: access GitHub path -> no redirect",
+			requestPath: "github.com/go4org/go4/sort",
+		},
+		{
+			repo: go4sort, name: "go4sort repo: access GitHub path with weird casing -> redirect to resolved GitHub case",
+			requestPath:  "github.com/gO4oRg/Go4/sort",
+			wantRedirect: "github.com/go4org/go4/sort",
+		},
+
+		// gtv.
+		{
+			repo: gtv, name: "gtv repo: access canonical path -> no redirect",
+			requestPath: "github.com/teamwork/validate",
+		},
+		{
+			repo: gtv, name: "gtv repo: access canonical GitHub path -> redirect to import comment",
+			requestPath:  "github.com/Teamwork/validate",
+			wantRedirect: "github.com/teamwork/validate",
+		},
+		{
+			repo: gtv, name: "gtv repo: access GitHub path with weird casing -> redirect to import comment",
+			requestPath:  "github.com/tEaMwOrK/VaLiDaTe",
+			wantRedirect: "github.com/teamwork/validate",
+		},
+	}
+	for _, tt := range tests {
+		var want error
+		if tt.wantRedirect != "" {
+			want = NotFoundError{
+				Message:  "not at canonical import path",
+				Redirect: tt.wantRedirect,
+			}
+		}
+
+		got := MaybeRedirect(tt.requestPath, tt.repo.ImportComment, tt.repo.ResolvedGitHubPath)
+		if got != want {
+			t.Errorf("%s: got error %v, want %v", tt.name, got, want)
+		}
+	}
+}

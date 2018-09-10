@@ -541,3 +541,35 @@ func GetProject(ctx context.Context, client *http.Client, importPath string) (*P
 	}
 	return nil, NotFoundError{Message: "path does not match registered service"}
 }
+
+// MaybeRedirect uses the provided import path, import comment, and resolved GitHub path
+// to make a decision of whether to redirect to another, more canonical import path.
+// It returns nil error to indicate no redirect, or a NotFoundError error to redirect.
+func MaybeRedirect(importPath, importComment, resolvedGitHubPath string) error {
+	switch {
+	case importComment != "":
+		// Redirect to import comment, if not already there.
+		if importPath != importComment {
+			return NotFoundError{
+				Message:  "not at canonical import path",
+				Redirect: importComment,
+			}
+		}
+
+	// Redirect to GitHub's reported canonical casing when there's no import comment,
+	// and the import path differs from resolved GitHub path only in case.
+	case importComment == "" && resolvedGitHubPath != "" &&
+		strings.EqualFold(importPath, resolvedGitHubPath):
+
+		// Redirect to resolved GitHub path, if not already there.
+		if importPath != resolvedGitHubPath {
+			return NotFoundError{
+				Message:  "not at canonical import path",
+				Redirect: resolvedGitHubPath,
+			}
+		}
+	}
+
+	// No redirect.
+	return nil
+}

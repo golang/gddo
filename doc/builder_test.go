@@ -9,8 +9,6 @@ package doc
 import (
 	"go/ast"
 	"testing"
-
-	"github.com/golang/gddo/gosrc"
 )
 
 var badSynopsis = []string{
@@ -111,111 +109,6 @@ func TestSimpleImporter(t *testing.T) {
 		obj, _ := simpleImporter(m, tt.path)
 		if obj.Name != tt.name {
 			t.Errorf("simpleImporter(%q) = %q, want %q", tt.path, obj.Name, tt.name)
-		}
-	}
-}
-
-// TestNewPackageRedirect tests that newPackage redirects
-// and does not redirect as expected, in various situations.
-// See https://github.com/golang/gddo/issues/507
-// and https://github.com/golang/gddo/issues/579.
-func TestNewPackageRedirect(t *testing.T) {
-	// robpike.io/ivy package.
-	// Vanity import path, hosted on GitHub, with import path comment.
-	ivy := gosrc.Directory{
-		Files: []*gosrc.File{
-			{Name: "main.go", Data: []byte("package main // import \"robpike.io/ivy\"\n")},
-		},
-		ResolvedGitHubPath: "github.com/robpike/ivy",
-	}
-
-	// go4.org/sort package.
-	// Vanity import path, hosted on GitHub, without import path comment.
-	go4sort := gosrc.Directory{
-		Files: []*gosrc.File{
-			{Name: "main.go", Data: []byte("package sort\n")},
-		},
-		ResolvedGitHubPath: "github.com/go4org/go4/sort",
-	}
-
-	// github.com/teamwork/validate package.
-	// Hosted on GitHub, with import path comment that doesn't match canonical GitHub case.
-	// See issue https://github.com/golang/gddo/issues/507.
-	gtv := gosrc.Directory{
-		Files: []*gosrc.File{
-			{Name: "main.go", Data: []byte("package validate // import \"github.com/teamwork/validate\"\n")},
-		},
-		ResolvedGitHubPath: "github.com/Teamwork/validate", // Note that this differs from import path comment.
-	}
-
-	tests := []struct {
-		name         string
-		repo         gosrc.Directory
-		requestPath  string
-		wantRedirect string // Empty string means no redirect.
-	}{
-		// ivy.
-		{
-			repo: ivy, name: "ivy repo: access canonical path -> no redirect",
-			requestPath: "robpike.io/ivy",
-		},
-		{
-			repo: ivy, name: "ivy repo: access GitHub path -> redirect to import comment",
-			requestPath:  "github.com/robpike/ivy",
-			wantRedirect: "robpike.io/ivy",
-		},
-		{
-			repo: ivy, name: "ivy repo: access GitHub path with weird casing -> redirect to import comment",
-			requestPath:  "github.com/RoBpIkE/iVy",
-			wantRedirect: "robpike.io/ivy",
-		},
-
-		// go4sort.
-		{
-			repo: go4sort, name: "go4sort repo: access canonical path -> no redirect",
-			requestPath: "go4.org/sort",
-		},
-		{
-			repo: go4sort, name: "go4sort repo: access GitHub path -> no redirect",
-			requestPath: "github.com/go4org/go4/sort",
-		},
-		{
-			repo: go4sort, name: "go4sort repo: access GitHub path with weird casing -> redirect to resolved GitHub case",
-			requestPath:  "github.com/gO4oRg/Go4/sort",
-			wantRedirect: "github.com/go4org/go4/sort",
-		},
-
-		// gtv.
-		{
-			repo: gtv, name: "gtv repo: access canonical path -> no redirect",
-			requestPath: "github.com/teamwork/validate",
-		},
-		{
-			repo: gtv, name: "gtv repo: access canonical GitHub path -> redirect to import comment",
-			requestPath:  "github.com/Teamwork/validate",
-			wantRedirect: "github.com/teamwork/validate",
-		},
-		{
-			repo: gtv, name: "gtv repo: access GitHub path with weird casing -> redirect to import comment",
-			requestPath:  "github.com/tEaMwOrK/VaLiDaTe",
-			wantRedirect: "github.com/teamwork/validate",
-		},
-	}
-	for _, tt := range tests {
-		dir := tt.repo
-		dir.ImportPath = tt.requestPath
-
-		var want error
-		if tt.wantRedirect != "" {
-			want = gosrc.NotFoundError{
-				Message:  "not at canonical import path",
-				Redirect: tt.wantRedirect,
-			}
-		}
-
-		_, got := newPackage(&dir)
-		if got != want {
-			t.Errorf("%s: got error %v, want %v", tt.name, got, want)
 		}
 	}
 }
