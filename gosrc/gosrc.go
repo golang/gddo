@@ -455,7 +455,7 @@ func getDynamic(ctx context.Context, client *http.Client, importPath, etag strin
 	return dir, nil
 }
 
-// getStatic gets a diretory from a statically known service. getStatic
+// getStatic gets a directory from a statically known service. getStatic
 // returns errNoMatch if the import path is not recognized.
 func getStatic(ctx context.Context, client *http.Client, importPath, etag string) (*Directory, error) {
 	for _, s := range services {

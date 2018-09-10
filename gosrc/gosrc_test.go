@@ -22,7 +22,7 @@ import (
 var testWeb = map[string]string{
 	// Package at root of a GitHub repo.
 	"https://alice.org/pkg": `<head> <meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg"></head>`,
-	// Package in sub-diretory.
+	// Package in sub-directory.
 	"https://alice.org/pkg/sub": `<head> <meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg"><body>`,
 	// Fallback to http.
 	"http://alice.org/pkg/http": `<head> <meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg">`,
