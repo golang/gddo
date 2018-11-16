@@ -1,6 +1,7 @@
 language: go
 go:
-  - 1.9
+  - 1.11.x
+  - 1.10.x
 install:
   - |
     LATEST_SDK="$(curl -fsSL 'https://www.googleapis.com/storage/v1/b/appengine-sdks/o?prefix=featured%2F' |
