@@ -138,7 +138,7 @@ func httpClient(r *http.Request) *http.Client {
 			GithubClientID:     githubClientID,
 			GithubClientSecret: githubClientSecret,
 			Base:               &urlfetch.Transport{Context: ctx},
-			UserAgent:          fmt.Sprintf("%s (+http://%s/-/bot)", appengine.AppID(ctx), r.Host),
+			UserAgent:          fmt.Sprintf("%s (+https://%s/bot.html)", appengine.AppID(ctx), r.Host),
 		},
 	}
 }

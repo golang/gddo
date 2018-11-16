@@ -1,7 +1,5 @@
-application: go-talks
-version: 1
 runtime: go
-api_version: go1.8
+api_version: go1.9
 
 handlers:
 - url: /robots\.txt
@@ -24,7 +22,7 @@ handlers:
   secure: always
 
 env_variables:
-  CONTACT_EMAIL: ''        # set contact email for /-/bot.html
+  CONTACT_EMAIL: ''        # set contact email for /bot.html
   GITHUB_CLIENT_ID: ''     # used to increase rate-limits; see https://github.com/settings/applications/new
   GITHUB_CLIENT_SECRET: '' # used to increase rate-limits; see https://github.com/settings/applications/new
   GITHUB_TOKEN: ''         # personal token used for authentication; see https://github.com/settings/tokens/new

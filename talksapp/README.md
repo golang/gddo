@@ -11,3 +11,4 @@ Development Environment Setup
 - `$ sh setup.sh`
 - Run the server using the `goapp serve prod.yaml` command.
 - Run the tests using the `goapp test` command.
+- Deploy to production using the `gcloud app --project=go-talks deploy --no-promote prod.yaml` command.
