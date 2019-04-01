@@ -26,19 +26,33 @@ func init() {
 var bitbucketEtagRe = regexp.MustCompile(`^(hg|git)-`)
 
 type bitbucketRepo struct {
-	Scm         string
-	CreatedOn   string `json:"created_on"`
-	LastUpdated string `json:"last_updated"`
-	ForkOf      struct {
-		Scm string
-	} `json:"fork_of"`
-	Followers int  `json:"followers_count"`
-	IsFork    bool `json:"is_fork"`
+	Scm       string      `json:"scm"`
+	CreatedOn string      `json:"created_on"`
+	UpdatedOn string      `json:"updated_on"`
+	Parent    interface{} `json:"parent"`
 }
 
-type bitbucketNode struct {
-	Node      string `json:"node"`
-	Timestamp string `json:"utctimestamp"`
+type bitbucketRefs struct {
+	Values []struct {
+		Name   string `json:"name"`
+		Target struct {
+			Date string `json:"date"`
+			Hash string `json:"hash"`
+		} `json:"target"`
+	} `json:"values"`
+	bitbucketPage
+}
+
+type bitbucketSrc struct {
+	Values []struct {
+		Path string `json:"path"`
+		Type string `json:"type"`
+	} `json:"values"`
+	bitbucketPage
+}
+
+type bitbucketPage struct {
+	Next string `json:"next",omitempty`
 }
 
 func getBitbucketDir(ctx context.Context, client *http.Client, match map[string]string, savedEtag string) (*Directory, error) {
@@ -59,21 +73,25 @@ func getBitbucketDir(ctx context.Context, client *http.Client, match map[string]
 	tags := make(map[string]string)
 	timestamps := make(map[string]time.Time)
 
-	for _, nodeType := range []string{"branches", "tags"} {
-		var nodes map[string]bitbucketNode
-		if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/{0}", match, nodeType), &nodes); err != nil {
+	url := expand("https://api.bitbucket.org/2.0/repositories/{owner}/{repo}/refs?pagelen=100", match)
+	for {
+		var refs bitbucketRefs
+		if _, err := c.getJSON(ctx, url, &refs); err != nil {
 			return nil, err
 		}
-		for t, n := range nodes {
-			tags[t] = n.Node
-			const timeFormat = "2006-01-02 15:04:05Z07:00"
-			committed, err := time.Parse(timeFormat, n.Timestamp)
+		for _, v := range refs.Values {
+			tags[v.Name] = v.Target.Hash
+			committed, err := time.Parse(time.RFC3339, v.Target.Date)
 			if err != nil {
-				log.Println("error parsing timestamp:", n.Timestamp)
+				log.Println("error parsing timestamp:", v.Target.Date)
 				continue
 			}
-			timestamps[t] = committed
+			timestamps[v.Name] = committed
 		}
+		if refs.Next == "" {
+			break
+		}
+		url = refs.Next
 	}
 
 	var err error
@@ -95,26 +113,33 @@ func getBitbucketDir(ctx context.Context, client *http.Client, match map[string]
 		}
 	}
 
-	var contents struct {
-		Directories []string
-		Files       []struct {
-			Path string
-		}
-	}
-
-	if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/src/{tag}{dir}/", match), &contents); err != nil {
-		return nil, err
-	}
-
+	var dirs []string
 	var files []*File
 	var dataURLs []string
 
-	for _, f := range contents.Files {
-		_, name := path.Split(f.Path)
-		if isDocFile(name) {
-			files = append(files, &File{Name: name, BrowseURL: expand("https://bitbucket.org/{owner}/{repo}/src/{tag}/{0}", match, f.Path)})
-			dataURLs = append(dataURLs, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}/raw/{tag}/{0}", match, f.Path))
+	url = expand("https://api.bitbucket.org/2.0/repositories/{owner}/{repo}/src/{tag}{dir}/?pagelen=100", match)
+	for {
+		var contents bitbucketSrc
+		if _, err := c.getJSON(ctx, url, &contents); err != nil {
+			return nil, err
 		}
+
+		for _, v := range contents.Values {
+			switch v.Type {
+			case "commit_file":
+				_, name := path.Split(v.Path)
+				if isDocFile(name) {
+					files = append(files, &File{Name: name, BrowseURL: expand("https://bitbucket.org/{owner}/{repo}/src/{tag}/{0}", match, v.Path)})
+					dataURLs = append(dataURLs, expand("https://api.bitbucket.org/2.0/repositories/{owner}/{repo}/src/{tag}/{0}", match, v.Path))
+				}
+			case "commit_directory":
+				dirs = append(dirs, v.Path)
+			}
+		}
+		if contents.Next == "" {
+			break
+		}
+		url = contents.Next
 	}
 
 	if err := c.getFiles(ctx, dataURLs, files); err != nil {
@@ -134,17 +159,16 @@ func getBitbucketDir(ctx context.Context, client *http.Client, match map[string]
 		ProjectName:    match["repo"],
 		ProjectRoot:    expand("bitbucket.org/{owner}/{repo}", match),
 		ProjectURL:     expand("https://bitbucket.org/{owner}/{repo}/", match),
-		Subdirectories: contents.Directories,
+		Subdirectories: dirs,
 		VCS:            match["vcs"],
 		Status:         status,
-		Fork:           repo.IsFork,
-		Stars:          repo.Followers,
+		Fork:           repo.Parent != nil,
 	}, nil
 }
 
 func getBitbucketRepo(ctx context.Context, c *httpClient, match map[string]string) (*bitbucketRepo, error) {
 	var repo bitbucketRepo
-	if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/1.0/repositories/{owner}/{repo}", match), &repo); err != nil {
+	if _, err := c.getJSON(ctx, expand("https://api.bitbucket.org/2.0/repositories/{owner}/{repo}", match), &repo); err != nil {
 		return nil, err
 	}
 
@@ -152,19 +176,18 @@ func getBitbucketRepo(ctx context.Context, c *httpClient, match map[string]strin
 }
 
 func isBitbucketDeadEndFork(repo *bitbucketRepo) bool {
-	l := "2006-01-02T15:04:05.999999999"
-	created, err := time.Parse(l, repo.CreatedOn)
+	created, err := time.Parse(time.RFC3339, repo.CreatedOn)
 	if err != nil {
 		return false
 	}
 
-	updated, err := time.Parse(l, repo.LastUpdated)
+	updated, err := time.Parse(time.RFC3339, repo.UpdatedOn)
 	if err != nil {
 		return false
 	}
 
 	isDeadEndFork := false
-	if repo.ForkOf.Scm != "" && created.Unix() >= updated.Unix() {
+	if repo.Parent != nil && created.Unix() >= updated.Unix() {
 		isDeadEndFork = true
 	}
 

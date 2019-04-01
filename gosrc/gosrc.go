@@ -98,8 +98,7 @@ type Directory struct {
 	// Whether the repository of this directory is a fork of another one.
 	Fork bool
 
-	// How many stars (for a GitHub project) or followers (for a BitBucket
-	// project) the repository of this directory has.
+	// How many stars (for a GitHub project) the repository of this directory has.
 	Stars int
 }
 
