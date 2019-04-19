@@ -792,7 +792,7 @@ func (db *Database) Block(root string) error {
 			if _, err := deleteScript.Do(c, key); err != nil {
 				return err
 			}
-			if err := deleteIndex(db.RemoteClient.NewContext(ctx), id); err != nil && err != search.ErrNoSuchDocument {
+			if err := db.DeleteIndex(ctx, id); err != nil && err != search.ErrNoSuchDocument {
 				return err
 			}
 		}
