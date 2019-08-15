@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -297,6 +298,14 @@ func getVCSDir(ctx context.Context, client *http.Client, match map[string]string
 			err = NotFoundError{Message: err.Error()}
 		}
 		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !fi.IsDir() {
+		return nil, NotFoundError{Message: fmt.Sprintf("file %q is not a directory", match["dir"])}
 	}
 	fis, err := f.Readdir(-1)
 	if err != nil {
