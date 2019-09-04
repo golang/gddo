@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	golangBuildVersionRe = regexp.MustCompile(`Build version ([-+:. 0-9A-Za-z]+)`)
+	golangBuildVersionRe = regexp.MustCompile(`var goVersion = "([-+:. 0-9A-Za-z]+)";`)
 	golangFileRe         = regexp.MustCompile(`<a href="([^"]+)"`)
 )
 
@@ -30,7 +30,7 @@ func getStandardDir(ctx context.Context, client *http.Client, importPath string,
 
 	var etag string
 	m := golangBuildVersionRe.FindSubmatch(p)
-	if m == nil {
+	if len(m) < 2 {
 		return nil, errors.New("Could not find revision for " + importPath)
 	}
 	etag = strings.Trim(string(m[1]), ". ")
