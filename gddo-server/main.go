@@ -986,7 +986,35 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	s.logRequestStart(r)
 	s.root.ServeHTTP(w, r)
+	s.logRequestEnd(r, time.Since(start))
+}
+
+func (s *server) logRequestStart(req *http.Request) {
+	if s.gceLogger == nil {
+		return
+	}
+	s.gceLogger.Log(logging.Entry{
+		HTTPRequest: &logging.HTTPRequest{Request: req},
+		Payload:     fmt.Sprintf("%s request start", req.Host),
+		Severity:    logging.Info,
+	})
+}
+
+func (s *server) logRequestEnd(req *http.Request, latency time.Duration) {
+	if s.gceLogger == nil {
+		return
+	}
+	s.gceLogger.Log(logging.Entry{
+		HTTPRequest: &logging.HTTPRequest{
+			Request: req,
+			Latency: latency,
+		},
+		Payload:  fmt.Sprintf("%s request end", req.Host),
+		Severity: logging.Info,
+	})
 }
 
 func main() {

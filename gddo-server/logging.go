@@ -27,6 +27,11 @@ type GCELogger struct {
 	cli *logging.Logger
 }
 
+// Log creates an entry in Cloud Logging using the given log entry.
+func (g *GCELogger) Log(l logging.Entry) {
+	g.cli.Log(l)
+}
+
 // LogEvent creates an entry in Cloud Logging to record user's behavior. We should only
 // use this to log events we are interested in. General request logs are handled by GAE
 // automatically in request_log and stderr.
