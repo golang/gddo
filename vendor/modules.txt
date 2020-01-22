@@ -1,0 +1,177 @@
+# cloud.google.com/go v0.16.0
+cloud.google.com/go/compute/metadata
+cloud.google.com/go/iam
+cloud.google.com/go/internal/tracecontext
+cloud.google.com/go/internal/version
+cloud.google.com/go/logging
+cloud.google.com/go/logging/apiv2
+cloud.google.com/go/logging/internal
+cloud.google.com/go/pubsub
+cloud.google.com/go/pubsub/apiv1
+cloud.google.com/go/trace
+# github.com/bradfitz/gomemcache v0.0.0-20170208213004-1952afaa557d
+github.com/bradfitz/gomemcache/memcache
+# github.com/fsnotify/fsnotify v1.4.3-0.20170329110642-4da3e2cfbabc
+github.com/fsnotify/fsnotify
+# github.com/garyburd/redigo v1.1.1-0.20170914051019-70e1b1943d4f
+github.com/garyburd/redigo/internal
+github.com/garyburd/redigo/redis
+# github.com/go-stack/stack v1.6.0
+github.com/go-stack/stack
+# github.com/golang/lint v0.0.0-20170918230701-e5d664eb928e
+github.com/golang/lint
+# github.com/golang/protobuf v0.0.0-20170920220647-130e6b02ab05
+github.com/golang/protobuf/proto
+github.com/golang/protobuf/protoc-gen-go/descriptor
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes/duration
+github.com/golang/protobuf/ptypes/empty
+github.com/golang/protobuf/ptypes/struct
+github.com/golang/protobuf/ptypes/timestamp
+# github.com/golang/snappy v0.0.0-20170215233205-553a64147049
+github.com/golang/snappy
+# github.com/google/go-cmp v0.1.1-0.20171103154506-982329095285
+github.com/google/go-cmp/cmp
+github.com/google/go-cmp/cmp/internal/diff
+github.com/google/go-cmp/cmp/internal/function
+github.com/google/go-cmp/cmp/internal/value
+# github.com/googleapis/gax-go v2.0.0+incompatible
+github.com/googleapis/gax-go
+# github.com/gregjones/httpcache v0.0.0-20170920190843-316c5e0ff04e
+github.com/gregjones/httpcache
+github.com/gregjones/httpcache/memcache
+# github.com/hashicorp/hcl v0.0.0-20170914154624-68e816d1c783
+github.com/hashicorp/hcl
+github.com/hashicorp/hcl/hcl/ast
+github.com/hashicorp/hcl/hcl/parser
+github.com/hashicorp/hcl/hcl/scanner
+github.com/hashicorp/hcl/hcl/strconv
+github.com/hashicorp/hcl/hcl/token
+github.com/hashicorp/hcl/json/parser
+github.com/hashicorp/hcl/json/scanner
+github.com/hashicorp/hcl/json/token
+# github.com/inconshreveable/log15 v0.0.0-20170622235902-74a0988b5f80
+github.com/inconshreveable/log15
+github.com/inconshreveable/log15/term
+# github.com/magiconair/properties v1.7.4-0.20170902060319-8d7837e64d3c
+github.com/magiconair/properties
+# github.com/mattn/go-colorable v0.0.10-0.20170816031813-ad5389df28cd
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.2
+github.com/mattn/go-isatty
+# github.com/mitchellh/mapstructure v0.0.0-20170523030023-d0303fe80992
+github.com/mitchellh/mapstructure
+# github.com/pelletier/go-toml v1.0.1-0.20170904195809-1d6b12b7cb29
+github.com/pelletier/go-toml
+# github.com/spf13/afero v0.0.0-20170901052352-ee1bd8ee15a1
+github.com/spf13/afero
+github.com/spf13/afero/mem
+# github.com/spf13/cast v1.1.0
+github.com/spf13/cast
+# github.com/spf13/jwalterweatherman v0.0.0-20170901151539-12bd96e66386
+github.com/spf13/jwalterweatherman
+# github.com/spf13/pflag v1.0.1-0.20170901120850-7aff26db30c1
+github.com/spf13/pflag
+# github.com/spf13/viper v1.0.0
+github.com/spf13/viper
+# golang.org/x/net v0.0.0-20170920234330-b60f3a92103d
+golang.org/x/net/context
+golang.org/x/net/context/ctxhttp
+golang.org/x/net/http2
+golang.org/x/net/http2/hpack
+golang.org/x/net/idna
+golang.org/x/net/internal/timeseries
+golang.org/x/net/lex/httplex
+golang.org/x/net/trace
+# golang.org/x/oauth2 v0.0.0-20170912212905-13449ad91cb2
+golang.org/x/oauth2
+golang.org/x/oauth2/google
+golang.org/x/oauth2/internal
+golang.org/x/oauth2/jws
+golang.org/x/oauth2/jwt
+# golang.org/x/sync v0.0.0-20170517211232-f52d1811a629
+golang.org/x/sync/errgroup
+golang.org/x/sync/semaphore
+# golang.org/x/sys v0.0.0-20170921191643-2320a9c15898
+golang.org/x/sys/unix
+# golang.org/x/text v0.1.1-0.20170915090833-1cbadb444a80
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
+# golang.org/x/time v0.0.0-20170424234030-8be79e1e0910
+golang.org/x/time/rate
+# golang.org/x/tools v0.0.0-20180525024113-a5b4c53f6e8b
+golang.org/x/tools/go/gcexportdata
+golang.org/x/tools/go/internal/gcimporter
+golang.org/x/tools/present
+# google.golang.org/api v0.0.0-20170921000349-586095a6e407
+google.golang.org/api/cloudtrace/v1
+google.golang.org/api/gensupport
+google.golang.org/api/googleapi
+google.golang.org/api/googleapi/internal/uritemplates
+google.golang.org/api/googleapi/transport
+google.golang.org/api/internal
+google.golang.org/api/iterator
+google.golang.org/api/option
+google.golang.org/api/support/bundler
+google.golang.org/api/transport
+google.golang.org/api/transport/grpc
+google.golang.org/api/transport/http
+# google.golang.org/appengine v1.0.1-0.20170921170648-24e4144ec923
+google.golang.org/appengine
+google.golang.org/appengine/aetest
+google.golang.org/appengine/datastore
+google.golang.org/appengine/internal
+google.golang.org/appengine/internal/app_identity
+google.golang.org/appengine/internal/base
+google.golang.org/appengine/internal/datastore
+google.golang.org/appengine/internal/log
+google.golang.org/appengine/internal/memcache
+google.golang.org/appengine/internal/modules
+google.golang.org/appengine/internal/remote_api
+google.golang.org/appengine/internal/search
+google.golang.org/appengine/internal/socket
+google.golang.org/appengine/internal/urlfetch
+google.golang.org/appengine/internal/user
+google.golang.org/appengine/log
+google.golang.org/appengine/memcache
+google.golang.org/appengine/remote_api
+google.golang.org/appengine/search
+google.golang.org/appengine/socket
+google.golang.org/appengine/urlfetch
+google.golang.org/appengine/user
+# google.golang.org/genproto v0.0.0-20170918111702-1e559d0a00ee
+google.golang.org/genproto/googleapis/api/annotations
+google.golang.org/genproto/googleapis/api/distribution
+google.golang.org/genproto/googleapis/api/label
+google.golang.org/genproto/googleapis/api/metric
+google.golang.org/genproto/googleapis/api/monitoredres
+google.golang.org/genproto/googleapis/iam/v1
+google.golang.org/genproto/googleapis/logging/type
+google.golang.org/genproto/googleapis/logging/v2
+google.golang.org/genproto/googleapis/pubsub/v1
+google.golang.org/genproto/googleapis/rpc/status
+google.golang.org/genproto/protobuf/field_mask
+# google.golang.org/grpc v1.2.1-0.20170921194603-d4b75ebd4f9f
+google.golang.org/grpc
+google.golang.org/grpc/balancer
+google.golang.org/grpc/codes
+google.golang.org/grpc/connectivity
+google.golang.org/grpc/credentials
+google.golang.org/grpc/credentials/oauth
+google.golang.org/grpc/grpclb/grpc_lb_v1/messages
+google.golang.org/grpc/grpclog
+google.golang.org/grpc/internal
+google.golang.org/grpc/keepalive
+google.golang.org/grpc/metadata
+google.golang.org/grpc/naming
+google.golang.org/grpc/peer
+google.golang.org/grpc/resolver
+google.golang.org/grpc/stats
+google.golang.org/grpc/status
+google.golang.org/grpc/tap
+google.golang.org/grpc/transport
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2

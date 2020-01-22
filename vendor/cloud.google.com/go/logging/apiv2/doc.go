@@ -23,7 +23,7 @@
 // logs, log sinks and logs-based metrics.
 //
 // Use the client at cloud.google.com/go/logging in preference to this.
-package logging
+package logging // import "cloud.google.com/go/logging/apiv2"
 
 import (
 	"golang.org/x/net/context"

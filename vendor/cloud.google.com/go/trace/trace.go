@@ -143,7 +143,7 @@
 //     ...
 //   }
 //
-package trace
+package trace // import "cloud.google.com/go/trace"
 
 import (
 	"crypto/rand"

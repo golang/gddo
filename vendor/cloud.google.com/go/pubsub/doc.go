@@ -117,4 +117,4 @@ Authentication
 See examples of authorization and authentication at
 https://godoc.org/cloud.google.com/go#pkg-examples.
 */
-package pubsub
+package pubsub // import "cloud.google.com/go/pubsub"

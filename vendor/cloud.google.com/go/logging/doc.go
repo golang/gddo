@@ -87,4 +87,4 @@ An Entry may have one of a number of severity levels associated with it.
 	}
 
 */
-package logging
+package logging // import "cloud.google.com/go/logging"

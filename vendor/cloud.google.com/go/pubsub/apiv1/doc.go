@@ -23,7 +23,7 @@
 // applications.
 //
 // Use the client at cloud.google.com/go/pubsub in preference to this.
-package pubsub
+package pubsub // import "cloud.google.com/go/pubsub/apiv1"
 
 import (
 	"golang.org/x/net/context"

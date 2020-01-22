@@ -7,7 +7,7 @@
 //   import "google.golang.org/api/cloudtrace/v1"
 //   ...
 //   cloudtraceService, err := cloudtrace.New(oauthHttpClient)
-package cloudtrace
+package cloudtrace // import "google.golang.org/api/cloudtrace/v1"
 
 import (
 	"bytes"
