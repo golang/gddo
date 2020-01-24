@@ -11,7 +11,6 @@ require (
 	github.com/garyburd/redigo v1.1.1-0.20170914051019-70e1b1943d4f
 	github.com/go-stack/stack v1.6.0 // indirect
 	github.com/golang/lint v0.0.0-20170918230701-e5d664eb928e
-	github.com/golang/protobuf v0.0.0-20170920220647-130e6b02ab05 // indirect
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049
 	github.com/google/go-cmp v0.1.1-0.20171103154506-982329095285
 	github.com/googleapis/gax-go v2.0.0+incompatible // indirect
@@ -30,15 +29,12 @@ require (
 	github.com/spf13/pflag v1.0.1-0.20170901120850-7aff26db30c1
 	github.com/spf13/viper v1.0.0
 	github.com/stretchr/testify v1.4.0 // indirect
-	golang.org/x/net v0.0.0-20170920234330-b60f3a92103d // indirect
 	golang.org/x/oauth2 v0.0.0-20170912212905-13449ad91cb2
 	golang.org/x/sync v0.0.0-20170517211232-f52d1811a629 // indirect
-	golang.org/x/sys v0.0.0-20170921191643-2320a9c15898 // indirect
-	golang.org/x/text v0.1.1-0.20170915090833-1cbadb444a80 // indirect
 	golang.org/x/time v0.0.0-20170424234030-8be79e1e0910 // indirect
-	golang.org/x/tools v0.0.0-20180525024113-a5b4c53f6e8b
+	golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e
 	google.golang.org/api v0.0.0-20170921000349-586095a6e407 // indirect
-	google.golang.org/appengine v1.0.1-0.20170921170648-24e4144ec923
+	google.golang.org/appengine v1.6.5
 	google.golang.org/genproto v0.0.0-20170918111702-1e559d0a00ee // indirect
 	google.golang.org/grpc v1.2.1-0.20170921194603-d4b75ebd4f9f // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
