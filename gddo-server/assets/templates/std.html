@@ -1,5 +1,9 @@
 {{define "Head"}}<title>Standard Packages - GoDoc</title><meta name="robots" content="NOINDEX">{{end}}
 
+{{define "PkgGoDevLink"}}
+  <a href="https://pkg.go.dev/std?tab=packages">pkg.go.dev/std?tab=packages</a>
+{{end}}
+
 {{define "Body"}}
   <h1>Go Standard Packages</h1>
   {{template "Pkgs" .pkgs}}

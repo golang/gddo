@@ -1,5 +1,9 @@
 {{define "Head"}}<title>{{.q}} - GoDoc</title><meta name="robots" content="NOINDEX">{{end}}
 
+{{define "PkgGoDevLink"}}
+  <a href="https://pkg.go.dev/search?q={{.q}}">pkg.go.dev/search?q={{.q}}</a>
+{{end}}
+
 {{define "Body"}}
   <div class="well">
     {{template "SearchBox" .q}}

@@ -519,6 +519,12 @@ func joinTemplateDir(base string, files []string) []string {
 	return result
 }
 
+const pkgGoDevLinkTmpl = `
+{{define "PkgGoDevLink"}}
+  <a href="https://pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}">pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}</a>
+{{end}}
+`
+
 func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (templateMap, error) {
 	m := make(templateMap)
 	htmlSets := [][]string{
@@ -559,6 +565,12 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		t := htemp.New("").Funcs(hfuncs).Funcs(htemp.FuncMap{
 			"templateName": func() string { return templateName },
 		})
+
+		// Define this block first so that it can be overridden in some
+		// templates.
+		if _, err := t.Parse(pkgGoDevLinkTmpl); err != nil {
+			return nil, err
+		}
 		if _, err := t.ParseFiles(joinTemplateDir(dir, set)...); err != nil {
 			return nil, err
 		}

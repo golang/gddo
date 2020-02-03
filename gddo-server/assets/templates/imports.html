@@ -5,3 +5,7 @@
   <h3>Packages imported by {{.pdoc.Name}}</h3>
   {{template "Pkgs" $.pkgs}}
 {{end}}
+
+{{define "PkgGoDevLink"}}
+  <a href="https://pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}?tab=imports">pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}?tab=imports{{end}}</a>
+{{end}}
