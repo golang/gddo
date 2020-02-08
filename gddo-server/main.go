@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -926,9 +927,10 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 			trustProxyHeaders: v.GetBool(ConfigTrustProxyHeaders),
 		}
 	}
-	mux.Handle("/-/about", handler(s.serveAbout))
+
+	mux.Handle("/-/about", handler(pkgGoDevRedirectHandler(s.serveAbout)))
 	mux.Handle("/-/bot", handler(s.serveBot))
-	mux.Handle("/-/go", handler(s.serveGoIndex))
+	mux.Handle("/-/go", handler(pkgGoDevRedirectHandler(s.serveGoIndex)))
 	mux.Handle("/-/subrepo", handler(s.serveGoSubrepoIndex))
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
@@ -939,7 +941,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/BingSiteAuth.xml", staticServer.FileHandler("BingSiteAuth.xml"))
 	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/code.jquery.com/", http.NotFoundHandler())
-	mux.Handle("/", handler(s.serveHome))
+	mux.Handle("/", handler(pkgGoDevRedirectHandler(s.serveHome)))
 
 	ahMux := http.NewServeMux()
 	ready := new(health.Handler)
@@ -1015,6 +1017,64 @@ func (s *server) logRequestEnd(req *http.Request, latency time.Duration) {
 		Payload:  fmt.Sprintf("%s request end", req.Host),
 		Severity: logging.Info,
 	})
+}
+
+const (
+	pkgGoDevRedirectCookie = "pkggodev-redirect"
+	pkgGoDevRedirectParam  = "redirect"
+	pkgGoDevRedirectOn     = "on"
+	pkgGoDevRedirectOff    = "off"
+	pkgGoDevHost           = "pkg.go.dev"
+)
+
+var gddoToPkgGoDevRequest = map[string]string{
+	"/-/about": "/about",
+	"/-/go":    "/std",
+}
+
+// pkgGoDevRedirectHandler redirects requests from godoc.org to pkg.go.dev,
+// based on whether a cookie is set for pkggodev-redirect. The cookie
+// can be turned on/off using a query param. It determines which path to
+// direct to by checking if a path is mapped in gddoToPkgGoDevRequest, and
+// if not redirecting to the same path that was used for the godoc.org request.
+func pkgGoDevRedirectHandler(f func(http.ResponseWriter, *http.Request) error) func(http.ResponseWriter, *http.Request) error {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		redirectParam := r.FormValue(pkgGoDevRedirectParam)
+
+		if redirectParam == pkgGoDevRedirectOn {
+			cookie := &http.Cookie{Name: pkgGoDevRedirectCookie, Value: redirectParam, Path: "/"}
+			http.SetCookie(w, cookie)
+		}
+		if redirectParam == pkgGoDevRedirectOff {
+			cookie := &http.Cookie{Name: pkgGoDevRedirectCookie, Value: "", MaxAge: -1, Path: "/"}
+			http.SetCookie(w, cookie)
+		}
+
+		var shouldRedirect bool
+		if redirectParam == pkgGoDevRedirectOn || redirectParam == pkgGoDevRedirectOff {
+			shouldRedirect = redirectParam == pkgGoDevRedirectOn
+		} else {
+			for _, v := range r.Cookies() {
+				if v.Name == pkgGoDevRedirectCookie {
+					shouldRedirect = v.Value == pkgGoDevRedirectOn
+					break
+				}
+			}
+		}
+
+		if !shouldRedirect {
+			return f(w, r)
+		}
+
+		path, ok := gddoToPkgGoDevRequest[r.URL.Path]
+		if !ok {
+			path = r.URL.Path
+		}
+
+		nextUrl := url.URL{Scheme: "https", Host: pkgGoDevHost, Path: path}
+		http.Redirect(w, r, nextUrl.String(), http.StatusFound)
+		return nil
+	}
 }
 
 func main() {

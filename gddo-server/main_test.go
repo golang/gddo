@@ -7,6 +7,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -31,5 +33,81 @@ func TestRobotPat(t *testing.T) {
 		if !robotPat.MatchString(tt) {
 			t.Errorf("%s not a robot", tt)
 		}
+	}
+}
+
+func TestHandlePkgGoDevRedirect(t *testing.T) {
+	handler := pkgGoDevRedirectHandler(func(w http.ResponseWriter, r *http.Request) error {
+		return nil
+	})
+
+	for _, test := range []struct {
+		name, url, wantLocationHeader, wantSetCookieHeader string
+		wantStatusCode                                     int
+		cookie                                             *http.Cookie
+	}{
+		{
+			name:                "test pkggodev-redirect param is on",
+			url:                 "http://godoc.org/net/http?redirect=on",
+			wantLocationHeader:  "https://pkg.go.dev/net/http",
+			wantSetCookieHeader: "pkggodev-redirect=on; Path=/",
+			wantStatusCode:      http.StatusFound,
+		},
+		{
+			name:                "test pkggodev-redirect param is off",
+			url:                 "http://godoc.org/net/http?redirect=off",
+			wantLocationHeader:  "",
+			wantSetCookieHeader: "pkggodev-redirect=; Path=/; Max-Age=0",
+			wantStatusCode:      http.StatusOK,
+		},
+		{
+			name:                "test pkggodev-redirect param is unset",
+			url:                 "http://godoc.org/net/http",
+			wantLocationHeader:  "",
+			wantSetCookieHeader: "",
+			wantStatusCode:      http.StatusOK,
+		},
+		{
+			name:                "toggle enabled pkggodev-redirect cookie",
+			url:                 "http://godoc.org/net/http?redirect=off",
+			cookie:              &http.Cookie{Name: "pkggodev-redirect", Value: "true"},
+			wantLocationHeader:  "",
+			wantSetCookieHeader: "pkggodev-redirect=; Path=/; Max-Age=0",
+			wantStatusCode:      http.StatusOK,
+		},
+		{
+			name:                "pkggodev-redirect enabled cookie should redirect",
+			url:                 "http://godoc.org/net/http",
+			cookie:              &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
+			wantLocationHeader:  "https://pkg.go.dev/net/http",
+			wantSetCookieHeader: "",
+			wantStatusCode:      http.StatusFound,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", test.url, nil)
+			if test.cookie != nil {
+				req.AddCookie(test.cookie)
+			}
+
+			w := httptest.NewRecorder()
+			err := handler(w, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp := w.Result()
+
+			if got, want := resp.Header.Get("Location"), test.wantLocationHeader; got != want {
+				t.Errorf("Location header mismatch: got %q; want %q", got, want)
+			}
+
+			if got, want := resp.Header.Get("Set-Cookie"), test.wantSetCookieHeader; got != want {
+				t.Errorf("Set-Cookie header mismatch: got %q; want %q", got, want)
+			}
+
+			if got, want := resp.StatusCode, test.wantStatusCode; got != want {
+				t.Errorf("Status code mismatch: got %q; want %q", got, want)
+			}
+		})
 	}
 }
