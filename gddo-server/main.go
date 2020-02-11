@@ -987,11 +987,61 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	return s, nil
 }
 
+const (
+	pkgGoDevRedirectCookie = "pkggodev-redirect"
+	pkgGoDevRedirectParam  = "redirect"
+	pkgGoDevRedirectOn     = "on"
+	pkgGoDevRedirectOff    = "off"
+	pkgGoDevHost           = "pkg.go.dev"
+	teeproxyHost           = "teeproxy-dot-go-discovery.appspot.com"
+)
+
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.logRequestStart(r)
 	s.root.ServeHTTP(w, r)
-	s.logRequestEnd(r, time.Since(start))
+	latency := time.Since(start)
+	s.logRequestEnd(r, latency)
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	if err := makePkgGoDevRequest(r, latency); err != nil {
+		log.Printf("makePkgGoDevRequest(%q, %d) error: %v", r.URL, latency, err)
+	}
+}
+
+func makePkgGoDevRequest(r *http.Request, latency time.Duration) error {
+	event := newGDDOEvent(r, latency)
+	b, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("json.Marshal(%v): %v", event, err)
+	}
+
+	teeproxyURL := url.URL{Scheme: "https", Host: teeproxyHost}
+	if _, err := http.Post(teeproxyURL.String(), jsonMIMEType, bytes.NewReader(b)); err != nil {
+		return fmt.Errorf("http.Post(%q, %q, %v): %v", teeproxyURL.String(), jsonMIMEType, event, err)
+	}
+	log.Printf("makePkgGoDevRequest: request made to %q for %+v", teeproxyURL.String(), event)
+	return nil
+}
+
+type gddoEvent struct {
+	Host         string
+	Path         string
+	URL          string
+	RedirectHost string
+	Latency      time.Duration
+}
+
+func newGDDOEvent(r *http.Request, latency time.Duration) *gddoEvent {
+	pkgGoDevURL := url.URL{Scheme: "https", Host: pkgGoDevHost}
+	return &gddoEvent{
+		Host:         r.URL.Host,
+		Path:         r.URL.Path,
+		URL:          r.URL.String(),
+		RedirectHost: pkgGoDevURL.String(),
+		Latency:      latency,
+	}
 }
 
 func (s *server) logRequestStart(req *http.Request) {
@@ -1018,14 +1068,6 @@ func (s *server) logRequestEnd(req *http.Request, latency time.Duration) {
 		Severity: logging.Info,
 	})
 }
-
-const (
-	pkgGoDevRedirectCookie = "pkggodev-redirect"
-	pkgGoDevRedirectParam  = "redirect"
-	pkgGoDevRedirectOn     = "on"
-	pkgGoDevRedirectOff    = "off"
-	pkgGoDevHost           = "pkg.go.dev"
-)
 
 var gddoToPkgGoDevRequest = map[string]string{
 	"/-/about": "/about",

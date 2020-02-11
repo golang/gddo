@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var robotTests = []string{
@@ -107,6 +109,61 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 
 			if got, want := resp.StatusCode, test.wantStatusCode; got != want {
 				t.Errorf("Status code mismatch: got %q; want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestNewGDDOEvent(t *testing.T) {
+	for _, test := range []struct {
+		url  string
+		want *gddoEvent
+	}{
+		{
+			url: "https://godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "",
+			},
+		},
+		{
+			url: "https://godoc.org/-/about",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/-/about",
+			},
+		},
+		{
+			url: "https://godoc.org/?q=test",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/",
+			},
+		},
+		{
+			url: "https://godoc.org/net/http",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/net/http",
+			},
+		},
+		{
+			url: "https://api.godoc.org/imports/net/http",
+			want: &gddoEvent{
+				Host: "api.godoc.org",
+				Path: "/imports/net/http",
+			},
+		},
+	} {
+		t.Run(test.url, func(t *testing.T) {
+			r := httptest.NewRequest("GET", test.url, nil)
+			want := test.want
+			want.Latency = 100
+			want.RedirectHost = "https://" + pkgGoDevHost
+			want.URL = test.url
+			got := newGDDOEvent(r, want.Latency)
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
