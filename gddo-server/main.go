@@ -1029,6 +1029,7 @@ type gddoEvent struct {
 	Host         string
 	Path         string
 	URL          string
+	Header       http.Header
 	RedirectHost string
 	Latency      time.Duration
 }
@@ -1039,6 +1040,7 @@ func newGDDOEvent(r *http.Request, latency time.Duration) *gddoEvent {
 		Host:         r.URL.Host,
 		Path:         r.URL.Path,
 		URL:          r.URL.String(),
+		Header:       r.Header,
 		RedirectHost: pkgGoDevURL.String(),
 		Latency:      latency,
 	}
