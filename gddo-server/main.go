@@ -1095,16 +1095,9 @@ func userReturningFromPkgGoDev(req *http.Request) bool {
 	return req.FormValue("utm_source") == "backtogodoc"
 }
 
-var gddoToPkgGoDevRequest = map[string]string{
-	"/-/about": "/about",
-	"/-/go":    "/std",
-}
-
 // pkgGoDevRedirectHandler redirects requests from godoc.org to pkg.go.dev,
 // based on whether a cookie is set for pkggodev-redirect. The cookie
-// can be turned on/off using a query param. It determines which path to
-// direct to by checking if a path is mapped in gddoToPkgGoDevRequest, and
-// if not redirecting to the same path that was used for the godoc.org request.
+// can be turned on/off using a query param.
 func pkgGoDevRedirectHandler(f func(http.ResponseWriter, *http.Request) error) func(http.ResponseWriter, *http.Request) error {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if userReturningFromPkgGoDev(r) {
@@ -1138,15 +1131,43 @@ func pkgGoDevRedirectHandler(f func(http.ResponseWriter, *http.Request) error) f
 			return f(w, r)
 		}
 
-		path, ok := gddoToPkgGoDevRequest[r.URL.Path]
-		if !ok {
-			path = r.URL.Path
-		}
-
-		nextUrl := url.URL{Scheme: "https", Host: pkgGoDevHost, Path: path}
-		http.Redirect(w, r, nextUrl.String(), http.StatusFound)
+		http.Redirect(w, r, pkgGoDevURL(r.URL).String(), http.StatusFound)
 		return nil
 	}
+}
+
+func pkgGoDevURL(godocURL *url.URL) *url.URL {
+	u := &url.URL{Scheme: "https", Host: pkgGoDevHost}
+	q := url.Values{"utm_source": []string{"godoc"}}
+
+	switch godocURL.Path {
+	case "/-/go":
+		u.Path = "/std"
+		q.Add("tab", "packages")
+	case "/-/about":
+		u.Path = "/about"
+	case "/":
+		if qparam := godocURL.Query().Get("q"); qparam != "" {
+			u.Path = "/search"
+			q.Set("q", qparam)
+		} else {
+			u.Path = "/"
+		}
+	default:
+		{
+			u.Path = godocURL.Path
+			if _, ok := godocURL.Query()["imports"]; ok {
+				q.Set("tab", "imports")
+			} else if _, ok := godocURL.Query()["importers"]; ok {
+				q.Set("tab", "importedby")
+			} else {
+				q.Set("tab", "doc")
+			}
+		}
+	}
+
+	u.RawQuery = q.Encode()
+	return u
 }
 
 func main() {

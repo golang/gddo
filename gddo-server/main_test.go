@@ -9,6 +9,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -51,7 +52,7 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 		{
 			name:                "test pkggodev-redirect param is on",
 			url:                 "http://godoc.org/net/http?redirect=on",
-			wantLocationHeader:  "https://pkg.go.dev/net/http",
+			wantLocationHeader:  "https://pkg.go.dev/net/http?tab=doc&utm_source=godoc",
 			wantSetCookieHeader: "pkggodev-redirect=on; Path=/",
 			wantStatusCode:      http.StatusFound,
 		},
@@ -81,7 +82,7 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 			name:                "pkggodev-redirect enabled cookie should redirect",
 			url:                 "http://godoc.org/net/http",
 			cookie:              &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
-			wantLocationHeader:  "https://pkg.go.dev/net/http",
+			wantLocationHeader:  "https://pkg.go.dev/net/http?tab=doc&utm_source=godoc",
 			wantSetCookieHeader: "",
 			wantStatusCode:      http.StatusFound,
 		},
@@ -117,6 +118,49 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 				t.Errorf("Status code mismatch: got %d; want %d", got, want)
 			}
 		})
+	}
+}
+
+func TestGodoc(t *testing.T) {
+	testCases := []struct {
+		from, to string
+	}{
+		{
+			from: "https://godoc.org/-/about",
+			to:   "https://pkg.go.dev/about?utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/-/go",
+			to:   "https://pkg.go.dev/std?tab=packages&utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/?q=foo",
+			to:   "https://pkg.go.dev/search?q=foo&utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/cloud.google.com/go/storage",
+			to:   "https://pkg.go.dev/cloud.google.com/go/storage?tab=doc&utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/cloud.google.com/go/storage?imports",
+			to:   "https://pkg.go.dev/cloud.google.com/go/storage?tab=imports&utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/cloud.google.com/go/storage?importers",
+			to:   "https://pkg.go.dev/cloud.google.com/go/storage?tab=importedby&utm_source=godoc",
+		},
+	}
+
+	for _, tc := range testCases {
+		u, err := url.Parse(tc.from)
+		if err != nil {
+			t.Errorf("url.Parse(%q): %v", tc.from, err)
+			continue
+		}
+		to := pkgGoDevURL(u)
+		if got, want := to.String(), tc.to; got != want {
+			t.Errorf("pkgGoDevURL(%q) = %q; want %q", u, got, want)
+		}
 	}
 }
 
