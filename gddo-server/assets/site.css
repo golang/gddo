@@ -123,10 +123,15 @@ a, .navbar-default .navbar-brand {
 
 .banner-action-container {
     text-align: right;
+    white-space: nowrap;
 }
 
 .banner-action {
     white-space: nowrap;
+}
+
+.banner-action + .banner-action {
+    margin-left: 24px;
 }
 
 @media (max-width: 768px) {
@@ -179,4 +184,43 @@ h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permali
     opacity: 0.54;
     text-transform: uppercase;
     font-size: 0.75em;
+}
+
+.redirect-toast {
+    align-items: center;
+    background-color: #202124;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    bottom: 20px;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    left: 20px;
+    padding: 10px 18px;
+    position: fixed;
+}
+
+@media (max-width: 768px) {
+    .redirect-toast {
+        width: calc(100% - 40px);
+    }
+}
+
+.redirect-toast-actions {
+    margin-left: 48px;
+    white-space: nowrap;
+}
+
+.redirect-toast-action,
+.redirect-toast-action:link,
+.redirect-toast-action:visited {
+    background: none;
+    border: 0;
+    color: #8ab4f9;
+    padding: 10px;
+}
+
+.redirect-toast-action:active,
+.redirect-toast-action:hover {
+    text-decoration: none;
 }

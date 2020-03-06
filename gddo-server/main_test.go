@@ -85,6 +85,12 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 			wantSetCookieHeader: "",
 			wantStatusCode:      http.StatusFound,
 		},
+		{
+			name:           "do not redirect if user is returning from pkg.go.dev",
+			url:            "http://godoc.org/net/http?utm_source=backtogodoc",
+			cookie:         &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
+			wantStatusCode: http.StatusOK,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", test.url, nil)
@@ -108,7 +114,7 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 			}
 
 			if got, want := resp.StatusCode, test.wantStatusCode; got != want {
-				t.Errorf("Status code mismatch: got %q; want %q", got, want)
+				t.Errorf("Status code mismatch: got %d; want %d", got, want)
 			}
 		})
 	}

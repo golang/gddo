@@ -103,11 +103,11 @@ $(function() {
         switch(e.which) {
         case 38: // up
             incrActive(-1);
-            e.preventDefault(); 
+            e.preventDefault();
             break;
         case 40: // down
             incrActive(1);
-            e.preventDefault(); 
+            e.preventDefault();
             break;
         case 13: // enter
             if (active >= 0) {
@@ -227,5 +227,15 @@ $(function() {
     $('body').scrollspy({
         target: '.gddo-sidebar',
         offset: 10
+    });
+
+    const redirectToastEl = document.querySelector('.js-redirectToast');
+    if (!redirectToastEl) {
+        return; // element may not even be on the page
+    }
+    const redirectToastDismissEl = redirectToastEl.querySelector('.js-redirectToastDismiss');
+    redirectToastDismissEl.addEventListener('click', e => {
+        e.preventDefault();
+        redirectToastEl.style.display = 'none';
     });
 });

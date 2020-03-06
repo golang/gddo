@@ -274,6 +274,8 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 	}
 
+	showPkgGoDevRedirectToast := userReturningFromPkgGoDev(req)
+
 	switch {
 	case isView(req, "imports"):
 		if pdoc.Name == "" {
@@ -284,9 +286,10 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return err
 		}
 		return s.templates.execute(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          pkgs,
-			"pdoc":          newTDoc(s.v, pdoc),
+			"flashMessages":             flashMessages,
+			"pkgs":                      pkgs,
+			"pdoc":                      newTDoc(s.v, pdoc),
+			"showPkgGoDevRedirectToast": showPkgGoDevRedirectToast,
 		})
 	case isView(req, "tools"):
 		proto := "http"
@@ -294,9 +297,10 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			proto = "https"
 		}
 		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"uri":           fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
-			"pdoc":          newTDoc(s.v, pdoc),
+			"flashMessages":             flashMessages,
+			"uri":                       fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
+			"pdoc":                      newTDoc(s.v, pdoc),
+			"showPkgGoDevRedirectToast": showPkgGoDevRedirectToast,
 		})
 	case isView(req, "importers"):
 		if pdoc.Name == "" {
@@ -312,9 +316,10 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			template = "importers_robot.html"
 		}
 		return s.templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          pkgs,
-			"pdoc":          newTDoc(s.v, pdoc),
+			"flashMessages":             flashMessages,
+			"pkgs":                      pkgs,
+			"pdoc":                      newTDoc(s.v, pdoc),
+			"showPkgGoDevRedirectToast": showPkgGoDevRedirectToast,
 		})
 	case isView(req, "import-graph"):
 		if requestType == robotRequest {
@@ -339,10 +344,11 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return err
 		}
 		return s.templates.execute(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"svg":           template.HTML(b),
-			"pdoc":          newTDoc(s.v, pdoc),
-			"hide":          hide,
+			"flashMessages":             flashMessages,
+			"svg":                       template.HTML(b),
+			"pdoc":                      newTDoc(s.v, pdoc),
+			"hide":                      hide,
+			"showPkgGoDevRedirectToast": showPkgGoDevRedirectToast,
 		})
 	case isView(req, "play"):
 		u, err := s.playURL(pdoc, req.Form.Get("play"), req.Header.Get("X-AppEngine-Country"))
@@ -410,10 +416,11 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		template += templateExt(req)
 
 		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          pkgs,
-			"pdoc":          newTDoc(s.v, pdoc),
-			"importerCount": importerCount,
+			"flashMessages":             flashMessages,
+			"pkgs":                      pkgs,
+			"pdoc":                      newTDoc(s.v, pdoc),
+			"importerCount":             importerCount,
+			"showPkgGoDevRedirectToast": showPkgGoDevRedirectToast,
 		})
 	}
 }
@@ -544,7 +551,11 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		}
 
 		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil,
-			map[string]interface{}{"Popular": pkgs})
+			map[string]interface{}{
+				"Popular": pkgs,
+
+				"showPkgGoDevRedirectToast": userReturningFromPkgGoDev(req),
+			})
 	}
 
 	if path, ok := isBrowseURL(q); ok {
@@ -577,12 +588,21 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	return s.templates.execute(resp, "results"+templateExt(req), http.StatusOK, nil,
-		map[string]interface{}{"q": q, "pkgs": pkgs})
+		map[string]interface{}{
+			"q":    q,
+			"pkgs": pkgs,
+
+			"showPkgGoDevRedirectToast": userReturningFromPkgGoDev(req),
+		})
 }
 
 func (s *server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
 	return s.templates.execute(resp, "about.html", http.StatusOK, nil,
-		map[string]interface{}{"Host": req.Host})
+		map[string]interface{}{
+			"Host": req.Host,
+
+			"showPkgGoDevRedirectToast": userReturningFromPkgGoDev(req),
+		})
 }
 
 func (s *server) serveBot(resp http.ResponseWriter, req *http.Request) error {
@@ -1071,6 +1091,10 @@ func (s *server) logRequestEnd(req *http.Request, latency time.Duration) {
 	})
 }
 
+func userReturningFromPkgGoDev(req *http.Request) bool {
+	return req.FormValue("utm_source") == "backtogodoc"
+}
+
 var gddoToPkgGoDevRequest = map[string]string{
 	"/-/about": "/about",
 	"/-/go":    "/std",
@@ -1083,6 +1107,10 @@ var gddoToPkgGoDevRequest = map[string]string{
 // if not redirecting to the same path that was used for the godoc.org request.
 func pkgGoDevRedirectHandler(f func(http.ResponseWriter, *http.Request) error) func(http.ResponseWriter, *http.Request) error {
 	return func(w http.ResponseWriter, r *http.Request) error {
+		if userReturningFromPkgGoDev(r) {
+			return f(w, r)
+		}
+
 		redirectParam := r.FormValue(pkgGoDevRedirectParam)
 
 		if redirectParam == pkgGoDevRedirectOn {

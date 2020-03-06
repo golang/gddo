@@ -32,6 +32,7 @@
     Pkg.go.dev is a new destination for Go discovery & docs. Check it out at {{template "PkgGoDevLink" $}} and share your feedback.
   </div>
   <div class="banner-action-container">
+    <a class="banner-action" href="?redirect=on">Always use pkg.go.dev</a>
     <a class="banner-action" href="https://blog.golang.org/pkg.go.dev-2020">Learn more</a>
   </div>
 </div>
@@ -71,6 +72,16 @@
     </div>
   </div>
 </div>
+
+{{if .showPkgGoDevRedirectToast}}
+  <div class="redirect-toast js-redirectToast">
+    <div>Always use godoc.org as default</div>
+    <div class="redirect-toast-actions">
+      <a class="redirect-toast-action" href="?redirect=off">Yes</a>
+      <button class="redirect-toast-action js-redirectToastDismiss">Dismiss</button>
+    </div>
+  </div>
+{{end}}
 <script src="{{staticPath "/-/jquery-2.0.3.min.js"}}"></script>
 <script src="{{staticPath "/-/bootstrap.min.js"}}"></script>
 <script src="{{staticPath "/-/site.js"}}"></script>
