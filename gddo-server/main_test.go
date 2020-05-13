@@ -151,6 +151,14 @@ func TestGodoc(t *testing.T) {
 			from: "https://godoc.org/cloud.google.com/go/storage?importers",
 			to:   "https://pkg.go.dev/cloud.google.com/go/storage?tab=importedby&utm_source=godoc",
 		},
+		{
+			from: "https://godoc.org/golang.org/x/vgo/vendor/cmd/go/internal/modfile",
+			to:   "https://pkg.go.dev/?utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/golang.org/x/vgo/vendor",
+			to:   "https://pkg.go.dev/?utm_source=godoc",
+		},
 	}
 
 	for _, tc := range testCases {

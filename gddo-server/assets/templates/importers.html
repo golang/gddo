@@ -7,5 +7,5 @@
 {{end}}
 
 {{define "PkgGoDevLink"}}
-  <a href="https://pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}?tab=importedby">pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}?tab=importedby{{end}}</a>
+  <a href="https://pkg.go.dev{{if .pdoc.ImportPath}}{{if notVendorPath .pdoc.ImportPath}}/{{.pdoc.ImportPath}}?tab=importedby{{end}}{{end}}">pkg.go.dev{{if .pdoc.ImportPath}}{{if notVendorPath .pdoc.ImportPath}}/{{.pdoc.ImportPath}}?tab=importedby{{end}}{{end}}</a>
 {{end}}

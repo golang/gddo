@@ -1171,6 +1171,12 @@ func pkgGoDevURL(godocURL *url.URL) *url.URL {
 	u := &url.URL{Scheme: "https", Host: pkgGoDevHost}
 	q := url.Values{"utm_source": []string{"godoc"}}
 
+	if strings.Contains(godocURL.Path, "/vendor/") || strings.HasSuffix(godocURL.Path, "/vendor") {
+		u.Path = "/"
+		u.RawQuery = q.Encode()
+		return u
+	}
+
 	switch godocURL.Path {
 	case "/-/go":
 		u.Path = "/std"

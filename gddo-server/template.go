@@ -521,7 +521,7 @@ func joinTemplateDir(base string, files []string) []string {
 
 const pkgGoDevLinkTmpl = `
 {{define "PkgGoDevLink"}}
-  <a href="https://pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}">pkg.go.dev{{if .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}</a>
+  <a href="https://pkg.go.dev{{if .pdoc.ImportPath}}{{if notVendorPath .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}{{end}}">pkg.go.dev{{if .pdoc.ImportPath}}{{if notVendorPath .pdoc.ImportPath}}/{{.pdoc.ImportPath}}{{end}}{{end}}</a>
 {{end}}
 `
 
@@ -559,6 +559,7 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		"relativePath":      relativePathFn,
 		"sidebarEnabled":    func() bool { return v.GetBool(ConfigSidebar) },
 		"staticPath":        func(p string) string { return cb.AppendQueryParam(p, "v") },
+		"notVendorPath":     func(p string) bool { return !strings.Contains(p, "/vendor") },
 	}
 	for _, set := range htmlSets {
 		templateName := set[0]
