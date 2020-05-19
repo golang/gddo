@@ -328,6 +328,15 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if pdoc.Name == "" {
 			return &httpError{status: http.StatusNotFound}
 		}
+
+		// Throttle ?import-graph requests.
+		select {
+		case s.importGraphSem <- struct{}{}:
+		default:
+			return &httpError{status: http.StatusTooManyRequests}
+		}
+		defer func() { <-s.importGraphSem }()
+
 		hide := database.ShowAllDeps
 		switch req.Form.Get("hide") {
 		case "1":
@@ -866,12 +875,16 @@ type server struct {
 	statusSVG http.Handler
 
 	root rootHandler
+
+	// A semaphore to limit concurrent ?import-graph requests.
+	importGraphSem chan struct{}
 }
 
 func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	s := &server{
-		v:          v,
-		httpClient: newHTTPClient(v),
+		v:              v,
+		httpClient:     newHTTPClient(v),
+		importGraphSem: make(chan struct{}, 10),
 	}
 
 	var err error
