@@ -1038,13 +1038,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
-	if err := makePkgGoDevRequest(r, latency); err != nil {
+	if err := makePkgGoDevRequest(r, latency, s.isRobot(r)); err != nil {
 		log.Printf("makePkgGoDevRequest(%q, %d) error: %v", r.URL, latency, err)
 	}
 }
 
-func makePkgGoDevRequest(r *http.Request, latency time.Duration) error {
-	event := newGDDOEvent(r, latency)
+func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool) error {
+	event := newGDDOEvent(r, latency, isRobot)
 	b, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("json.Marshal(%v): %v", event, err)
@@ -1065,9 +1065,10 @@ type gddoEvent struct {
 	Header       http.Header
 	RedirectHost string
 	Latency      time.Duration
+	IsRobot      bool
 }
 
-func newGDDOEvent(r *http.Request, latency time.Duration) *gddoEvent {
+func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEvent {
 	pkgGoDevURL := url.URL{Scheme: "https", Host: pkgGoDevHost}
 	return &gddoEvent{
 		Host:         r.URL.Host,
@@ -1076,6 +1077,7 @@ func newGDDOEvent(r *http.Request, latency time.Duration) *gddoEvent {
 		Header:       r.Header,
 		RedirectHost: pkgGoDevURL.String(),
 		Latency:      latency,
+		IsRobot:      isRobot,
 	}
 }
 

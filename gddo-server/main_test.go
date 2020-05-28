@@ -212,7 +212,8 @@ func TestNewGDDOEvent(t *testing.T) {
 			want.RedirectHost = "https://" + pkgGoDevHost
 			want.URL = test.url
 			want.Header = http.Header{}
-			got := newGDDOEvent(r, want.Latency)
+			want.IsRobot = true
+			got := newGDDOEvent(r, want.Latency, want.IsRobot)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
