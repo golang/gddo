@@ -1038,6 +1038,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
+	// Don't tee App Engine requests to pkg.go.dev.
+	if strings.HasPrefix(r.URL.Path, "/_ah/") {
+		return
+	}
 	if err := makePkgGoDevRequest(r, latency, s.isRobot(r)); err != nil {
 		log.Printf("makePkgGoDevRequest(%q, %d) error: %v", r.URL, latency, err)
 	}
