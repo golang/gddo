@@ -1070,6 +1070,7 @@ type gddoEvent struct {
 	RedirectHost string
 	Latency      time.Duration
 	IsRobot      bool
+	UsePkgGoDev  bool
 }
 
 func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEvent {
@@ -1082,6 +1083,7 @@ func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEve
 		RedirectHost: pkgGoDevURL.String(),
 		Latency:      latency,
 		IsRobot:      isRobot,
+		UsePkgGoDev:  shouldRedirectToPkgGoDev(r),
 	}
 }
 
@@ -1114,6 +1116,19 @@ func userReturningFromPkgGoDev(req *http.Request) bool {
 	return req.FormValue("utm_source") == "backtogodoc"
 }
 
+func shouldRedirectToPkgGoDev(req *http.Request) bool {
+	// API requests are not redirected.
+	if strings.HasPrefix(req.URL.Host, "api") {
+		return false
+	}
+	redirectParam := req.FormValue(pkgGoDevRedirectParam)
+	if redirectParam == pkgGoDevRedirectOn || redirectParam == pkgGoDevRedirectOff {
+		return redirectParam == pkgGoDevRedirectOn
+	}
+	cookie, err := req.Cookie(pkgGoDevRedirectCookie)
+	return (err == nil && cookie.Value == pkgGoDevRedirectOn)
+}
+
 // pkgGoDevRedirectHandler redirects requests from godoc.org to pkg.go.dev,
 // based on whether a cookie is set for pkggodev-redirect. The cookie
 // can be turned on/off using a query param.
@@ -1134,19 +1149,7 @@ func pkgGoDevRedirectHandler(f func(http.ResponseWriter, *http.Request) error) f
 			http.SetCookie(w, cookie)
 		}
 
-		var shouldRedirect bool
-		if redirectParam == pkgGoDevRedirectOn || redirectParam == pkgGoDevRedirectOff {
-			shouldRedirect = redirectParam == pkgGoDevRedirectOn
-		} else {
-			for _, v := range r.Cookies() {
-				if v.Name == pkgGoDevRedirectCookie {
-					shouldRedirect = v.Value == pkgGoDevRedirectOn
-					break
-				}
-			}
-		}
-
-		if !shouldRedirect {
+		if !shouldRedirectToPkgGoDev(r) {
 			return f(w, r)
 		}
 
