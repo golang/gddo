@@ -7,9 +7,11 @@
 package main
 
 import (
+	"bufio"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -300,6 +302,143 @@ func TestNewGDDOEvent(t *testing.T) {
 				want.Header.Add("Cookie", test.cookie.String())
 			}
 			got := newGDDOEvent(r, want.Latency, want.IsRobot)
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Fatalf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestNewGDDOEventFromRequests(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		requestURI string
+		host       string
+		want       *gddoEvent
+	}{
+		{
+			name:       "absolute index path",
+			requestURI: "https://godoc.org",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "",
+				URL:  "https://godoc.org",
+			},
+		},
+		{
+			name:       "absolute index path with trailing slash",
+			requestURI: "https://godoc.org/",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/",
+				URL:  "https://godoc.org/",
+			},
+		},
+		{
+			name:       "relative index path",
+			requestURI: "/",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/",
+				URL:  "https://godoc.org/",
+			},
+		},
+		{
+			name:       "absolute about path",
+			requestURI: "https://godoc.org/-/about",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/-/about",
+				URL:  "https://godoc.org/-/about",
+			},
+		},
+		{
+			name:       "relative about path",
+			requestURI: "/-/about",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/-/about",
+				URL:  "https://godoc.org/-/about",
+			},
+		},
+		{
+			name:       "absolute package path",
+			requestURI: "https://godoc.org/net/http",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/net/http",
+				URL:  "https://godoc.org/net/http",
+			},
+		},
+		{
+			name:       "relative package path",
+			requestURI: "/net/http",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/net/http",
+				URL:  "https://godoc.org/net/http",
+			},
+		},
+		{
+			name:       "absolute path with query parameters",
+			requestURI: "https://godoc.org/net/http?q=test",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/net/http",
+				URL:  "https://godoc.org/net/http?q=test",
+			},
+		},
+		{
+			name:       "relative path with query parameters",
+			requestURI: "/net/http?q=test",
+			host:       "godoc.org",
+			want: &gddoEvent{
+				Host: "godoc.org",
+				Path: "/net/http",
+				URL:  "https://godoc.org/net/http?q=test",
+			},
+		},
+		{
+			name:       "absolute api path",
+			requestURI: "https://api.godoc.org/imports/net/http",
+			host:       "api.godoc.org",
+			want: &gddoEvent{
+				Host: "api.godoc.org",
+				Path: "/imports/net/http",
+				URL:  "https://api.godoc.org/imports/net/http",
+			},
+		},
+		{
+			name:       "relative api path",
+			requestURI: "/imports/net/http",
+			host:       "api.godoc.org",
+			want: &gddoEvent{
+				Host: "api.godoc.org",
+				Path: "/imports/net/http",
+				URL:  "https://api.godoc.org/imports/net/http",
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			want := test.want
+			want.Latency = 100
+			want.RedirectHost = "https://" + pkgGoDevHost
+			want.Header = http.Header{}
+			want.IsRobot = false
+			requestLine := "GET " + test.requestURI + " HTTP/1.1\r\nHost: " + test.host + "\r\n\r\n"
+			req, err := http.ReadRequest(bufio.NewReader(strings.NewReader(requestLine)))
+			if err != nil {
+				t.Fatal("invalid NewRequest arguments; " + err.Error())
+			}
+			got := newGDDOEvent(req, want.Latency, want.IsRobot)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}

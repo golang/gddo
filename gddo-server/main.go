@@ -1074,11 +1074,20 @@ type gddoEvent struct {
 }
 
 func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEvent {
+	targetURL := url.URL{
+		Scheme:   "https",
+		Host:     r.URL.Host,
+		Path:     r.URL.Path,
+		RawQuery: r.URL.RawQuery,
+	}
+	if targetURL.Host == "" && r.Host != "" {
+		targetURL.Host = r.Host
+	}
 	pkgGoDevURL := url.URL{Scheme: "https", Host: pkgGoDevHost}
 	return &gddoEvent{
-		Host:         r.URL.Host,
+		Host:         targetURL.Host,
 		Path:         r.URL.Path,
-		URL:          r.URL.String(),
+		URL:          targetURL.String(),
 		Header:       r.Header,
 		RedirectHost: pkgGoDevURL.String(),
 		Latency:      latency,
