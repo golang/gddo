@@ -93,7 +93,7 @@ a, .navbar-default .navbar-brand {
 
 .navbar-default, #x-footer {
     background-color: hsl(209, 51%, 92%);
-    border-color: hsl(209, 51%, 88%);
+    border: none;
 }
 
 .navbar-default .navbar-nav > .active > a,
@@ -105,6 +105,18 @@ a, .navbar-default .navbar-brand {
 .navbar-default .navbar-nav > li > a:hover,
 .navbar-default .navbar-nav > li > a:focus {
     color: #000;
+}
+
+.navbar-blm {
+    background-color: #000;
+    color: #fff;
+    padding: 1rem 0;
+    text-align: center;
+}
+.navbar-blm a:link,
+.navbar-blm a:visited {
+    color: #fff;
+    text-decoration: underline;
 }
 
 .banner {
