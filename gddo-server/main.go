@@ -1063,14 +1063,13 @@ func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool) e
 }
 
 type gddoEvent struct {
-	Host         string
-	Path         string
-	URL          string
-	Header       http.Header
-	RedirectHost string
-	Latency      time.Duration
-	IsRobot      bool
-	UsePkgGoDev  bool
+	Host        string
+	Path        string
+	URL         string
+	Header      http.Header
+	Latency     time.Duration
+	IsRobot     bool
+	UsePkgGoDev bool
 }
 
 func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEvent {
@@ -1083,16 +1082,14 @@ func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEve
 	if targetURL.Host == "" && r.Host != "" {
 		targetURL.Host = r.Host
 	}
-	pkgGoDevURL := url.URL{Scheme: "https", Host: pkgGoDevHost}
 	return &gddoEvent{
-		Host:         targetURL.Host,
-		Path:         r.URL.Path,
-		URL:          targetURL.String(),
-		Header:       r.Header,
-		RedirectHost: pkgGoDevURL.String(),
-		Latency:      latency,
-		IsRobot:      isRobot,
-		UsePkgGoDev:  shouldRedirectToPkgGoDev(r),
+		Host:        targetURL.Host,
+		Path:        r.URL.Path,
+		URL:         targetURL.String(),
+		Header:      r.Header,
+		Latency:     latency,
+		IsRobot:     isRobot,
+		UsePkgGoDev: shouldRedirectToPkgGoDev(r),
 	}
 }
 

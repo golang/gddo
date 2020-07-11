@@ -300,7 +300,6 @@ func TestNewGDDOEvent(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			want := test.want
 			want.Latency = 100
-			want.RedirectHost = "https://" + pkgGoDevHost
 			want.URL = test.url
 			want.Header = http.Header{}
 			want.IsRobot = true
@@ -438,7 +437,6 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			want := test.want
 			want.Latency = 100
-			want.RedirectHost = "https://" + pkgGoDevHost
 			want.Header = http.Header{}
 			want.IsRobot = false
 			requestLine := "GET " + test.requestURI + " HTTP/1.1\r\nHost: " + test.host + "\r\n\r\n"
