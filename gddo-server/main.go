@@ -1029,10 +1029,28 @@ const (
 	teeproxyHost           = "teeproxy-dot-go-discovery.appspot.com"
 )
 
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func translateStatus(code int) int {
+	if code == 0 {
+		return http.StatusOK
+	}
+	return code
+}
+
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.logRequestStart(r)
-	s.root.ServeHTTP(w, r)
+	w2 := &responseWriter{ResponseWriter: w}
+	s.root.ServeHTTP(w2, r)
 	latency := time.Since(start)
 	s.logRequestEnd(r, latency)
 	if f, ok := w.(http.Flusher); ok {
@@ -1042,13 +1060,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/_ah/") {
 		return
 	}
-	if err := makePkgGoDevRequest(r, latency, s.isRobot(r)); err != nil {
+	if err := makePkgGoDevRequest(r, latency, s.isRobot(r), translateStatus(w2.status)); err != nil {
 		log.Printf("makePkgGoDevRequest(%q, %d) error: %v", r.URL, latency, err)
 	}
 }
 
-func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool) error {
-	event := newGDDOEvent(r, latency, isRobot)
+func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool, status int) error {
+	event := newGDDOEvent(r, latency, isRobot, status)
 	b, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("json.Marshal(%v): %v", event, err)
@@ -1065,6 +1083,7 @@ func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool) e
 type gddoEvent struct {
 	Host        string
 	Path        string
+	Status      int
 	URL         string
 	Header      http.Header
 	Latency     time.Duration
@@ -1072,7 +1091,7 @@ type gddoEvent struct {
 	UsePkgGoDev bool
 }
 
-func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEvent {
+func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool, status int) *gddoEvent {
 	targetURL := url.URL{
 		Scheme:   "https",
 		Host:     r.URL.Host,
@@ -1085,6 +1104,7 @@ func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool) *gddoEve
 	return &gddoEvent{
 		Host:        targetURL.Host,
 		Path:        r.URL.Path,
+		Status:      status,
 		URL:         targetURL.String(),
 		Header:      r.Header,
 		Latency:     latency,

@@ -308,7 +308,8 @@ func TestNewGDDOEvent(t *testing.T) {
 				r.AddCookie(test.cookie)
 				want.Header.Add("Cookie", test.cookie.String())
 			}
-			got := newGDDOEvent(r, want.Latency, want.IsRobot)
+			got := newGDDOEvent(r, want.Latency, want.IsRobot, http.StatusOK)
+			want.Status = http.StatusOK
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
@@ -444,7 +445,8 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			if err != nil {
 				t.Fatal("invalid NewRequest arguments; " + err.Error())
 			}
-			got := newGDDOEvent(req, want.Latency, want.IsRobot)
+			got := newGDDOEvent(req, want.Latency, want.IsRobot, http.StatusOK)
+			want.Status = http.StatusOK
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
