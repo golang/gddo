@@ -178,9 +178,10 @@ func pkgGoDevURL(godocURL *url.URL) *url.URL {
 	switch godocURL.Path {
 	case "/-/go":
 		u.Path = "/std"
-		q.Add("tab", "packages")
 	case "/-/about":
 		u.Path = "/about"
+	case "/C":
+		u.Path = "/C"
 	case "/":
 		if qparam := godocURL.Query().Get("q"); qparam != "" {
 			u.Path = "/search"
@@ -193,13 +194,18 @@ func pkgGoDevURL(godocURL *url.URL) *url.URL {
 		q.Set("q", "golang.org/x")
 	default:
 		{
+			_, isSVG := godocURL.Query()["status.svg"]
+			_, isPNG := godocURL.Query()["status.png"]
+			if isSVG || isPNG {
+				u.Path = "/badge" + godocURL.Path
+				break
+			}
+
 			u.Path = godocURL.Path
 			if _, ok := godocURL.Query()["imports"]; ok {
 				q.Set("tab", "imports")
 			} else if _, ok := godocURL.Query()["importers"]; ok {
 				q.Set("tab", "importedby")
-			} else {
-				q.Set("tab", "doc")
 			}
 		}
 	}

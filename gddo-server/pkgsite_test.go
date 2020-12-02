@@ -30,7 +30,7 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 		{
 			name:                "test pkggodev-redirect param is on",
 			url:                 "http://godoc.org/net/http?redirect=on",
-			wantLocationHeader:  "https://pkg.go.dev/net/http?tab=doc&utm_source=godoc",
+			wantLocationHeader:  "https://pkg.go.dev/net/http?utm_source=godoc",
 			wantSetCookieHeader: "pkggodev-redirect=on; Path=/",
 			wantStatusCode:      http.StatusFound,
 		},
@@ -60,7 +60,7 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 			name:                "pkggodev-redirect enabled cookie should redirect",
 			url:                 "http://godoc.org/net/http",
 			cookie:              &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
-			wantLocationHeader:  "https://pkg.go.dev/net/http?tab=doc&utm_source=godoc",
+			wantLocationHeader:  "https://pkg.go.dev/net/http?utm_source=godoc",
 			wantSetCookieHeader: "",
 			wantStatusCode:      http.StatusFound,
 		},
@@ -99,21 +99,29 @@ func TestHandlePkgGoDevRedirect(t *testing.T) {
 	}
 }
 
-func TestGodoc(t *testing.T) {
+func TestPkgGoDevURL(t *testing.T) {
 	testCases := []struct {
 		from, to string
 	}{
+		{
+			from: "https://godoc.org",
+			to:   "https://pkg.go.dev?utm_source=godoc",
+		},
 		{
 			from: "https://godoc.org/-/about",
 			to:   "https://pkg.go.dev/about?utm_source=godoc",
 		},
 		{
 			from: "https://godoc.org/-/go",
-			to:   "https://pkg.go.dev/std?tab=packages&utm_source=godoc",
+			to:   "https://pkg.go.dev/std?utm_source=godoc",
 		},
 		{
 			from: "https://godoc.org/-/subrepo",
 			to:   "https://pkg.go.dev/search?q=golang.org%2Fx&utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/C",
+			to:   "https://pkg.go.dev/C?utm_source=godoc",
 		},
 		{
 			from: "https://godoc.org/?q=foo",
@@ -121,7 +129,7 @@ func TestGodoc(t *testing.T) {
 		},
 		{
 			from: "https://godoc.org/cloud.google.com/go/storage",
-			to:   "https://pkg.go.dev/cloud.google.com/go/storage?tab=doc&utm_source=godoc",
+			to:   "https://pkg.go.dev/cloud.google.com/go/storage?utm_source=godoc",
 		},
 		{
 			from: "https://godoc.org/cloud.google.com/go/storage?imports",
@@ -130,6 +138,14 @@ func TestGodoc(t *testing.T) {
 		{
 			from: "https://godoc.org/cloud.google.com/go/storage?importers",
 			to:   "https://pkg.go.dev/cloud.google.com/go/storage?tab=importedby&utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/cloud.google.com/go/storage?status.svg",
+			to:   "https://pkg.go.dev/badge/cloud.google.com/go/storage?utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/cloud.google.com/go/storage?status.png",
+			to:   "https://pkg.go.dev/badge/cloud.google.com/go/storage?utm_source=godoc",
 		},
 		{
 			from: "https://godoc.org/golang.org/x/vgo/vendor/cmd/go/internal/modfile",
