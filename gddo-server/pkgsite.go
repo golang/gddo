@@ -143,6 +143,9 @@ func pkgGoDevURL(godocURL *url.URL) *url.URL {
 		} else {
 			u.Path = "/"
 		}
+	case "/-/subrepo":
+		u.Path = "/search"
+		q.Set("q", "golang.org/x")
 	default:
 		{
 			u.Path = godocURL.Path

@@ -112,6 +112,10 @@ func TestGodoc(t *testing.T) {
 			to:   "https://pkg.go.dev/std?tab=packages&utm_source=godoc",
 		},
 		{
+			from: "https://godoc.org/-/subrepo",
+			to:   "https://pkg.go.dev/search?q=golang.org/x&utm_source=godoc",
+		},
+		{
 			from: "https://godoc.org/?q=foo",
 			to:   "https://pkg.go.dev/search?q=foo&utm_source=godoc",
 		},
