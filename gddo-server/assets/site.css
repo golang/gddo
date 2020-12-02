@@ -121,24 +121,24 @@ a, .navbar-default .navbar-brand {
 
 .banner {
     align-items: center;
-    background-color: #fffbe0;
+    background-color: #fedc00;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     margin-bottom: 20px;
     min-height: 40px;
     padding: 8px 16px;
 }
 
 .banner-message {
-    margin-right: 90px;
+    text-align: right;
 }
 
 .banner-action-container {
-    text-align: right;
     white-space: nowrap;
 }
 
 .banner-action {
+    margin-right: 90px;
     white-space: nowrap;
 }
 
