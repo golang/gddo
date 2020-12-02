@@ -13,23 +13,68 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool, status int) error {
+// makePkgGoDevRequest makes a request to the teeproxy with data about the
+// godoc.org request.
+func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool, status int) {
+	var msg string
+	defer func() {
+		log.Printf("makePkgGoDevRequest(%q): %s", r.URL.Path, msg)
+	}()
+
+	if !shouldTeeRequest(r.URL.Path) {
+		msg = "not teeing request"
+		return
+	}
 	event := newGDDOEvent(r, latency, isRobot, status)
 	b, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("json.Marshal(%v): %v", event, err)
+		msg = fmt.Sprintf("json.Marshal(%v): %v", event, err)
+		return
 	}
 
 	teeproxyURL := url.URL{Scheme: "https", Host: teeproxyHost}
 	if _, err := http.Post(teeproxyURL.String(), jsonMIMEType, bytes.NewReader(b)); err != nil {
-		return fmt.Errorf("http.Post(%q, %q, %v): %v", teeproxyURL.String(), jsonMIMEType, event, err)
+		msg = fmt.Sprintf("http.Post(%q, %q, %v): %v", teeproxyURL.String(), jsonMIMEType, event, err)
+		return
 	}
-	log.Printf("makePkgGoDevRequest: request made to %q for %+v", teeproxyURL.String(), event)
-	return nil
+	msg = fmt.Sprintf("request made to %q for %+v", teeproxyURL.String(), event)
+}
+
+// doNotTeeURLsToPkgGoDev are paths that should not be teed to pkg.go.dev.
+var doNotTeeURLsToPkgGoDev = map[string]bool{
+	"/-/bot":     true,
+	"/-/refresh": true,
+}
+
+// doNotTeeExtsToPkgGoDev are URL extensions that should not be teed to
+// pkg.go.dev.
+var doNotTeeExtsToPkgGoDev = map[string]bool{
+	".css":  true,
+	".html": true,
+	".js":   true,
+	".txt":  true,
+	".xml":  true,
+}
+
+// shouldTeeRequest reports whether a request should be teed to pkg.go.dev.
+func shouldTeeRequest(u string) bool {
+	// Don't tee App Engine requests to pkg.go.dev.
+	if strings.HasPrefix(u, "/_ah/") {
+		return false
+	}
+	ext := filepath.Ext(u)
+	if doNotTeeExtsToPkgGoDev[ext] {
+		return false
+	}
+	if doNotTeeURLsToPkgGoDev[u] {
+		return false
+	}
+	return true
 }
 
 type gddoEvent struct {

@@ -113,7 +113,7 @@ func TestGodoc(t *testing.T) {
 		},
 		{
 			from: "https://godoc.org/-/subrepo",
-			to:   "https://pkg.go.dev/search?q=golang.org/x&utm_source=godoc",
+			to:   "https://pkg.go.dev/search?q=golang.org%2Fx&utm_source=godoc",
 		},
 		{
 			from: "https://godoc.org/?q=foo",
@@ -431,5 +431,35 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestShouldTeeRequest(t *testing.T) {
+	for _, test := range []struct {
+		urlPath string
+		want    bool
+	}{
+		{"/", true},
+		{"/-/about", true},
+		{"/net/http", true},
+		{"/_ah/ready", false},
+		{"/_ah/warmup", false},
+		{"/-/bootstrap.min.css", false},
+		{"/-/bootstrap.min.js", false},
+		{"/-/bot", false},
+		{"/-/jquery-2.0.3.min.js", false},
+		{"/-/refresh", false},
+		{"/-/sidebar.css", false},
+		{"/-/site.css", false},
+		{"/-/site.js", false},
+		{"/BingSiteAuth.xml", false},
+		{"/google3d2f3cd4cc2bb44b.html", false},
+		{"/humans.txt", false},
+		{"/robots.txt", false},
+		{"/third_party/jquery.timeago.js", false},
+	} {
+		if got := shouldTeeRequest(test.urlPath); got != test.want {
+			t.Errorf("shouldTeeRequest(%q): %t; want %t", test.urlPath, got, test.want)
+		}
 	}
 }
