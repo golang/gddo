@@ -175,12 +175,12 @@ func TestNewGDDOEvent(t *testing.T) {
 		name   string
 		url    string
 		cookie *http.Cookie
-		want   *gddoEvent
+		want   *requestEvent
 	}{
 		{
 			name: "home page request",
 			url:  "https://godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "",
 				UsePkgGoDev: false,
@@ -190,7 +190,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "home page request with cookie on should redirect",
 			url:    "https://godoc.org",
 			cookie: &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "",
 				UsePkgGoDev: true,
@@ -199,7 +199,7 @@ func TestNewGDDOEvent(t *testing.T) {
 		{
 			name: "about page request",
 			url:  "https://godoc.org/-/about",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/-/about",
 				UsePkgGoDev: false,
@@ -208,7 +208,7 @@ func TestNewGDDOEvent(t *testing.T) {
 		{
 			name: "request with search query parameter",
 			url:  "https://godoc.org/?q=test",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/",
 				UsePkgGoDev: false,
@@ -217,7 +217,7 @@ func TestNewGDDOEvent(t *testing.T) {
 		{
 			name: "package page request",
 			url:  "https://godoc.org/net/http",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/net/http",
 				UsePkgGoDev: false,
@@ -227,7 +227,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "package page request with wrong cookie on should not redirect",
 			url:    "https://godoc.org/net/http",
 			cookie: &http.Cookie{Name: "bogus-cookie", Value: "on"},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/net/http",
 				UsePkgGoDev: false,
@@ -237,7 +237,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "package page request with query parameter off should not redirect",
 			url:    "https://godoc.org/net/http?redirect=off",
 			cookie: &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/net/http",
 				UsePkgGoDev: false,
@@ -247,7 +247,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "package page request with cookie on should redirect",
 			url:    "https://godoc.org/net/http",
 			cookie: &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/net/http",
 				UsePkgGoDev: true,
@@ -257,7 +257,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "package page request with query parameter on should redirect",
 			url:    "https://godoc.org/net/http?redirect=on",
 			cookie: &http.Cookie{Name: "pkggodev-redirect", Value: ""},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "godoc.org",
 				Path:        "/net/http",
 				UsePkgGoDev: true,
@@ -266,7 +266,7 @@ func TestNewGDDOEvent(t *testing.T) {
 		{
 			name: "api request",
 			url:  "https://api.godoc.org/imports/net/http",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "api.godoc.org",
 				Path:        "/imports/net/http",
 				UsePkgGoDev: false,
@@ -276,7 +276,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "api requests should never redirect, even with cookie on",
 			url:    "https://api.godoc.org/imports/net/http",
 			cookie: &http.Cookie{Name: "pkggodev-redirect", Value: "on"},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "api.godoc.org",
 				Path:        "/imports/net/http",
 				UsePkgGoDev: false,
@@ -286,7 +286,7 @@ func TestNewGDDOEvent(t *testing.T) {
 			name:   "api requests should never redirect, even with query parameter on",
 			url:    "https://api.godoc.org/imports/net/http?redirect=on",
 			cookie: &http.Cookie{Name: "pkggodev-redirect", Value: ""},
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host:        "api.godoc.org",
 				Path:        "/imports/net/http",
 				UsePkgGoDev: false,
@@ -318,13 +318,13 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 		name       string
 		requestURI string
 		host       string
-		want       *gddoEvent
+		want       *requestEvent
 	}{
 		{
 			name:       "absolute index path",
 			requestURI: "https://godoc.org",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "",
 				URL:  "https://godoc.org",
@@ -334,7 +334,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "absolute index path with trailing slash",
 			requestURI: "https://godoc.org/",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/",
 				URL:  "https://godoc.org/",
@@ -344,7 +344,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "relative index path",
 			requestURI: "/",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/",
 				URL:  "https://godoc.org/",
@@ -354,7 +354,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "absolute about path",
 			requestURI: "https://godoc.org/-/about",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/-/about",
 				URL:  "https://godoc.org/-/about",
@@ -364,7 +364,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "relative about path",
 			requestURI: "/-/about",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/-/about",
 				URL:  "https://godoc.org/-/about",
@@ -374,7 +374,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "absolute package path",
 			requestURI: "https://godoc.org/net/http",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/net/http",
 				URL:  "https://godoc.org/net/http",
@@ -384,7 +384,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "relative package path",
 			requestURI: "/net/http",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/net/http",
 				URL:  "https://godoc.org/net/http",
@@ -394,7 +394,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "absolute path with query parameters",
 			requestURI: "https://godoc.org/net/http?q=test",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/net/http",
 				URL:  "https://godoc.org/net/http?q=test",
@@ -404,7 +404,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "relative path with query parameters",
 			requestURI: "/net/http?q=test",
 			host:       "godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "godoc.org",
 				Path: "/net/http",
 				URL:  "https://godoc.org/net/http?q=test",
@@ -414,7 +414,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "absolute api path",
 			requestURI: "https://api.godoc.org/imports/net/http",
 			host:       "api.godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "api.godoc.org",
 				Path: "/imports/net/http",
 				URL:  "https://api.godoc.org/imports/net/http",
@@ -424,7 +424,7 @@ func TestNewGDDOEventFromRequests(t *testing.T) {
 			name:       "relative api path",
 			requestURI: "/imports/net/http",
 			host:       "api.godoc.org",
-			want: &gddoEvent{
+			want: &requestEvent{
 				Host: "api.godoc.org",
 				Path: "/imports/net/http",
 				URL:  "https://api.godoc.org/imports/net/http",

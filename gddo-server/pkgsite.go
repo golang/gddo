@@ -16,27 +16,70 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/net/context/ctxhttp"
 )
 
-// makePkgGoDevRequest makes a request to the teeproxy with data about the
+type pkggodevEvent struct {
+	Host    string
+	Path    string
+	Status  int
+	URL     string
+	Latency time.Duration
+	Error   error
+}
+
+func teeRequestToPkgGoDev(godocReq *http.Request, latency time.Duration, isRobot bool, status int) (gddoEvent *gddoEvent, pkgEvent *pkggodevEvent) {
+	gddoEvent = newGDDOEvent(godocReq, latency, isRobot, status)
+	u := pkgGoDevURL(godocReq.URL)
+
+	// Strip the utm_source from the URL.
+	vals := u.Query()
+	vals.Del("utm_source")
+	u.RawQuery = vals.Encode()
+
+	pkgEvent = &pkggodevEvent{
+		Host: u.Host,
+		Path: u.Path,
+		URL:  u.String(),
+	}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		pkgEvent.Status = http.StatusInternalServerError
+		pkgEvent.Error = err
+		return gddoEvent, pkgEvent
+	}
+	start := time.Now()
+	xfwd := req.Header.Get("X-Forwarded-for")
+	req.Header.Set("X-Godoc-Forwarded-for", xfwd)
+	resp, err := ctxhttp.Do(godocReq.Context(), http.DefaultClient, req)
+	if err != nil {
+		// Use StatusBadGateway to indicate the upstream error.
+		pkgEvent.Status = http.StatusBadGateway
+		pkgEvent.Error = err
+		return gddoEvent, pkgEvent
+	}
+
+	pkgEvent.Status = resp.StatusCode
+	pkgEvent.Latency = time.Since(start)
+	return gddoEvent, pkgEvent
+
+}
+
+// teeRequestToTeeproxy makes a request to the teeproxy with data about the
 // godoc.org request.
-func makePkgGoDevRequest(r *http.Request, latency time.Duration, isRobot bool, status int) {
+func teeRequestToTeeproxy(r *http.Request, latency time.Duration, isRobot bool, status int) {
 	var msg string
 	defer func() {
-		log.Printf("makePkgGoDevRequest(%q): %s", r.URL.Path, msg)
+		log.Printf("teeRequestToTeeproxy(%q): %s", r.URL.Path, msg)
 	}()
 
-	if !shouldTeeRequest(r.URL.Path) {
-		msg = "not teeing request"
-		return
-	}
 	event := newGDDOEvent(r, latency, isRobot, status)
 	b, err := json.Marshal(event)
 	if err != nil {
 		msg = fmt.Sprintf("json.Marshal(%v): %v", event, err)
 		return
 	}
-
 	teeproxyURL := url.URL{Scheme: "https", Host: teeproxyHost}
 	if _, err := http.Post(teeproxyURL.String(), jsonMIMEType, bytes.NewReader(b)); err != nil {
 		msg = fmt.Sprintf("http.Post(%q, %q, %v): %v", teeproxyURL.String(), jsonMIMEType, event, err)
@@ -59,6 +102,7 @@ var doNotTeeExtsToPkgGoDev = map[string]bool{
 	".js":   true,
 	".txt":  true,
 	".xml":  true,
+	".ico":  true,
 }
 
 // shouldTeeRequest reports whether a request should be teed to pkg.go.dev.
@@ -86,6 +130,7 @@ type gddoEvent struct {
 	Latency     time.Duration
 	IsRobot     bool
 	UsePkgGoDev bool
+	Error       error
 }
 
 func newGDDOEvent(r *http.Request, latency time.Duration, isRobot bool, status int) *gddoEvent {

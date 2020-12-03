@@ -1046,7 +1046,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
-	makePkgGoDevRequest(r, latency, s.isRobot(r), translateStatus(w2.status))
+	s.teeRequestToPkgGoDev(r, latency, translateStatus(w2.status))
 }
 
 func (s *server) logRequestStart(req *http.Request) {
@@ -1072,6 +1072,39 @@ func (s *server) logRequestEnd(req *http.Request, latency time.Duration) {
 		Payload:  fmt.Sprintf("%s request end", req.Host),
 		Severity: logging.Info,
 	})
+}
+
+func (s *server) teeRequestToPkgGoDev(r *http.Request, latency time.Duration, status int) {
+	if !shouldTeeRequest(r.URL.Path) {
+		log.Printf("teeRequestToPkgGoDev(%q): not teeing request", r.URL.Path)
+		return
+	}
+	if os.Getenv("GDDO_TEE_REQUESTS_TO_PKGGODEV") == "true" {
+		gddoEvent, pkggodevEvent := teeRequestToPkgGoDev(r, latency, s.isRobot(r), status)
+		payload := map[string]interface{}{
+			"godoc.org":  gddoEvent,
+			"pkg.go.dev": pkggodevEvent,
+		}
+
+		if s.gceLogger == nil {
+			for k, v := range payload {
+				log.Printf("%q", k)
+				log.Printf("%+v", v)
+			}
+			return
+		}
+		s.gceLogger.Log(logging.Entry{
+			HTTPRequest: &logging.HTTPRequest{
+				Request: r,
+				Latency: latency,
+				Status:  status,
+			},
+			Payload:  payload,
+			Severity: logging.Info,
+		})
+		return
+	}
+	teeRequestToTeeproxy(r, latency, s.isRobot(r), status)
 }
 
 func main() {
