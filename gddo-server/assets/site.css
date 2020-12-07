@@ -134,6 +134,7 @@ a, .navbar-default .navbar-brand {
 }
 
 .banner-action-container {
+    font-weight: 600;
     text-align: right;
     white-space: nowrap;
 }
