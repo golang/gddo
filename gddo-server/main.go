@@ -1079,7 +1079,7 @@ func (s *server) teeRequestToPkgGoDev(r *http.Request, latency time.Duration, st
 		log.Printf("teeRequestToPkgGoDev(%q): not teeing request", r.URL.Path)
 		return
 	}
-	if os.Getenv("GDDO_TEE_REQUESTS_TO_PKGGODEV") == "true" {
+	if strings.ToLower(os.Getenv("GDDO_TEE_REQUESTS_TO_PKGGODEV")) == "true" {
 		gddoEvent, pkggodevEvent := teeRequestToPkgGoDev(r, latency, s.isRobot(r), status)
 		payload := map[string]interface{}{
 			"godoc.org":  gddoEvent,
