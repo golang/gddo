@@ -34,12 +34,11 @@
   </div>
 </nav>
 <div class="banner">
-  <div class="banner-action-container">
-    <a class="banner-action" href="?redirect=on"><b>Set default to always use pkg.go.dev</b></a>
-  </div>
-  <div class="banner-message">
-    Requests to this page will redirect to {{template "PkgGoDevLink" $}} in early 2021. <a href="https://blog.golang.org/godoc.org-redirect">Learn More.</a>
-  </div>
+    <div>
+      <a href="?redirect=on"><b>Set default to always use pkg.go.dev</b></a>
+      <span class="banner-separator">|</span>
+      Requests to this page will redirect to {{template "PkgGoDevLink" $}} in early 2021. <a href="https://blog.golang.org/godoc.org-redirect">Learn More.</a>
+    </div>
 </div>
 
 <div class="container">

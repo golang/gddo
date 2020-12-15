@@ -129,36 +129,13 @@ a, .navbar-default .navbar-brand {
     padding: 8px 16px;
 }
 
-.banner-message {
-    text-align: right;
-}
-
-.banner-action-container {
-    white-space: nowrap;
-}
-
-.banner-action {
-    margin-right: 90px;
-    white-space: nowrap;
-}
-
-.banner-action + .banner-action {
-    margin-left: 24px;
+.banner-separator {
+    margin: 0 10px;
 }
 
 @media (max-width: 768px) {
     .banner {
         flex-direction: column;
-    }
-
-    .banner-message {
-        align-items: flex-start;
-        margin-bottom: 10px;
-        margin-right: 0;
-    }
-
-    .banner-action-container {
-        width: 100%;
     }
 }
 
