@@ -148,6 +148,18 @@ func TestPkgGoDevURL(t *testing.T) {
 			to:   "https://pkg.go.dev/badge/cloud.google.com/go/storage?utm_source=godoc",
 		},
 		{
+			from: "https://godoc.org/github.com/golang/go",
+			to:   "https://pkg.go.dev/std?utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/github.com/golang/go/src",
+			to:   "https://pkg.go.dev/std?utm_source=godoc",
+		},
+		{
+			from: "https://godoc.org/github.com/golang/go/src/cmd/vet",
+			to:   "https://pkg.go.dev/cmd/vet?utm_source=godoc",
+		},
+		{
 			from: "https://godoc.org/golang.org/x/vgo/vendor/cmd/go/internal/modfile",
 			to:   "https://pkg.go.dev/?utm_source=godoc",
 		},

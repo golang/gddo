@@ -203,12 +203,32 @@ func pkgGoDevRedirectHandler(f func(http.ResponseWriter, *http.Request) error) f
 	}
 }
 
+const goGithubRepoURLPath = "/github.com/golang/go"
+
 func pkgGoDevURL(godocURL *url.URL) *url.URL {
 	u := &url.URL{Scheme: "https", Host: pkgGoDevHost}
 	q := url.Values{"utm_source": []string{"godoc"}}
 
 	if strings.Contains(godocURL.Path, "/vendor/") || strings.HasSuffix(godocURL.Path, "/vendor") {
 		u.Path = "/"
+		u.RawQuery = q.Encode()
+		return u
+	}
+
+	if strings.HasPrefix(godocURL.Path, goGithubRepoURLPath) ||
+		strings.HasPrefix(godocURL.Path, goGithubRepoURLPath+"/src") {
+		u.Path = strings.TrimPrefix(strings.TrimPrefix(godocURL.Path, goGithubRepoURLPath), "/src")
+		if u.Path == "" {
+			u.Path = "/std"
+		}
+		u.RawQuery = q.Encode()
+		return u
+	}
+
+	_, isSVG := godocURL.Query()["status.svg"]
+	_, isPNG := godocURL.Query()["status.png"]
+	if isSVG || isPNG {
+		u.Path = "/badge" + godocURL.Path
 		u.RawQuery = q.Encode()
 		return u
 	}
