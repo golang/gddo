@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/mod/module"
 	"golang.org/x/net/context/ctxhttp"
 )
 
@@ -247,16 +248,20 @@ func pkgGoDevURL(godocURL *url.URL) *url.URL {
 		} else {
 			u.Path = "/"
 		}
+	case "":
+		u.Path = ""
 	case "/-/subrepo":
 		u.Path = "/search"
 		q.Set("q", "golang.org/x")
 	default:
 		{
-			_, isSVG := godocURL.Query()["status.svg"]
-			_, isPNG := godocURL.Query()["status.png"]
-			if isSVG || isPNG {
-				u.Path = "/badge" + godocURL.Path
-				break
+			// If the import path is invalid, redirect to
+			// https://golang.org/issue/43036, so that the users has more context
+			// on why this path does not work on pkg.go.dev.
+			if err := module.CheckImportPath(strings.TrimPrefix(godocURL.Path, "/")); err != nil {
+				u.Host = "golang.org"
+				u.Path = "/issue/43036"
+				return u
 			}
 
 			u.Path = godocURL.Path

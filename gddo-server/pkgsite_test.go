@@ -167,6 +167,10 @@ func TestPkgGoDevURL(t *testing.T) {
 			from: "https://godoc.org/golang.org/x/vgo/vendor",
 			to:   "https://pkg.go.dev/?utm_source=godoc",
 		},
+		{
+			from: "https://godoc.org/cryptoscope.co/go/specialκ",
+			to:   "https://golang.org/issue/43036",
+		},
 	}
 
 	for _, tc := range testCases {
