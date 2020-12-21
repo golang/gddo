@@ -7,6 +7,9 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -22,7 +25,10 @@ type pkggodevEvent struct {
 	Status  int
 	URL     string
 	Latency time.Duration
-	Error   error
+	Error   string
+	// If a request 404s, make a request to fetch it and store the response.
+	FetchStatus   int
+	FetchResponse string
 }
 
 func teeRequestToPkgGoDev(godocReq *http.Request, latency time.Duration, isRobot bool, status int) (gddoEvent *gddoEvent, pkgEvent *pkggodevEvent) {
@@ -39,27 +45,41 @@ func teeRequestToPkgGoDev(godocReq *http.Request, latency time.Duration, isRobot
 		Path: u.Path,
 		URL:  u.String(),
 	}
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		pkgEvent.Status = http.StatusInternalServerError
-		pkgEvent.Error = err
-		return gddoEvent, pkgEvent
-	}
 	start := time.Now()
+	status, errResp := makeRequest(godocReq.Context(), u.String())
+	pkgEvent.Status = status
+	pkgEvent.Latency = time.Since(start)
+	// The response will always be an error here if not empty.
+	pkgEvent.Error = errResp
+
+	if pkgEvent.Status == http.StatusNotFound && gddoEvent.Status == http.StatusOK {
+		// If the request was successful on godoc.org but returned a 404 on
+		// pkg.go.dev make a fetch request.
+		status, body := makeRequest(godocReq.Context(), "/fetch"+u.String())
+		pkgEvent.FetchStatus = status
+		pkgEvent.FetchResponse = body
+	}
+	return gddoEvent, pkgEvent
+}
+
+func makeRequest(ctx context.Context, url string) (int, string) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Sprintf("http.NewRequest: %v", err)
+	}
 	xfwd := req.Header.Get("X-Forwarded-for")
 	req.Header.Set("X-Godoc-Forwarded-for", xfwd)
-	resp, err := ctxhttp.Do(godocReq.Context(), http.DefaultClient, req)
+	resp, err := ctxhttp.Do(ctx, http.DefaultClient, req)
 	if err != nil {
 		// Use StatusBadGateway to indicate the upstream error.
-		pkgEvent.Status = http.StatusBadGateway
-		pkgEvent.Error = err
-		return gddoEvent, pkgEvent
+		return http.StatusBadGateway, err.Error()
 	}
-
-	pkgEvent.Status = resp.StatusCode
-	pkgEvent.Latency = time.Since(start)
-	return gddoEvent, pkgEvent
-
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, fmt.Sprintf("can't read body: %v", err)
+	}
+	return resp.StatusCode, string(body)
 }
 
 // doNotTeeURLsToPkgGoDev are paths that should not be teed to pkg.go.dev.
