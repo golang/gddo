@@ -7,10 +7,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -64,28 +60,6 @@ func teeRequestToPkgGoDev(godocReq *http.Request, latency time.Duration, isRobot
 	pkgEvent.Latency = time.Since(start)
 	return gddoEvent, pkgEvent
 
-}
-
-// teeRequestToTeeproxy makes a request to the teeproxy with data about the
-// godoc.org request.
-func teeRequestToTeeproxy(r *http.Request, latency time.Duration, isRobot bool, status int) {
-	var msg string
-	defer func() {
-		log.Printf("teeRequestToTeeproxy(%q): %s", r.URL.Path, msg)
-	}()
-
-	event := newGDDOEvent(r, latency, isRobot, status)
-	b, err := json.Marshal(event)
-	if err != nil {
-		msg = fmt.Sprintf("json.Marshal(%v): %v", event, err)
-		return
-	}
-	teeproxyURL := url.URL{Scheme: "https", Host: teeproxyHost}
-	if _, err := http.Post(teeproxyURL.String(), jsonMIMEType, bytes.NewReader(b)); err != nil {
-		msg = fmt.Sprintf("http.Post(%q, %q, %v): %v", teeproxyURL.String(), jsonMIMEType, event, err)
-		return
-	}
-	msg = fmt.Sprintf("request made to %q for %+v", teeproxyURL.String(), event)
 }
 
 // doNotTeeURLsToPkgGoDev are paths that should not be teed to pkg.go.dev.
@@ -165,7 +139,6 @@ const (
 	pkgGoDevRedirectOn     = "on"
 	pkgGoDevRedirectOff    = "off"
 	pkgGoDevHost           = "pkg.go.dev"
-	teeproxyHost           = "teeproxy-dot-go-discovery.appspot.com"
 )
 
 func shouldRedirectToPkgGoDev(req *http.Request) bool {

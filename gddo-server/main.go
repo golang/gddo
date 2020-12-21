@@ -1104,7 +1104,6 @@ func (s *server) teeRequestToPkgGoDev(r *http.Request, latency time.Duration, st
 		})
 		return
 	}
-	teeRequestToTeeproxy(r, latency, s.isRobot(r), status)
 }
 
 func main() {
