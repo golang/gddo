@@ -4,30 +4,13 @@ This project is the source for https://godoc.org/
 [![Build
 Status](https://travis-ci.org/golang/gddo.svg?branch=master)](https://travis-ci.org/golang/gddo)
 
-The code in this project is designed to be used by godoc.org. Send mail to
-golang-dev@googlegroups.com if you want to discuss other uses of the code.
-
-## Feedback
-
-Send ideas and questions to golang-dev@googlegroups.com. Request features and
-report bugs using the [GitHub Issue
-Tracker](https://github.com/golang/gddo/issues/new).
-
-## Contributions
-
-Contributions to this project are welcome, though please [file an
-issue](https://github.com/golang/gddo/issues/new). before starting work on
-anything major.
-
-Please refer to the [Contribution
-Guidelines](https://golang.org/doc/contribute.html) on how to submit changes.
-
-We use https://go-review.googlesource.com to review change submissions.
+**NOTE:** As of 2021, requests to godoc.org will redirect to pkg.go.dev. The
+gddo repository is archived and no longer accepting contributions. For more
+details, see https://blog.golang.org/godoc.org-redirect.
 
 ## Getting the Source
 
-To get started contributing to this project, clone the repository from its
-canonical location
+To clone the repository from its canonical location:
 
 ```
 git clone https://go.googlesource.com/gddo $GOPATH/src/github.com/golang/gddo
